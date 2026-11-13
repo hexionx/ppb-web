@@ -1,0 +1,812 @@
+<!--
+  LoginView.html
+  Pattanabhumi Biology Learning Management System - Step 5 Login Modal & Privacy Notice Gate
+  Contains:
+  1. Accessible Login Modal (#modal-login) with keyboard focus trap, Escape-to-close,
+     Username, Password, optional Remember me (with explicit bearer-token/no-HttpOnly disclosure
+     and iframe storage fallback warning), and Forgot username/password link with a clear
+     fallback when the administrator has not configured the LINE URL yet.
+  2. Accessible First-Login & Version-Update Privacy Notice Gate (#modal-privacy-gate)
+     requiring acknowledgment of the current Privacy Notice version before accessing portal
+     features, keeping marketing email consent separate, optional, and unchecked by default,
+     and displaying a clear legal/compliance explanation regarding minor students and retention.
+-->
+
+<!-- 1. Accessible Login Modal Dialog (Bioluminescent Dark Glass Redesign) -->
+<div
+  id="modal-login"
+  class="modal-backdrop pb-auth-ref-backdrop hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-hidden="true"
+  aria-labelledby="login-modal-title"
+  aria-describedby="login-modal-desc"
+>
+  <div class="modal-dialog pb-auth-ref-dialog" id="modal-login-dialog" role="document">
+    <!-- Top Floating Glass Bar: Left Back/Close Button & Right School Emblem -->
+    <div class="modal-header pb-auth-ref-topbar">
+      <button
+        type="button"
+        class="modal-close-btn pb-auth-ref-circle-btn"
+        id="btn-close-login-modal"
+        aria-label="Close login modal"
+        title="Back to page"
+      >
+        <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+      </button>
+
+      <div class="portal-header-brand-row pb-auth-ref-brand-pill">
+        <span class="pb-auth-ref-brand-dot" aria-hidden="true"></span>
+        <span class="pb-auth-ref-brand-text">Pattanabhumi Portal</span>
+      </div>
+
+      <div class="pb-auth-ref-corner-emblem" title="Pattanabhumi Biology Verified Portal">
+        <img
+          id="login-modal-logo-img"
+          class="modal-logo-img hidden"
+          alt="Pattanabhumi Biology logo"
+        />
+        <div
+          class="brand-logo-placeholder"
+          id="login-modal-logo-badge"
+          aria-hidden="true"
+        >
+          PB
+        </div>
+      </div>
+    </div>
+
+    <!-- Centered 3D Bioluminescent Orb + Heading & Subtitle -->
+    <div class="pb-auth-ref-hero">
+      <div class="pb-auth-ref-orb-stage" aria-hidden="true">
+        <span class="pb-auth-ref-orb-ring pb-auth-ref-orb-ring-outer"></span>
+        <span class="pb-auth-ref-orb-ring pb-auth-ref-orb-ring-inner"></span>
+        <div class="pb-auth-ref-orb">
+          <svg class="pb-auth-ref-orb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"></path>
+            <path d="M16 14a4 4 0 0 1 4 4v2H4v-2a4 4 0 0 1 4-4h8z"></path>
+          </svg>
+        </div>
+      </div>
+
+      <span class="badge badge-ok pb-auth-ref-status-chip">Secure Portal Sign-In</span>
+      <h2 id="login-modal-title" class="pb-auth-ref-title">
+        Welcome Back!
+      </h2>
+      <p id="login-modal-desc" class="pb-auth-ref-subtitle">
+        Sign in to access smart, personalized biology study plans, recorded lessons, and class schedules.
+      </p>
+    </div>
+
+    <!-- Automatic Warning Shown When Users Sheet Has 0 Bootstrapped Accounts -->
+    <div
+      id="login-no-admin-warning"
+      class="banner banner-warning hidden"
+      role="status"
+    >
+      <p class="banner-title">No Administrator Account Created in the Users Sheet Yet</p>
+      <p class="banner-text">
+        Your <code>Users</code> sheet currently has 0 accounts. Open the Apps Script editor, go to
+        <strong>Project Settings &gt; Script Properties</strong>, add
+        <code>BOOTSTRAP_ADMIN_USERNAME</code> and <code>BOOTSTRAP_ADMIN_PASSWORD</code> (at least 8
+        characters), then uncomment and run <code>editorRunOwnerTask</code> in <code>Code.gs</code>.
+      </p>
+    </div>
+
+    <!-- Honest Iframe Storage Fallback Notice (Shown automatically when localStorage is blocked) -->
+    <div
+      id="remember-me-storage-warning"
+      class="banner banner-warning hidden"
+      role="status"
+    >
+      <p class="banner-title">Browser Storage Restricted Inside Sandbox Iframe</p>
+      <p class="banner-text" id="remember-me-storage-warning-text">
+        Your browser blocks persistent storage inside Google Apps Script iframes. "Remember me" is
+        unavailable in this browser mode; your session will remain securely in memory for this visit only.
+      </p>
+    </div>
+
+    <!-- Login Process Skeleton Screen (Shown immediately during credential verification & workspace hydration) -->
+    <div
+      id="login-modal-skeleton-screen"
+      class="pb-login-skeleton-screen hidden"
+      role="status"
+      aria-live="polite"
+    >
+      <div class="pb-login-skeleton-top">
+        <span class="pb-login-skeleton-status-label">
+          <span class="pb-login-skeleton-pulse-dot" aria-hidden="true"></span>
+          <span id="login-skeleton-status-text">Verifying credentials &amp; preparing your workspace&hellip;</span>
+        </span>
+        <span class="badge badge-ok" id="login-skeleton-step-badge">Authenticating</span>
+      </div>
+      <div class="pb-login-skeleton-progress-track" aria-hidden="true">
+        <div class="pb-login-skeleton-progress-fill"></div>
+      </div>
+      <div class="pb-login-skeleton-workspace" aria-hidden="true">
+        <div class="pb-login-skeleton-header-row">
+          <div class="pb-skeleton-avatar"></div>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+            <div class="pb-skeleton-line" style="width: 58%; height: 14px;"></div>
+            <div class="pb-skeleton-line" style="width: 38%; height: 10px;"></div>
+          </div>
+        </div>
+        <div class="pb-login-skeleton-metrics-grid">
+          <div class="pb-login-skeleton-metric-card">
+            <div class="pb-skeleton-line" style="width: 50%; height: 10px;"></div>
+            <div class="pb-skeleton-line" style="width: 80%; height: 16px;"></div>
+          </div>
+          <div class="pb-login-skeleton-metric-card">
+            <div class="pb-skeleton-line" style="width: 55%; height: 10px;"></div>
+            <div class="pb-skeleton-line" style="width: 75%; height: 16px;"></div>
+          </div>
+          <div class="pb-login-skeleton-metric-card">
+            <div class="pb-skeleton-line" style="width: 45%; height: 10px;"></div>
+            <div class="pb-skeleton-line" style="width: 85%; height: 16px;"></div>
+          </div>
+        </div>
+        <div class="pb-login-skeleton-cards-grid">
+          <div class="pb-login-skeleton-course-card">
+            <div class="pb-skeleton-block" style="width: 100%; height: 48px;"></div>
+            <div class="pb-skeleton-line" style="width: 78%; height: 12px;"></div>
+            <div class="pb-skeleton-line" style="width: 52%; height: 10px;"></div>
+          </div>
+          <div class="pb-login-skeleton-course-card">
+            <div class="pb-skeleton-block" style="width: 100%; height: 48px;"></div>
+            <div class="pb-skeleton-line" style="width: 72%; height: 12px;"></div>
+            <div class="pb-skeleton-line" style="width: 48%; height: 10px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Login Form -->
+    <form id="form-login" class="pb-auth-ref-form" novalidate>
+      <div id="login-view-signin-pane" class="pb-auth-ref-pane">
+        <div class="form-group pb-auth-ref-field-group">
+          <label class="form-label pb-auth-ref-label" for="input-login-username">Username<span class="pb-auth-ref-req">*</span></label>
+          <div class="pb-input-icon-wrap pb-auth-ref-input-wrap">
+            <span class="pb-input-left-icon" aria-hidden="true">
+              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </span>
+            <input
+              type="text"
+              class="form-input pb-auth-ref-input"
+              id="input-login-username"
+              name="username"
+              autocomplete="username"
+              required
+              maxlength="40"
+              placeholder="Enter your username"
+            />
+          </div>
+        </div>
+
+        <div class="form-group pb-auth-ref-field-group">
+          <label class="form-label pb-auth-ref-label" for="input-login-password">Password<span class="pb-auth-ref-req">*</span></label>
+          <div class="pb-password-input-wrap has-left-icon pb-auth-ref-input-wrap">
+            <span class="pb-input-left-icon" aria-hidden="true">
+              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            </span>
+            <input
+              type="password"
+              class="form-input pb-auth-ref-input"
+              id="input-login-password"
+              name="password"
+              autocomplete="current-password"
+              required
+              maxlength="128"
+              placeholder="Enter password"
+            />
+            <button
+              type="button"
+              class="pb-password-toggle-btn pb-auth-ref-eye-btn"
+              id="btn-toggle-login-password-visibility"
+              aria-label="Show password"
+              aria-pressed="false"
+              aria-controls="input-login-password"
+            >
+              <svg id="icon-login-password-eye" class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              <span id="label-login-password-toggle" class="pb-sr-only">Show</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Single-Line Remember Me + Forgot Password Row -->
+        <div class="pb-auth-ref-meta-row">
+          <label class="pb-auth-ref-remember-label" for="input-login-remember" title="Stores an opaque 7-day session token in localStorage. Never use on a public computer.">
+            <input
+              type="checkbox"
+              id="input-login-remember"
+              name="rememberMe"
+            />
+            <span>Remember me</span>
+          </label>
+
+          <button
+            type="button"
+            class="pb-auth-ref-forgot-trigger"
+            id="btn-login-switch-forgot"
+          >
+            Forgot Password?
+          </button>
+        </div>
+
+        <!-- Inline Status / Error Feedback Box Right Above the Sign In Button -->
+        <div
+          id="login-inline-alert"
+          class="banner banner-danger hidden"
+          role="alert"
+          aria-live="assertive"
+        >
+          <p class="banner-title" id="login-inline-alert-title">Sign In Notice</p>
+          <p class="banner-text" id="login-inline-alert-message"></p>
+        </div>
+
+        <!-- Luminous Cyan-Emerald-Lime Gradient Pill Submit Button -->
+        <button type="submit" class="btn btn-primary pb-auth-ref-submit-btn" id="btn-login-submit">
+          <svg class="pb-icon pb-icon-sm pb-auth-ref-sparkle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z"></path>
+          </svg>
+          <span id="label-login-submit-btn">Sign in</span>
+        </button>
+
+        <!-- Hidden Legacy Quick-Action Elements (Preserved in DOM for ID alignment, hidden per UI cleanup) -->
+        <div class="pb-auth-ref-divider hidden" style="display: none !important;" aria-hidden="true">
+          <span>Or need help signing in?</span>
+        </div>
+
+        <div class="pb-auth-ref-quick-actions hidden" style="display: none !important;" aria-hidden="true">
+          <a
+            id="link-forgot-password"
+            href="https://line.me/ti/p/JpDoXL9lYv"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-line-configured="true"
+            class="pb-auth-ref-pill-btn hidden"
+          >
+            <span>LINE Support</span>
+          </a>
+
+          <button
+            type="button"
+            class="pb-auth-ref-pill-btn hidden"
+            id="btn-cancel-login-modal"
+          >
+            <span>Close</span>
+          </button>
+        </div>
+
+        <p class="pb-auth-ref-bottom-prompt hidden" style="display: none !important;" aria-hidden="true">
+          Don't have an account yet?
+          <button type="button" class="pb-auth-ref-inline-link" id="btn-login-bottom-contact">
+            Contact School
+          </button>
+        </p>
+      </div>
+
+      <!-- Forgot Password Sub-View (Matches Screen 3 of Reference Image) -->
+      <div id="login-view-recovery-pane" class="pb-auth-ref-pane hidden">
+        <div class="form-group pb-auth-ref-field-group">
+          <label class="form-label pb-auth-ref-label" for="input-login-recovery-identifier">Username or Email<span class="pb-auth-ref-req">*</span></label>
+          <div class="pb-input-icon-wrap pb-auth-ref-input-wrap">
+            <span class="pb-input-left-icon" aria-hidden="true">
+              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>
+            </span>
+            <input
+              type="text"
+              class="form-input pb-auth-ref-input"
+              id="input-login-recovery-identifier"
+              autocomplete="username"
+              maxlength="80"
+              placeholder="Enter your school username or email"
+            />
+          </div>
+        </div>
+
+        <a
+          href="https://line.me/ti/p/JpDoXL9lYv"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn btn-primary pb-auth-ref-submit-btn"
+          id="btn-login-recovery-line"
+          style="text-decoration: none;"
+        >
+          <svg class="pb-icon pb-icon-sm pb-auth-ref-sparkle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z"></path>
+          </svg>
+          <span>Request Reset via LINE (ID: poowadatch)</span>
+        </a>
+
+        <!-- Clear Fallback Box When LINE Contact URL Has Not Been Configured Yet -->
+        <div
+          id="forgot-password-fallback-box"
+          class="banner banner-warning hidden"
+          role="status"
+          style="margin-top: 12px;"
+        >
+          <p class="banner-title">LINE Contact Not Configured Yet</p>
+          <p class="banner-text" id="forgot-password-fallback-text">
+            The school administrator has not configured an official LINE recovery URL yet. Please
+            contact your biology instructor directly or view the school Contact page for alternative
+            assistance.
+          </p>
+        </div>
+
+        <div class="pb-auth-ref-quick-actions" style="margin-top: 12px;">
+          <button
+            type="button"
+            class="pb-auth-ref-pill-btn"
+            id="btn-forgot-open-contact"
+          >
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>
+            <span>View Contact Page</span>
+          </button>
+        </div>
+
+        <p class="pb-auth-ref-bottom-prompt">
+          Already have an account?
+          <button type="button" class="pb-auth-ref-inline-link" id="btn-login-back-to-signin">
+            Sign In
+          </button>
+        </p>
+      </div>
+    </form>
+
+    <div class="pb-modal-security-footer pb-auth-ref-security-footer" id="login-modal-security-footer">
+      <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+      <span>Encrypted Session &mdash; Verified Student &amp; Instructor Access</span>
+    </div>
+  </div>
+</div>
+
+<!-- 1B. Account Lockout Support Pop-Up Dialog (#modal-account-locked) -->
+<div
+  id="modal-account-locked"
+  class="modal-backdrop pb-lockout-modal-backdrop hidden"
+  role="alertdialog"
+  aria-modal="true"
+  aria-hidden="true"
+  aria-labelledby="account-locked-modal-title"
+  aria-describedby="account-locked-modal-desc"
+>
+  <div class="modal-dialog pb-lockout-modal-dialog" id="modal-account-locked-dialog" role="document">
+    <div class="pb-lockout-modal-top">
+      <div class="pb-lockout-icon-circle" aria-hidden="true">
+        <svg class="pb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          <line x1="12" y1="15" x2="12" y2="18"></line>
+        </svg>
+      </div>
+      <span class="badge badge-danger pb-lockout-badge">SECURITY LOCKOUT ACTIVE</span>
+      <h2 id="account-locked-modal-title" class="pb-lockout-title">
+        Account Locked &mdash; Too Many Failed Attempts
+      </h2>
+      <p id="account-locked-modal-desc" class="pb-lockout-desc">
+        Your account (<strong id="account-locked-username-label">your account</strong>) has been locked after entering an incorrect password more than 5 times. Please contact Pattanabhumi Biology support using the channels below to unlock your account:
+      </p>
+    </div>
+
+    <div class="pb-lockout-contact-list" role="list" aria-label="Support Contact Channels to Unlock Account">
+      <a href="tel:0966821528" target="_top" class="pb-lockout-contact-card" role="listitem">
+        <span class="pb-lockout-contact-icon is-cyan" aria-hidden="true">
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.58 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+        </span>
+        <div class="pb-lockout-contact-body">
+          <span class="pb-lockout-contact-kicker">Phone Support</span>
+          <strong class="pb-lockout-contact-value">Tel.0966821528</strong>
+        </div>
+      </a>
+
+      <a href="https://line.me/ti/p/JpDoXL9lYv" target="_blank" rel="noopener noreferrer" class="pb-lockout-contact-card" role="listitem">
+        <span class="pb-lockout-contact-icon is-emerald" aria-hidden="true">
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>
+        </span>
+        <div class="pb-lockout-contact-body">
+          <span class="pb-lockout-contact-kicker">LINE Official Support</span>
+          <strong class="pb-lockout-contact-value">Line: ID: poowadatch</strong>
+        </div>
+      </a>
+
+      <a href="mailto:pattanabhumi.biology@gmail.com" target="_top" class="pb-lockout-contact-card" role="listitem">
+        <span class="pb-lockout-contact-icon is-cyan" aria-hidden="true">
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>
+        </span>
+        <div class="pb-lockout-contact-body">
+          <span class="pb-lockout-contact-kicker">Email Support</span>
+          <strong class="pb-lockout-contact-value">pattanabhumi.biology@gmail.com</strong>
+        </div>
+      </a>
+    </div>
+
+    <div class="pb-lockout-modal-actions">
+      <a
+        href="https://line.me/ti/p/JpDoXL9lYv"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn btn-primary"
+        id="btn-lockout-open-line"
+        style="text-decoration: none;"
+      >
+        Contact LINE Support to Unlock
+      </a>
+      <button
+        type="button"
+        class="btn btn-secondary"
+        id="btn-lockout-open-contact"
+      >
+        View Contact Page
+      </button>
+      <button
+        type="button"
+        class="btn btn-outline"
+        id="btn-close-account-locked-modal"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 2. First-Login & Changed-Version Privacy Notice Gate Modal -->
+<div
+  id="modal-privacy-gate"
+  class="modal-backdrop hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-hidden="true"
+  aria-labelledby="privacy-gate-heading"
+  aria-describedby="privacy-gate-subtitle"
+>
+  <div class="modal-dialog modal-dialog-lg" id="modal-privacy-gate-dialog" role="document">
+    <div class="modal-header">
+      <div>
+        <span class="badge badge-incomplete" id="privacy-gate-version-badge">
+          Privacy Notice Version: 2026-10-v1
+        </span>
+        <h2
+          id="privacy-gate-heading"
+          style="margin: 8px 0 4px 0; font-size: 1.45rem; color: var(--color-brand-deep);"
+        >
+          Privacy Notice &amp; Communication Preferences
+        </h2>
+        <p
+          id="privacy-gate-subtitle"
+          style="margin: 0; font-size: 0.93rem; color: var(--color-text-secondary);"
+        >
+          Please review and acknowledge the current Pattanabhumi Biology Privacy Notice before
+          accessing your portal.
+        </p>
+      </div>
+    </div>
+
+    <!-- Scrollable Privacy & Browser Storage Disclosure -->
+    <div
+      class="privacy-notice-scrollbox"
+      tabindex="0"
+      aria-label="Pattanabhumi Biology Privacy Notice text"
+    >
+      <div
+        id="privacy-gate-document-text"
+        style="white-space: pre-line; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px dashed var(--color-brand-border); color: var(--color-text-primary); font-weight: 500;"
+      ></div>
+      <h3>1. Educational &amp; Administrative Data Processed</h3>
+      <p>
+        Pattanabhumi Biology processes your account profile (username, full name, email address,
+        role, and last login timestamp), course enrollments, tuition installment records, uploaded
+        payment receipt images, and class unavailability reports so the school can deliver biology
+        tutoring courses, verify tuition payments, and coordinate class schedules in the
+        <code>Asia/Bangkok</code> timezone.
+      </p>
+
+      <h3>2. Where Portal Records Are Stored</h3>
+      <p>
+        Application records are stored in a private Google Sheet, uploaded course materials and
+        payment receipts are stored in restricted Google Drive folders owned by the school, class
+        schedules are read from Google Calendar, and unavailability notifications are sent via
+        Gmail / Google Apps Script <code>MailApp</code>.
+      </p>
+
+      <h3>3. Essential Browser Storage &amp; Cookie Policy</h3>
+      <ul>
+        <li>
+          <strong>Default In-Memory Session Credential:</strong> When you sign in without checking
+          "Remember me", your opaque session token is held only in browser memory and is cleared as
+          soon as you close or refresh the tab.
+        </li>
+        <li>
+          <strong>Optional "Remember Me" Storage (<code>localStorage</code>):</strong> If you check
+          "Remember me", an opaque 256-bit bearer token is stored in browser
+          <code>localStorage</code> (<code>pb_lms_session_token_v1</code>) for up to 7 days.
+        </li>
+        <li>
+          <strong>No Custom <code>HttpOnly</code> Cookies &amp; No Tracking Cookies:</strong>
+          Because Google Apps Script HTML Service runs inside a sandboxed
+          <code>*.googleusercontent.com</code> iframe, this web app does not issue custom
+          <code>HttpOnly</code> cookies, never stores passwords, banking details, profile data, or
+          login bearer tokens in cookies, and uses zero advertising or cross-site tracking cookies.
+          A non-sensitive UI banner preference (<code>pb_ui_storage_notice_ack</code>) may be saved
+          via a first-party cookie or <code>localStorage</code> fallback.
+        </li>
+      </ul>
+
+      <h3>4. Important Notice Regarding School Legal Review &amp; Minor Students</h3>
+      <p>
+        Acknowledging this notice records the version and server timestamp of your review in the
+        <code>PrivacyChoices</code> sheet. However, a single checkbox does <strong>not</strong> by
+        itself constitute complete legal compliance under the Thai Personal Data Protection Act
+        (PDPA B.E. 2562) or other applicable laws, and this software does not invent statutory
+        retention periods. <strong>Pattanabhumi Biology administration must review this notice with
+        qualified legal counsel, establish official data-retention schedules, and verify parental or
+        legal guardian consent requirements for minor students.</strong>
+      </p>
+    </div>
+
+    <!-- Legal & Minor Review Callout Banner -->
+    <div class="banner banner-warning" style="margin-bottom: 14px;">
+      <p class="banner-title">School Compliance &amp; Minor Student Consent Notice</p>
+      <p class="banner-text">
+        The school must review this Privacy Notice and verify parental/guardian consent rules for
+        minor students. Marketing email consent below is completely separate and optional—you do
+        not need to check the marketing box to study or use any portal feature.
+      </p>
+    </div>
+
+    <form id="form-privacy-gate" novalidate>
+      <!-- 1. Required Privacy Notice Acknowledgment Checkbox (Unchecked by default) -->
+      <div class="checkbox-card">
+        <label class="checkbox-label" for="input-privacy-ack-required">
+          <input
+            type="checkbox"
+            id="input-privacy-ack-required"
+            name="acknowledged"
+            required
+          />
+          <span>
+            <strong>Required:</strong> I have read and acknowledge the current Pattanabhumi Biology
+            Privacy &amp; Browser Storage Notice (<span id="privacy-gate-ack-version-label">2026-10-v1</span>).
+          </span>
+        </label>
+      </div>
+
+      <!-- 2. Separate Optional Marketing Consent Checkbox (Hidden per UI Streamlining) -->
+      <div class="checkbox-card hidden" style="display: none !important;" aria-hidden="true">
+        <label class="checkbox-label" for="input-privacy-marketing-optin">
+          <input
+            type="checkbox"
+            id="input-privacy-marketing-optin"
+            name="marketingOptIn"
+          />
+          <span>
+            <strong>Optional Marketing Emails:</strong> I would like to receive occasional school
+            news, biology study tips, and new course announcements by email.
+            <span
+              style="display: block; font-weight: 400; font-size: 0.84rem; color: var(--color-text-secondary); margin-top: 3px;"
+            >
+              Unchecked by default. Leaving this unchecked will never restrict your access to
+              courses, assessments, recordings, or schedules, and you can change this choice at any
+              time in <strong>My Profile</strong>.
+            </span>
+          </span>
+        </label>
+      </div>
+
+      <!-- Inline Validation / Error Banner for Privacy Gate -->
+      <div
+        id="privacy-gate-inline-alert"
+        class="banner banner-danger hidden"
+        role="alert"
+        aria-live="assertive"
+      >
+        <p class="banner-title" id="privacy-gate-inline-alert-title">Acknowledgment Required</p>
+        <p class="banner-text" id="privacy-gate-inline-alert-message"></p>
+      </div>
+
+      <div
+        style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 16px;"
+      >
+        <button type="submit" class="btn btn-primary" id="btn-privacy-ack-submit">
+          Acknowledge &amp; Continue to Portal
+        </button>
+        <button
+          type="button"
+          class="btn btn-outline"
+          id="btn-privacy-decline-logout"
+        >
+          Decline &amp; Log Out
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 3. Accessible Class Recording Detail Modal (#modal-recording-detail) -->
+<div
+  id="modal-recording-detail"
+  class="modal-backdrop hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-hidden="true"
+  aria-labelledby="recording-modal-title"
+  aria-describedby="recording-modal-subtitle"
+>
+  <div class="modal-dialog modal-dialog-lg" id="modal-recording-detail-dialog" role="document">
+    <div class="modal-header">
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span class="badge badge-ok" id="recording-modal-upload-date">Class Recording</span>
+          <span class="badge badge-ok hidden" id="recording-modal-source-badge">YouTube 16:9 Player</span>
+        </div>
+        <h2
+          id="recording-modal-title"
+          style="margin: 8px 0 4px 0; font-size: 1.38rem; color: var(--color-brand-deep);"
+        >
+          Class Recording Details
+        </h2>
+        <p
+          id="recording-modal-subtitle"
+          style="margin: 0; font-size: 0.92rem; color: var(--color-text-secondary);"
+        ></p>
+      </div>
+      <button
+        type="button"
+        class="modal-close-btn"
+        id="btn-close-recording-modal"
+        aria-label="Close class recording modal"
+      >
+        <svg class="pb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+
+    <!-- 16:9 Recorded Lesson Video Player Section -->
+    <div id="recording-modal-video-section" style="margin-bottom: 14px;">
+      <div
+        id="recording-modal-video-player-wrap"
+        class="pb-video-player-16x9"
+        role="region"
+        aria-label="Recorded lesson 16:9 video player"
+      ></div>
+    </div>
+
+    <!-- Clear Unavailable Message Shown When Recording Link Has Not Been Added Yet -->
+    <div
+      id="recording-modal-unavailable-notice"
+      class="banner banner-warning hidden"
+      role="status"
+      aria-live="polite"
+      style="margin-bottom: 14px;"
+    >
+      <p class="banner-title">Recording Video Link Not Added Yet</p>
+      <p class="banner-text" id="recording-modal-unavailable-text">
+        The instructor has not added the video recording link for this class session yet.
+        Please check back after the recording finishes processing, or contact the school if you need assistance.
+      </p>
+    </div>
+
+    <!-- "Lesson documents" Section Placed Directly Below the Video Player -->
+    <section
+      id="recording-modal-lesson-documents-section"
+      class="pb-lesson-documents-panel"
+      aria-labelledby="recording-modal-lesson-documents-heading"
+    >
+      <div class="pb-lesson-documents-header">
+        <h3 id="recording-modal-lesson-documents-heading" class="pb-lesson-documents-heading">
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          <span>Lesson documents</span>
+        </h3>
+        <span class="badge badge-ok" id="recording-modal-lesson-documents-count">0 PDFs</span>
+      </div>
+      <div id="recording-modal-lesson-documents-list" class="pb-lesson-documents-list">
+        <p style="margin: 0; font-size: 0.88rem; color: var(--color-text-secondary);">
+          No lesson documents are attached to this recording.
+        </p>
+      </div>
+    </section>
+
+    <div
+      id="recording-modal-caption-box"
+      class="status-item"
+      style="margin-bottom: 14px;"
+    >
+      <div class="status-label">Diagram / Session Caption</div>
+      <div id="recording-modal-caption" style="font-size: 0.92rem; color: var(--color-text-primary);">-</div>
+    </div>
+
+    <div class="status-item" style="margin-bottom: 16px;">
+      <div class="status-label">Session Outline &amp; Notes (Structured Rich Text)</div>
+      <div id="recording-modal-content-box" class="pb-rt-rendered" style="margin-top: 8px;"></div>
+    </div>
+
+    <div
+      style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;"
+    >
+      <a
+        id="link-modal-watch-recording"
+        class="btn btn-primary"
+        href="https://www.youtube.com"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <span>Open Video in New Tab</span>
+        <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+      </a>
+      <button
+        type="button"
+        class="btn btn-outline"
+        id="btn-close-recording-modal-footer"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 11. Collapsible Developer & Step 5 Verification Suite Drawer -->
+<details class="card hidden pb-public-launch-hidden" id="dev-diagnostics-drawer" style="display: none !important;" aria-hidden="true">
+  <summary
+    style="cursor: pointer; font-weight: 700; color: var(--color-brand-deep); font-size: 1rem;"
+  >
+    System Diagnostics
+  </summary>
+
+  <div style="margin-top: 16px;">
+    <div
+      id="dev-drawer-auth-strip"
+      style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; margin-bottom: 14px; background: var(--color-brand-surface-tint); border: 1px solid var(--color-brand-border); border-radius: var(--radius-sm);"
+    >
+      <div style="font-size: 0.9rem;">
+        <strong>Current Session State:</strong>
+        <span id="dev-drawer-session-badge" class="badge badge-incomplete" style="margin-left: 6px;">
+          Signed Out (No Active Session Token)
+        </span>
+      </div>
+      <button
+        type="button"
+        class="btn btn-primary btn-sm"
+        id="btn-dev-open-login"
+        aria-haspopup="dialog"
+        aria-controls="modal-login"
+      >
+        Sign In (Open Login Modal)
+      </button>
+    </div>
+
+    <p style="margin: 0 0 12px 0; font-size: 0.9rem; color: var(--color-text-secondary);">
+      Use these controls to inspect live RPC envelopes, test role/privacy guards, or verify backend
+      health during Step 5 testing (Note: Buttons 2, 3, and 4 require an active signed-in session; calling them while signed out verifies the <code>ERR_AUTH_REQUIRED</code> guard):
+    </p>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+      <button type="button" class="btn btn-primary btn-sm" id="btn-test-public-ping">
+        1. Test Public Ping (system.ping)
+      </button>
+      <button type="button" class="btn btn-secondary btn-sm" id="btn-verify-session-rpc">
+        2. Verify Session (auth.getSessionStatus)
+      </button>
+      <button type="button" class="btn btn-secondary btn-sm" id="btn-test-auth-student-profile">
+        3. Call student.getProfile (STUDENT Role + Privacy Ack Required)
+      </button>
+      <button type="button" class="btn btn-secondary btn-sm" id="btn-test-auth-admin-summary">
+        4. Call admin.getDashboardSummary (ADMIN Role + Privacy Ack Required)
+      </button>
+      <button type="button" class="btn btn-secondary btn-sm" id="btn-test-unknown-action">
+        5. Test Unknown Action
+      </button>
+      <button type="button" class="btn btn-outline btn-sm" id="btn-test-double-click">
+        6. Test Duplicate Request Blocking
+      </button>
+    </div>
+
+    <div class="status-item">
+      <div class="status-label">Latest RPC Diagnostic Output</div>
+      <div class="status-value" id="rpc-test-result-heading">
+        Ready. Perform any login, privacy acknowledgment, or test action to inspect the response.
+      </div>
+      <pre
+        id="rpc-test-result-json"
+        style="margin: 10px 0 0 0; padding: 12px; background: #FFFFFF; border: 1px solid var(--color-brand-border); border-radius: var(--radius-sm); font-size: 0.83rem; overflow-x: auto; white-space: pre-wrap; word-break: break-word;"
+      >No diagnostic action run yet.</pre>
+    </div>
+  </div>
+</details>

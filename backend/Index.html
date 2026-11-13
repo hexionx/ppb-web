@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <base target="_self" />
+    <title>Pattanabhumi Biology — Learning Portal</title>
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <?!= includePartial_('Styles'); ?>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+
+    <!-- Top Application Header -->
+    <header class="site-header" id="site-header-navbar" role="banner">
+      <div class="header-inner">
+        <!-- Brand Logo (Left): Official School Logo Image + PB Fallback Badge + Pattanabhumi Biology -->
+        <button
+          type="button"
+          class="brand-group"
+          id="btn-brand-home"
+          aria-label="Pattanabhumi Biology Home"
+        >
+          <img
+            id="brand-logo-img"
+            class="brand-logo-img hidden"
+            alt="Pattanabhumi Biology logo"
+          />
+          <div class="brand-logo-placeholder" id="brand-logo-badge" aria-hidden="true">PB</div>
+          <div class="brand-titles pb-sr-only">
+            <span class="brand-name" id="header-school-name">Pattanabhumi Biology</span>
+            <span class="brand-subtitle">Biology Tutoring &amp; Learning Portal</span>
+          </div>
+        </button>
+
+        <!-- Desktop Navigation (Role-Aware: Unauthenticated vs. Student vs. Admin) -->
+        <nav class="desktop-nav" aria-label="Primary navigation">
+          <!-- Unauthenticated Desktop Links & Public Section Jump Links -->
+          <button
+            type="button"
+            class="nav-link"
+            id="nav-desktop-landing"
+            data-nav-view="landing"
+            aria-current="page"
+          >
+            Home
+          </button>
+          <button
+            type="button"
+            class="nav-link"
+            id="nav-desktop-sec-benefits"
+            data-public-section-nav="true"
+            data-scroll-section="landing-section-benefits"
+          >
+            Benefits
+          </button>
+          <button
+            type="button"
+            class="nav-link"
+            id="nav-desktop-sec-login-steps"
+            data-public-section-nav="true"
+            data-scroll-section="landing-section-how-to-login"
+          >
+            How to Log In
+          </button>
+          <button
+            type="button"
+            class="nav-link"
+            id="nav-desktop-sec-about"
+            data-public-section-nav="true"
+            data-scroll-section="landing-section-about"
+          >
+            About Us
+          </button>
+          <button
+            type="button"
+            class="nav-link"
+            id="nav-desktop-sec-instructor"
+            data-public-section-nav="true"
+            data-scroll-section="landing-section-instructor"
+          >
+            Instructor
+          </button>
+
+          <!-- Authenticated Desktop Links (Hidden while signed out or during session restore) -->
+          <button
+            type="button"
+            class="nav-link hidden"
+            id="nav-desktop-profile"
+            data-nav-view="profile"
+          >
+            My Profile
+          </button>
+          <button
+            type="button"
+            class="nav-link hidden"
+            id="nav-desktop-payments"
+            data-nav-view="payments"
+          >
+            Payments
+          </button>
+          <button
+            type="button"
+            class="nav-link hidden"
+            id="nav-desktop-calendar"
+            data-nav-view="calendar"
+          >
+            Class Calendar
+          </button>
+          <!-- Admin Dashboard Link: Strictly visible ONLY to ADMIN role -->
+          <button
+            type="button"
+            class="nav-link hidden"
+            id="nav-desktop-admin"
+            data-nav-view="admin"
+          >
+            Admin Dashboard
+          </button>
+
+          <!-- Shared Contact Link (Always available) -->
+          <button
+            type="button"
+            class="nav-link"
+            id="nav-desktop-contact"
+            data-nav-view="contact"
+          >
+            Contact
+          </button>
+
+          <!-- Unauthenticated Login Trigger Button (Opens Accessible Login Modal) -->
+          <button
+            type="button"
+            class="btn btn-primary btn-sm pb-btn-pill-gradient"
+            id="btn-header-open-login"
+            aria-haspopup="dialog"
+            aria-controls="modal-login"
+          >
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+            <span>Log in</span>
+          </button>
+
+          <!-- Authenticated Logout Button -->
+          <button
+            type="button"
+            class="btn btn-secondary btn-sm hidden"
+            id="btn-header-logout"
+          >
+            Log out
+          </button>
+        </nav>
+
+        <!-- Mobile Controls: Contact Icon/Button Immediately Left of Hamburger Button -->
+        <div class="mobile-controls">
+          <button
+            type="button"
+            class="mobile-contact-btn"
+            id="btn-mobile-contact"
+            data-nav-view="contact"
+            aria-label="Open school contact page"
+          >
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>
+            <span>Contact</span>
+          </button>
+          <button
+            type="button"
+            class="hamburger-btn"
+            id="btn-mobile-menu"
+            aria-expanded="false"
+            aria-controls="mobile-nav-drawer"
+            aria-label="Open navigation menu"
+          >
+            <span class="hamburger-icon" aria-hidden="true">
+              <span class="bar bar-1"></span>
+              <span class="bar bar-2"></span>
+              <span class="bar bar-3"></span>
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Mobile Navigation Backdrop (Closes menu on outside tap) -->
+      <div id="mobile-nav-backdrop" class="pb-mobile-drawer-backdrop hidden" aria-hidden="true"></div>
+
+      <!-- Mobile Navigation Drawer -->
+      <nav
+        class="mobile-nav-drawer hidden"
+        id="mobile-nav-drawer"
+        aria-label="Mobile navigation"
+      >
+        <div class="mobile-drawer-brand-bar">
+          <img
+            id="mobile-drawer-logo-img"
+            class="brand-logo-img hidden"
+            alt="Pattanabhumi Biology logo"
+          />
+          <div class="brand-logo-placeholder" id="mobile-drawer-logo-badge" aria-hidden="true">PB</div>
+          <span class="mobile-drawer-school-name pb-sr-only" id="mobile-drawer-school-name">Pattanabhumi Biology</span>
+        </div>
+        <div class="mobile-nav-list">
+          <button
+            type="button"
+            class="mobile-nav-link"
+            id="nav-mobile-landing"
+            data-nav-view="landing"
+          >
+            Home
+          </button>
+          <button
+            type="button"
+            class="mobile-nav-link"
+            id="nav-mobile-sec-benefits"
+            data-public-section-nav="true"
+            data-scroll-section="landing-section-benefits"
+          >
+            Platform Benefits
+          </button>
+          <button
+            type="button"
+            class="mobile-nav-link"
+            id="nav-mobile-sec-login-steps"
+            data-public-section-nav="true"
+            data-scroll-section="landing-section-how-to-login"
+          >
+            How to Log In
+          </button>
+          <button
+            type="button"
+            class="mobile-nav-link"
+            id="nav-mobile-sec-about"
+            data-public-section-nav="true"
+            data-scroll-section="landing-section-about"
+          >
+            About Us
+          </button>
+          <button
+            type="button"
+            class="mobile-nav-link"
+            id="nav-mobile-sec-instructor"
+            data-public-section-nav="true"
+            data-scroll-section="landing-section-instructor"
+          >
+            Instructor Profile
+          </button>
+          <button
+            type="button"
+            class="mobile-nav-link hidden"
+            id="nav-mobile-profile"
+            data-nav-view="profile"
+          >
+            My Profile
+          </button>
+          <button
+            type="button"
+            class="mobile-nav-link hidden"
+            id="nav-mobile-payments"
+            data-nav-view="payments"
+          >
+            Payments
+          </button>
+          <button
+            type="button"
+            class="mobile-nav-link hidden"
+            id="nav-mobile-calendar"
+            data-nav-view="calendar"
+          >
+            Class Calendar
+          </button>
+          <!-- Admin Dashboard: Visible ONLY to ADMIN role -->
+          <button
+            type="button"
+            class="mobile-nav-link hidden"
+            id="nav-mobile-admin"
+            data-nav-view="admin"
+          >
+            Admin Dashboard
+          </button>
+          <button
+            type="button"
+            class="mobile-nav-link"
+            id="nav-mobile-contact"
+            data-nav-view="contact"
+          >
+            Contact
+          </button>
+          <button
+            type="button"
+            class="btn btn-secondary btn-block"
+            id="btn-mobile-open-login"
+            aria-haspopup="dialog"
+            aria-controls="modal-login"
+          >
+            Log in
+          </button>
+          <button
+            type="button"
+            class="btn btn-secondary btn-block hidden"
+            id="btn-mobile-logout"
+          >
+            Log out
+          </button>
+        </div>
+      </nav>
+    </header>
+
+    <!-- Phase 2 Non-Blocking Toast Notification Region -->
+    <div id="pb-toast-region" class="pb-toast-region" role="status" aria-live="polite" aria-atomic="false"></div>
+
+    <!-- Full-Screen Logout Loading Spinner Overlay ("Logging out...") -->
+    <div
+      id="pb-logout-loading-overlay"
+      class="pb-logout-loading-overlay hidden"
+      role="status"
+      aria-live="assertive"
+      aria-hidden="true"
+    >
+      <div class="pb-logout-loading-card">
+        <div class="pb-logout-spinner-ring" aria-hidden="true">
+          <div class="pb-logout-spinner-core"></div>
+        </div>
+        <p class="pb-logout-loading-title" id="pb-logout-loading-text">Logging out...</p>
+        <p class="pb-logout-loading-subtitle">Securing your session and returning to the home page&hellip;</p>
+      </div>
+    </div>
+
+    <!-- Main Content Container -->
+    <main id="main-content" class="main-container" role="main" tabindex="-1">
+      <?!= includePartial_('StatusView'); ?>
+    </main>
+
+    <!-- Floating Quick-Jump Table of Contents (TOC) Menu for Student, Admin & Public Views -->
+    <aside
+      id="pb-floating-toc-dock"
+      class="pb-floating-toc-dock hidden"
+      aria-label="Quick-jump table of contents"
+    >
+      <div
+        id="pb-floating-toc-panel"
+        class="pb-floating-toc-panel hidden"
+        role="region"
+        aria-labelledby="floating-toc-title"
+      >
+        <div class="pb-floating-toc-header">
+          <div class="pb-floating-toc-title-wrap">
+            <span class="pb-floating-toc-overline" id="floating-toc-overline">TABLE OF CONTENTS</span>
+            <h2 class="pb-floating-toc-title" id="floating-toc-title">Page Sections</h2>
+          </div>
+          <button
+            type="button"
+            class="pb-floating-toc-close-btn"
+            id="btn-close-floating-toc"
+            aria-label="Close table of contents menu"
+          >
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+
+        <ul class="pb-floating-toc-list" id="pb-floating-toc-list"></ul>
+
+        <div class="pb-floating-toc-footer">
+          <button
+            type="button"
+            class="pb-floating-toc-top-btn"
+            id="btn-floating-toc-top"
+          >
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="18 15 12 9 6 15"></polyline></svg>
+            <span>Back to Top</span>
+          </button>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        class="pb-floating-toc-toggle"
+        id="btn-toggle-floating-toc"
+        aria-expanded="false"
+        aria-controls="pb-floating-toc-panel"
+        title="Open Quick-Jump Table of Contents"
+      >
+        <span class="pb-floating-toc-toggle-icon" aria-hidden="true">
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+        </span>
+        <span>Contents</span>
+        <span class="pb-floating-toc-active-pill" id="floating-toc-active-label">Home</span>
+      </button>
+    </aside>
+
+    <!-- Footer (Vibrant Minimalist 3-Column Midnight Navy Footer) -->
+    <footer class="site-footer" role="contentinfo">
+      <div class="footer-top-gradient-bar" aria-hidden="true"></div>
+      <div class="footer-inner">
+        <div class="pb-footer-grid">
+          <!-- Column 1: Official Brand Logo (White Monochrome Format) & Educational Mission -->
+          <div class="pb-footer-col pb-footer-brand-col">
+            <div class="pb-footer-brand-row">
+              <img
+                id="footer-logo-img"
+                class="footer-logo-img hidden"
+                alt="Pattanabhumi Biology logo"
+              />
+              <div class="brand-logo-placeholder pb-footer-logo-badge" id="footer-logo-badge" aria-hidden="true">PB</div>
+              <div class="pb-sr-only">
+                <p class="footer-title" style="margin: 0;">
+                  <strong id="footer-school-name">Pattanabhumi Biology</strong>
+                </p>
+                <span class="pb-footer-brand-sub">Biology Tutoring &amp; Learning Portal</span>
+              </div>
+            </div>
+            <p class="pb-footer-mission-text">
+              A premier online biology tutoring institute focusing on true comprehension,
+              equipped with the most advanced Learning Management System.
+            </p>
+          </div>
+
+          <!-- Column 2: Quick Navigation Links -->
+          <div class="pb-footer-col">
+            <h2 class="pb-footer-col-heading">QUICK LINKS</h2>
+            <ul class="pb-footer-links-list">
+              <li>
+                <button type="button" class="pb-footer-nav-btn" data-nav-view="landing">
+                  <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  <span>Home</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="pb-footer-nav-btn" data-public-section-nav="true" data-scroll-section="landing-section-instructor">
+                  <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  <span>Instructor Profile</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="pb-footer-nav-btn" data-public-section-nav="true" data-scroll-section="landing-section-about">
+                  <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  <span>About Us</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="pb-footer-nav-btn" data-public-section-nav="true" data-scroll-section="landing-section-how-to-login">
+                  <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  <span>How to Log In</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="pb-footer-nav-btn" data-nav-view="contact">
+                  <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  <span>Contact School</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Column 3: Direct Contact Channels -->
+          <div class="pb-footer-col">
+            <h2 class="pb-footer-col-heading">CONTACT US</h2>
+            <ul class="pb-footer-contact-list">
+              <li class="pb-footer-contact-item">
+                <span class="pb-footer-contact-icon-circle is-cyan" aria-hidden="true">
+                  <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.58 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                </span>
+                <div>
+                  <span class="pb-footer-contact-label">Phone</span>
+                  <a href="tel:0966821528" target="_top" class="pb-footer-contact-link">Tel.0966821528</a>
+                </div>
+              </li>
+              <li class="pb-footer-contact-item">
+                <span class="pb-footer-contact-icon-circle is-emerald" aria-hidden="true">
+                  <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>
+                </span>
+                <div>
+                  <span class="pb-footer-contact-label">LINE Official / ID</span>
+                  <a href="https://line.me/ti/p/JpDoXL9lYv" target="_blank" rel="noopener noreferrer" class="pb-footer-contact-link">Line: ID: poowadatch</a>
+                </div>
+              </li>
+              <li class="pb-footer-contact-item">
+                <span class="pb-footer-contact-icon-circle is-cyan" aria-hidden="true">
+                  <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>
+                </span>
+                <div>
+                  <span class="pb-footer-contact-label">Email</span>
+                  <a href="mailto:phuwadet.khu@student.mahidol.edu" target="_top" class="pb-footer-contact-link">mail: phuwadet.khu@student.mahidol.edu</a>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="pb-footer-bottom-bar">
+          <p class="footer-note" style="margin: 0;">
+            &copy; 2026 Pattanabhumi Biology. All rights reserved.
+          </p>
+          <p class="footer-note" style="margin: 0;">
+            Online Biology Tutoring &amp; Learning Portal | Timezone: Asia/Bangkok (ICT)
+          </p>
+        </div>
+      </div>
+    </footer>
+
+    <?!= includePartial_('ClientCore'); ?>
+  </body>
+</html>
