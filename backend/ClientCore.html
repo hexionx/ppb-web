@@ -1502,7 +1502,10 @@
 
       if (pub.hero && typeof pub.hero === 'object') {
         if (pub.hero.eyebrow) {
-          setText('landing-hero-eyebrow', pub.hero.eyebrow);
+          var cleanEyebrow = String(pub.hero.eyebrow)
+            .replace(/\s*(?:—|--|-|\u2014)\s*Asia\/Bangkok\s*\(UTC\+7\)/gi, '')
+            .trim();
+          setText('landing-hero-eyebrow', cleanEyebrow || pub.hero.eyebrow);
         }
         if (pub.hero.lead) {
           setText('landing-hero-lead', pub.hero.lead);
@@ -3812,7 +3815,7 @@
      * Invokes the single backend RPC entry point (rpcDispatch) via google.script.run.
      */
     var activeGasTransportCount = 0;
-    var MAX_CONCURRENT_GAS_TRANSPORT = 2;
+    var MAX_CONCURRENT_GAS_TRANSPORT = 4;
     var pendingGasTransportQueue = [];
 
     function pumpGasTransportQueue() {
@@ -4308,17 +4311,23 @@
           }
         }
       } catch (ignoreReadBootErr) {}
+      try {
+        if (typeof localStorage !== 'undefined' && localStorage) {
+          var rawLocal = localStorage.getItem(BOOTSTRAP_SESSION_CACHE_KEY);
+          if (rawLocal) {
+            var parsedLocal = JSON.parse(rawLocal);
+            if (parsedLocal && typeof parsedLocal === 'object') {
+              return parsedLocal;
+            }
+          }
+        }
+      } catch (ignoreReadLocalBootErr) {}
       return null;
     }
 
     function writeCachedBootstrapData(bootstrapData) {
       try {
-        if (
-          typeof sessionStorage !== 'undefined' &&
-          sessionStorage &&
-          bootstrapData &&
-          typeof bootstrapData === 'object'
-        ) {
+        if (bootstrapData && typeof bootstrapData === 'object') {
           var slim = {
             schoolName: bootstrapData.schoolName || 'Pattanabhumi Biology',
             logoText: bootstrapData.logoText || 'PB',
@@ -4327,7 +4336,13 @@
             dekConfig: bootstrapData.dekConfig || null,
             publicContent: bootstrapData.publicContent || null
           };
-          sessionStorage.setItem(BOOTSTRAP_SESSION_CACHE_KEY, JSON.stringify(slim));
+          var serialized = JSON.stringify(slim);
+          if (typeof sessionStorage !== 'undefined' && sessionStorage) {
+            sessionStorage.setItem(BOOTSTRAP_SESSION_CACHE_KEY, serialized);
+          }
+          if (typeof localStorage !== 'undefined' && localStorage) {
+            localStorage.setItem(BOOTSTRAP_SESSION_CACHE_KEY, serialized);
+          }
         }
       } catch (ignoreWriteBootErr) {}
     }
@@ -5254,7 +5269,11 @@
           panel.classList.toggle('hidden', !isMatch);
         }
       }
-      if (currentAdminTab === 'courses' || currentAdminTab === 'assessments') {
+      if (currentAdminTab === 'settings') {
+        loadAdminSettingsStep6();
+      } else if (currentAdminTab === 'users') {
+        loadAdminUsersStep6(currentUsersActiveCursor, false);
+      } else if (currentAdminTab === 'courses' || currentAdminTab === 'assessments') {
         loadAdminCoursesAndAssessmentsStep7();
         if (currentAdminTab === 'assessments') {
           loadAdminAssessmentScoresPhase6();
@@ -5649,7 +5668,7 @@
       var previewContent = {
         dek: previewDekCfg,
         hero: {
-          eyebrow: ov.heroEyebrow || 'Online Learning Platform — Asia/Bangkok (UTC+7)',
+          eyebrow: ov.heroEyebrow || 'Online Learning Platform',
           lead: ov.heroLead || ''
         },
         aboutUs: {
@@ -6899,12 +6918,19 @@
             );
           }
 
-          return Promise.all([
-            loadAdminSettingsStep6(),
-            loadAdminUsersStep6(currentUsersActiveCursor, false),
-            loadAdminCoursesAndAssessmentsStep7(),
-            loadAdminInvoicesStep10()
-          ]);
+          var activeTabPromise;
+          if (currentAdminTab === 'users') {
+            activeTabPromise = loadAdminUsersStep6(currentUsersActiveCursor, false);
+          } else if (currentAdminTab === 'courses' || currentAdminTab === 'assessments') {
+            activeTabPromise = loadAdminCoursesAndAssessmentsStep7();
+          } else if (currentAdminTab === 'invoices') {
+            activeTabPromise = loadAdminInvoicesStep10();
+          } else if (currentAdminTab === 'unavailability') {
+            activeTabPromise = loadAdminUnavailabilityRequestsStep14();
+          } else {
+            activeTabPromise = loadAdminSettingsStep6();
+          }
+          return activeTabPromise;
         })
         .catch(function (err) {
           renderDiagnosticResult(

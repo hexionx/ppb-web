@@ -407,7 +407,7 @@
     Loading Pattanabhumi Biology Portal&hellip;
   </h1>
   <p style="margin: 0 0 18px 0; color: var(--color-text-secondary);">
-    Verifying session state and school configuration with Google Apps Script.
+    Preparing your learning workspace&hellip;
   </p>
   <div id="loading-skeleton-workspace" class="pb-login-skeleton-workspace" style="width: 100%; max-width: 780px; margin: 0 auto; text-align: left;" aria-hidden="true">
     <div class="pb-login-skeleton-progress-track">
@@ -458,10 +458,10 @@
 >
   <div class="banner banner-danger">
     <h1 id="fatal-error-heading" class="banner-title">
-      Unable to Initialize Application Shell
+      Unable to Connect to Portal
     </h1>
     <p class="banner-text" id="fatal-error-summary">
-      The frontend could not complete the startup check with the Google Apps Script backend.
+      We couldn't connect to the learning portal right now. Please check your internet connection and try again.
     </p>
   </div>
 
@@ -498,7 +498,7 @@
         <div class="pb-hero-eyebrow-row">
           <span class="pb-hero-eyebrow-pill">
             <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg>
-            <span id="landing-hero-eyebrow">A New Era of Biology Learning &mdash; Asia/Bangkok (UTC+7)</span>
+            <span id="landing-hero-eyebrow">A New Era of Biology Learning</span>
           </span>
         </div>
 
@@ -1446,8 +1446,7 @@
       Marketing Email Preferences (Optional)
     </h2>
     <p style="margin: 0 0 14px 0; font-size: 0.92rem; color: var(--color-text-secondary);">
-      You can opt in or opt out of optional school news and study-tip emails at any time. Changes
-      are saved immediately to the server (<code>PrivacyChoices</code> and <code>Users</code>).
+      You can opt in or opt out of optional school news and study-tip emails at any time. Your preference is saved immediately.
     </p>
 
     <div class="checkbox-card">
@@ -1629,7 +1628,7 @@
             <th scope="col">Assessment</th>
             <th scope="col">Score</th>
             <th scope="col">Percentage</th>
-            <th scope="col">Published (Asia/Bangkok)</th>
+            <th scope="col">Published Date</th>
             <th scope="col">Instructor Feedback</th>
           </tr>
         </thead>
@@ -2026,7 +2025,7 @@
         <div id="exam-inst-integrity-policy-box" class="status-item pb-exam-integrity-policy-box" style="margin-bottom: 12px;">
           <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
             <span class="status-label" style="margin: 0;">Copy-Restriction &amp; Examination-Integrity Policy</span>
-            <span class="badge badge-warning" id="exam-inst-integrity-badge">Policy: pb-exam-integrity-v1</span>
+            <span class="badge badge-warning" id="exam-inst-integrity-badge">Academic Integrity Policy</span>
           </div>
           <p id="exam-inst-integrity-primary-text" style="margin: 6px 0; font-size: 0.88rem; color: var(--color-text-primary); line-height: 1.5;">
             Copying question content is restricted during this examination. Each detected copy attempt temporarily pauses access to the examination for 5 seconds. A sixth detected attempt invalidates this examination attempt. Four non-overturned examination invalidations under this policy will lock your account pending administrator review.
@@ -2098,7 +2097,7 @@
             <th scope="col">Assessment</th>
             <th scope="col">Score</th>
             <th scope="col">Percentage</th>
-            <th scope="col">Published (Asia/Bangkok)</th>
+            <th scope="col">Published Date</th>
             <th scope="col">Instructor Feedback</th>
           </tr>
         </thead>
@@ -2728,7 +2727,7 @@
     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
       <div>
         <p class="banner-title" style="margin: 0 0 4px 0;">
-          Active 15-Minute Payment Reservation in Progress (<code id="resume-banner-payment-id">pay_...</code>)
+          Active 15-Minute Payment Session (<span id="resume-banner-payment-id">...</span>)
         </p>
         <p class="banner-text" style="margin: 0; font-size: 0.9rem;">
           Method: <strong id="resume-banner-method">PROMPTPAY_QR</strong> |
@@ -2801,7 +2800,7 @@
         0.00 THB
       </div>
       <div style="font-size: 0.78rem; color: var(--color-text-secondary); margin-top: 2px;">
-        Authoritative database PAID records
+        Confirmed tuition payments
       </div>
     </div>
   </div>
@@ -2918,7 +2917,7 @@
             <span class="pb-stepper-body-col">
               <span class="pb-stepper-step-kicker">STEP 5</span>
               <span class="payment-stepper-title"><span class="pb-sr-only">Step 5: </span>Payment Verified</span>
-              <span class="payment-stepper-desc">Verified in database</span>
+              <span class="payment-stepper-desc">Payment confirmed</span>
             </span>
             <span class="pb-stepper-status-pill is-pending" id="stepper-status-pill-paid">Pending</span>
           </button>
@@ -2979,7 +2978,7 @@
             <th>Course</th>
             <th>Due Date (BKK)</th>
             <th>Status</th>
-            <th style="text-align: right;">Amount (THB &amp; Satang)</th>
+            <th style="text-align: right;">Amount (THB)</th>
           </tr>
         </thead>
         <tbody id="student-unpaid-installments-tbody">
@@ -3110,7 +3109,7 @@
           <span id="payment-transfer-countdown-clock">15:00</span>
         </div>
         <span style="font-size: 0.75rem; color: var(--color-text-secondary);">
-          Synced from <code>serverNow</code> &amp; <code>expiresAt</code> (refreshing never restarts timer)
+          Synced with school clock (refreshing will not reset your timer)
         </span>
       </div>
     </div>
@@ -3121,7 +3120,7 @@
     >
       <div>
         <div style="font-size: 0.82rem; font-weight: 700; color: var(--color-text-secondary); text-transform: uppercase;">
-          Authoritative Server-Calculated Transfer Amount
+          Total Amount to Transfer
         </div>
         <div id="payment-transfer-invoices-summary" style="font-size: 0.88rem; color: var(--color-text-primary); margin-top: 2px;">
           -
@@ -3143,20 +3142,13 @@
       style="margin-bottom: 16px;"
     >
       <p class="banner-title">
-        15-Minute Payment Reservation Expired — Payment Is NOT Marked Paid
+        15-Minute Payment Session Expired
       </p>
       <p class="banner-text" style="margin-bottom: 8px;">
-        The 15-minute reservation window (<code>expiresAt</code>) for this session has ended. The
-        PromptPay QR code has been hidden so you do not accidentally initiate a late transfer, and
-        this payment session is <strong>never marked paid when the timer ends</strong>.
+        The 15-minute payment window for this session has ended. The PromptPay QR code has been hidden so you do not accidentally make a late transfer.
       </p>
       <p class="banner-text" style="margin: 0; font-size: 0.86rem;">
-        <strong>Important Notice About Saved QR Images &amp; Transfers Near Expiry:</strong>
-        A screenshot or saved QR image in your phone gallery may still be payable through a banking app
-        even after this portal timer expires. If you already transferred funds before or after expiry,
-        <strong>do not transfer a second time</strong>: refresh your payment status to start a new
-        reservation for the unpaid installment(s) and attach your transfer slip, or contact school
-        support quoting your Session ID.
+        <strong>Already transferred?</strong> If you already completed the transfer in your banking app, <strong>please do not transfer again</strong>. Simply start a new payment session for the installment and upload your transfer slip, or contact us with your Session ID.
       </p>
     </div>
 
@@ -3184,7 +3176,7 @@
           </div>
           <div style="margin-top: 12px; width: 100%;">
             <div style="font-size: 0.82rem; color: var(--color-text-secondary); font-weight: 700;">
-              Recipient (Snapshotted): <span id="payment-promptpay-school-display">Pattanabhumi Biology</span>
+              Recipient: <span id="payment-promptpay-school-display">Pattanabhumi Biology</span>
             </div>
             <div style="font-size: 0.88rem; color: var(--color-brand-deep); font-weight: 700; margin-top: 2px;">
               PromptPay ID: <code id="payment-promptpay-target-display">-</code>
@@ -3210,19 +3202,13 @@
 
       <!-- Mandatory PromptPay Notices (Always visible in PromptPay mode) -->
       <div class="status-item" style="margin-top: 12px;">
-        <div class="status-label">Important PromptPay Security &amp; Saved-QR Notices</div>
+        <div class="status-label">Helpful Payment Reminders</div>
         <ul style="margin: 6px 0 0 18px; padding: 0; font-size: 0.86rem; color: var(--color-text-secondary); line-height: 1.5;">
           <li>
-            <strong>Bank-Recipient Info Is Not Backend Validation:</strong> Scanning this QR code or
-            viewing school recipient details does not automatically validate or confirm your payment.
-            You must click <em>&ldquo;I have paid&rdquo;</em>, upload your transfer receipt image, and
-            submit it for administrator verification.
+            <strong>Upload Your Slip After Paying:</strong> Scanning this QR code in your banking app does not automatically confirm your payment on the website. After transferring, please click <em>&ldquo;I have paid&rdquo;</em> and upload your transfer slip so we can verify your payment.
           </li>
           <li>
-            <strong>Saved QR Images May Still Be Payable Through a Bank:</strong> The 15-minute
-            countdown controls this portal’s invoice reservation and hides the QR on screen at
-            <code>00:00</code>, but it cannot remotely deactivate a static QR screenshot saved on your
-            device. Do not pay from an old screenshot after the timer ends.
+            <strong>Avoid Paying From Old Screenshots:</strong> Please complete your transfer before the 15-minute timer ends, and avoid paying from an old saved QR screenshot later.
           </li>
         </ul>
       </div>
@@ -3231,11 +3217,9 @@
     <!-- BANK TRANSFER VIEW -->
     <div id="payment-method-view-bank" class="hidden" style="margin-bottom: 16px;">
       <div class="status-item" style="margin-bottom: 12px;">
-        <div class="status-label">Snapshotted Bank Transfer Recipient Details</div>
+        <div class="status-label">School Bank Account Details</div>
         <p style="margin: 4px 0 12px 0; font-size: 0.86rem; color: var(--color-text-secondary);">
-          Transfer the exact THB amount below to the school’s bank account snapshotted into this
-          payment session (<code id="payment-bank-snapshot-time">-</code>). Remember that displaying
-          recipient details is not a substitute for backend receipt verification.
+          Please transfer the exact THB amount below to the school’s bank account (<span id="payment-bank-snapshot-time">-</span>), then click <em>&ldquo;I have paid&rdquo;</em> to upload your transfer slip.
         </p>
 
         <div class="bank-detail-row">
@@ -3383,11 +3367,7 @@
           3. Upload Your Transfer Slip &amp; Confirm Payment Submission
         </h2>
         <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
-          Upload your bank or PromptPay transfer slip image (approved <code>PNG</code>,
-          <code>JPEG</code>, or <code>WebP</code> up to the <code>2 MB</code> application limit).
-          Once your receipt thumbnail is verified below, click
-          <strong>Confirm Payment Submission</strong> to transition your payment to
-          <code>Awaiting verification</code> (<code>AWAITING_VERIFICATION</code>).
+          Upload a clear image of your bank or PromptPay transfer slip (PNG, JPEG, or WebP). Once your receipt preview appears below, click <strong>Confirm Payment Submission</strong> so our team can verify your payment.
         </p>
       </div>
       <button
@@ -3445,9 +3425,7 @@
           ></span>
         </div>
         <p style="margin: 10px 0 0 0; font-size: 0.8rem; color: var(--color-text-secondary);">
-          Server validates magic-byte file signature (rejecting SVG, HTML, executables, and mismatched
-          MIME types) and stores the receipt privately in Google Drive linked to your
-          <code>payment_id</code>.
+          Your transfer slip is stored securely in the school’s private folder for verification.
         </p>
       </div>
 
@@ -3507,29 +3485,14 @@
     <!-- Defined Policy for Transfers Made Before or After Expiry & Reservation Conflicts -->
     <div class="status-item" style="margin-bottom: 16px;">
       <div class="status-label">
-        Policy for Transfers Made Before or After Session Expiry &amp; Competing Sessions
+        What If My 15-Minute Timer Runs Out After I Paid?
       </div>
       <ul style="margin: 6px 0 0 18px; padding: 0; font-size: 0.84rem; color: var(--color-text-secondary); line-height: 1.5;">
         <li>
-          <strong>Transfer Made BEFORE Session Expiry:</strong> Upload your receipt and click
-          <em>Confirm Payment Submission</em> before the 15-minute timer ends. If the timer reached
-          <code>00:00</code> after you transferred and no other session has claimed your invoice,
-          do not transfer again—start a new reservation for the unpaid installment(s) and upload the
-          same transfer slip (or contact school support quoting your preserved <code>receipt_file_id</code>).
+          <strong>Paid Before the Timer Ended:</strong> Please upload your slip and click <em>Confirm Payment Submission</em> before the 15-minute timer runs out. If the timer expired right after you transferred, <strong>do not pay a second time</strong>—simply start a new session for the installment and upload your transfer slip.
         </li>
         <li>
-          <strong>Transfer Made AFTER Session Expiry:</strong> If you paid after the 15-minute window
-          ended (for example, using a saved QR image), your transfer is still received by the school’s
-          bank account. Do not pay a second time—start a new reservation if the installment is still
-          <code>UNPAID</code>, or use the support path if another session now owns the invoice.
-        </li>
-        <li>
-          <strong>If Another Session Now Owns the Reservation:</strong> On submission, the server
-          rechecks every invoice’s <code>status</code> and <code>active_payment_id</code> inside a
-          lock. If another session now owns the reservation or paid the invoice, submission is
-          blocked (`ERR_CONFLICT_RESERVATION`) to prevent double-applying your payment, while
-          preserving your uploaded <code>receipt_file_id</code> and providing a one-click Support
-          Reference above.
+          <strong>Paid After the Timer Ended:</strong> If you transferred after the 15-minute window ended, your transfer still reaches the school’s bank account. Do not transfer again—start a new payment session if the installment is still unpaid, or contact us with your Payment ID if you need assistance.
         </li>
       </ul>
     </div>
@@ -3579,11 +3542,7 @@
           4. Payment Submitted — Awaiting Administrator Verification
         </h2>
         <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
-          Your transfer receipt has been linked and your payment session is now in
-          <strong>Awaiting verification</strong> (<code>AWAITING_VERIFICATION</code>). A school
-          administrator will verify your transfer slip against the school’s bank/PromptPay statement
-          and update the database status to <code>PAID</code> (or <code>REJECTED</code> if a new slip
-          is needed).
+          Your transfer slip has been received and is now <strong>awaiting verification</strong>. Our team will verify your transfer and update your status to <strong>Paid</strong> (or let you know if a clearer slip image is needed).
         </p>
       </div>
 
@@ -3592,7 +3551,7 @@
         class="btn btn-secondary btn-sm"
         id="btn-payment-review-bounded-refresh"
       >
-        Check Verification Status (Bounded Refresh)
+        Refresh Verification Status
       </button>
     </div>
 
@@ -3601,19 +3560,16 @@
       style="margin-bottom: 12px;"
       id="payment-awaiting-no-retransfer-notice"
     >
-      <p class="banner-title">Do Not Transfer Money a Second Time While Verification Is Pending</p>
+      <p class="banner-title">Please Do Not Transfer Again While Verification Is In Progress</p>
       <p class="banner-text" style="margin-bottom: 0;">
-        Your transfer receipt has been submitted for administrator verification. Please
-        <strong>do not make another bank or PromptPay transfer</strong> while this payment is in
-        <code>AWAITING_VERIFICATION</code> or <code>APPROVING</code>. Once verified, your
-        <strong>Outstanding Balance</strong> will automatically update.
+        Your transfer slip has been submitted for review. Please <strong>do not make another bank or PromptPay transfer</strong> while your payment is being verified. Once confirmed, your <strong>Outstanding Balance</strong> will update automatically.
       </p>
     </div>
 
     <div id="payment-review-sessions-container">
       <div class="status-item">
         <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
-          No payment sessions are currently in <code>AWAITING_VERIFICATION</code>.
+          No payments are currently awaiting verification.
         </p>
       </div>
     </div>
@@ -3658,8 +3614,7 @@
           5. Verified Paid Tuition Sessions
         </h2>
         <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
-          The payment sessions and installments below have been verified by a school administrator
-          and recorded as <code>PAID</code> in the database.
+          The payment sessions and installments below have been verified and confirmed as <strong>Paid</strong>.
         </p>
       </div>
 
@@ -3675,7 +3630,7 @@
     <div id="payment-paid-sessions-container">
       <div class="status-item">
         <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
-          No payment sessions have been marked <code>PAID</code> yet.
+          No completed payments recorded yet.
         </p>
       </div>
     </div>
@@ -3767,7 +3722,7 @@
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <span class="badge badge-ok">Class Schedule</span>
           <span class="badge badge-ok" id="calendar-timezone-badge">
-            Timezone: Asia/Bangkok (UTC+07:00 / ICT)
+            Bangkok Time (GMT+7)
           </span>
           <span class="badge badge-ok">Enrolled Course Schedule</span>
         </div>
@@ -4742,14 +4697,10 @@
         <div>
           <span class="badge badge-ok">School &amp; Portal Configuration</span>
           <h2 style="margin: 8px 0 4px 0; font-size: 1.3rem; color: var(--color-brand-deep);">
-            School Settings — Public vs. Private Configuration
+            School Settings &amp; Website Configuration
           </h2>
           <p style="margin: 0; font-size: 0.92rem; color: var(--color-text-secondary);">
-            Public settings are shared with visitors in <code>public.getBootstrap</code>. Private
-            settings (notification recipient email, PromptPay target, and bank account details) are
-            never included in <code>public.getBootstrap</code> and are restricted to authenticated
-             workflows. Every setting row checks its record <code>version</code> before saving so
-            another administrator's changes are never silently overwritten.
+            Update your school’s public contact details, payment account information, homepage content, and privacy notice.
           </p>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -4793,7 +4744,7 @@
           <div class="form-grid-2col">
             <div class="form-group">
               <label class="form-label" for="input-admin-school-name">
-                School Name (<code>SCHOOL_NAME</code>) *
+                School Name *
               </label>
               <input
                 type="text"
@@ -4807,7 +4758,7 @@
 
             <div class="form-group">
               <label class="form-label" for="input-admin-contact-email">
-                Public Contact Email (<code>CONTACT_EMAIL</code>)
+                Public Contact Email
               </label>
               <input
                 type="email"
@@ -4820,7 +4771,7 @@
 
             <div class="form-group">
               <label class="form-label" for="input-admin-line-url">
-                LINE Contact URL (<code>CONTACT_LINE_URL</code> — <code>https://</code>)
+                LINE Contact Link (https://)
               </label>
               <input
                 type="url"
@@ -4832,7 +4783,7 @@
 
             <div class="form-group hidden" aria-hidden="true">
               <label class="form-label" for="input-admin-facebook-url">
-                Facebook Page URL (<code>CONTACT_FACEBOOK_URL</code> — <code>https://</code>)
+                Facebook Page URL
               </label>
               <input
                 type="url"
@@ -4850,17 +4801,17 @@
         >
           <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
             <h3 style="margin: 0; font-size: 1.08rem; color: var(--color-brand-deep);">
-              B. Private Notification &amp; Banking Settings (Withheld from Public Bootstrap)
+              B. Notification &amp; Banking Settings (Shown Only During Student Checkout)
             </h3>
             <span class="badge badge-incomplete" id="admin-settings-private-versions-badge">
-              Private (Admin / Authenticated Payment Step Only)
+              Private (Students Only)
             </span>
           </div>
 
           <div class="form-grid-2col">
             <div class="form-group">
               <label class="form-label" for="input-admin-notification-email">
-                Notification Recipient Email (<code>ADMIN_NOTIFICATION_EMAIL</code>)
+                Notification Email (Receives Absence &amp; System Alerts)
               </label>
               <input
                 type="email"
@@ -4873,7 +4824,7 @@
 
             <div class="form-group">
               <label class="form-label" for="input-admin-promptpay-target">
-                PromptPay Target ID / Mobile / Tax ID (<code>PROMPTPAY_ID_DISPLAY</code>)
+                PromptPay ID (Phone Number or Tax ID)
               </label>
               <input
                 type="text"
@@ -4886,7 +4837,7 @@
 
             <div class="form-group">
               <label class="form-label" for="input-admin-bank-account-name">
-                Bank Account Name (<code>BANK_ACCOUNT_NAME</code>)
+                Bank Account Name
               </label>
               <input
                 type="text"
@@ -4899,7 +4850,7 @@
 
             <div class="form-group">
               <label class="form-label" for="input-admin-bank-name">
-                Bank Name (<code>BANK_NAME</code>)
+                Bank Name
               </label>
               <input
                 type="text"
@@ -4912,7 +4863,7 @@
 
             <div class="form-group">
               <label class="form-label" for="input-admin-bank-account-number">
-                Bank Account Number (<code>BANK_ACCOUNT_NUMBER</code>)
+                Bank Account Number
               </label>
               <input
                 type="text"
@@ -4930,17 +4881,15 @@
           style="padding: 16px; background: var(--color-bg-subtle); border: 1px solid var(--color-brand-border); border-radius: var(--radius-md); margin-bottom: 18px;"
         >
           <h3 style="margin: 0 0 8px 0; font-size: 1.08rem; color: var(--color-brand-deep);">
-            C. Privacy Notice Version &amp; Document Text
+            C. Privacy Notice Version &amp; Text
           </h3>
           <p style="margin: 0 0 12px 0; font-size: 0.88rem; color: var(--color-text-secondary);">
-            Updating <code>CURRENT_PRIVACY_NOTICE_VERSION</code> requires all students and
-            administrators to re-acknowledge the updated Privacy Notice on their next session check
-            while preserving their historical rows in <code>PrivacyChoices</code>.
+            Updating the Privacy Notice version prompts all students and administrators to review and accept the updated notice on their next sign-in.
           </p>
 
           <div class="form-group" style="max-width: 360px;">
             <label class="form-label" for="input-admin-privacy-version">
-              Privacy Notice Version (<code>CURRENT_PRIVACY_NOTICE_VERSION</code>) *
+              Privacy Notice Version *
             </label>
             <input
               type="text"
@@ -4953,7 +4902,7 @@
 
           <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" for="input-admin-privacy-document">
-              Privacy Notice Document Text (<code>PRIVACY_NOTICE_DOCUMENT_TEXT</code>) *
+              Privacy Notice Text *
             </label>
             <textarea
               class="form-textarea"
@@ -4971,33 +4920,28 @@
         >
           <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
             <h3 style="margin: 0; font-size: 1.08rem; color: var(--color-brand-deep);">
-              D. Official School Logo Configuration &amp; Upload
+              D. School Logo Configuration &amp; Upload
             </h3>
             <span class="badge badge-ok" id="admin-logo-upload-feature-badge">
-              Private Drive Upload Active (PNG/JPEG/WebP &le; 200 MB)
+              PNG, JPEG, or WebP
             </span>
           </div>
           <p
             id="admin-logo-upload-honest-note"
             style="margin: 0 0 12px 0; font-size: 0.88rem; color: var(--color-text-secondary);"
           >
-            Upload a replacement school logo (PNG, JPEG, or WebP up to the 2 MB application limit)
-            directly into the Restricted Google Drive folder via <code>admin.uploadFile</code>
-            (<code>purpose: 'SCHOOL_LOGO'</code>). The server verifies binary magic bytes outside
-            <code>LockService</code>, updates <code>Settings.LOGO_FILE_ID</code> to the new
-            <code>fil_...</code> application ID inside a short lock, and automatically rolls back
-            the Drive file if metadata persistence fails.
+            Upload a school logo image (PNG, JPEG, or WebP) to display across the navigation bar, login window, and student portal.
           </p>
 
           <div class="form-group" style="margin-bottom: 10px;">
             <label class="form-label" for="input-admin-logo-override">
-              Administrator Replacement Logo Reference (<code>Settings.LOGO_FILE_ID</code> — <code>fil_...</code> or Drive ID; leave blank for default <code>12EKzWLkKL9XEdZVrJBzGNERdAd7BFi--</code>)
+              Custom Logo File ID (Optional — leave blank to use default school logo)
             </label>
             <input
               type="text"
               class="form-input"
               id="input-admin-logo-override"
-              placeholder="Leave blank for default (12EKzWLkKL9XEdZVrJBzGNERdAd7BFi--) or enter fil_... / Drive ID"
+              placeholder="Leave blank for default logo or enter custom File ID"
             />
             <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
               <button
@@ -5005,14 +4949,14 @@
                 class="btn btn-secondary btn-sm"
                 id="btn-admin-use-default-logo"
               >
-                Clear Override (Use Default 12EKzWLkKL9XEdZVrJBzGNERdAd7BFi--)
+                Use Default School Logo
               </button>
               <button
                 type="button"
                 class="btn btn-outline btn-sm"
                 id="btn-admin-remove-logo-ref"
               >
-                Remove Active Logo Reference on Server
+                Remove Active Logo
               </button>
               <button
                 type="button"
@@ -5028,7 +4972,7 @@
 
           <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" for="input-admin-logo-upload-file">
-              Direct School Logo Upload (<code>SCHOOL_LOGO</code> — PNG, JPEG, or WebP &le; 200 MB Application Limit)
+              Upload New School Logo (PNG, JPEG, or WebP)
             </label>
             <div class="pb-file-upload-bar">
               <input
@@ -5132,27 +5076,24 @@
         <!-- E1. Dynamic DEK Cohort Mode & Manual Override -->
         <div class="pb-admin-cms-subbox">
           <h4 style="margin: 0 0 8px 0; font-size: 1rem; color: var(--pb-brand-deep);">
-            1. Dynamic DEK Cohort Welcome Banner (<code>DEK_DISPLAY_MODE</code>)
+            1. Student Cohort Welcome Banner (DEK Cohorts)
           </h4>
           <p style="margin: 0 0 12px 0; font-size: 0.86rem; color: var(--pb-text-secondary);">
-            By default, the platform calculates <code>firstDek = 70 + (bangkokYear - 2026)</code>
-            (displaying <strong>DEK70, DEK71, DEK72</strong> in 2026 and advancing automatically each
-            January 1 in <code>Asia/Bangkok</code>). Switch to <code>MANUAL_OVERRIDE</code> only if
-            you want to pin a custom starting cohort number.
+            Choose whether the homepage automatically displays the 3 current student cohorts for the calendar year (e.g., <strong>DEK70, DEK71, DEK72</strong>) or uses a custom starting DEK number.
           </p>
           <div class="form-grid-2col">
             <div class="form-group" style="margin-bottom: 0;">
               <label class="form-label" for="select-admin-cms-dek-mode">
-                DEK Calculation Mode (<code>DEK_DISPLAY_MODE</code>)
+                Cohort Display Mode
               </label>
               <select class="form-input" id="select-admin-cms-dek-mode">
-                <option value="AUTO_YEAR">AUTO_YEAR — Automatic by Asia/Bangkok Calendar Year (Recommended)</option>
-                <option value="MANUAL_OVERRIDE">MANUAL_OVERRIDE — Pin Custom Starting DEK Cohort Number</option>
+                <option value="AUTO_YEAR">Automatic by Calendar Year (Recommended)</option>
+                <option value="MANUAL_OVERRIDE">Manual — Pin Custom Starting DEK Number</option>
               </select>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
               <label class="form-label" for="input-admin-cms-dek-base">
-                Starting DEK Number (<code>DEK_MANUAL_BASE_NUMBER</code> — e.g. <code>70</code> for DEK70..DEK72)
+                Starting DEK Number (e.g. 70 for DEK70–DEK72)
               </label>
               <input
                 type="number"
@@ -5355,7 +5296,7 @@
         </div>
 
         <!-- E2C. Warning-Banner-Free Host Wrapper Generator (#sandboxFrame) -->
-        <div class="pb-admin-cms-subbox" id="admin-sandbox-frame-wrapper-box" style="margin-bottom: 14px;">
+        <div class="pb-admin-cms-subbox hidden" id="admin-sandbox-frame-wrapper-box" style="margin-bottom: 14px; display: none !important;" aria-hidden="true">
           <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 6px;">
             <h4 style="margin: 0; font-size: 1rem; color: var(--pb-brand-deep);">
               2C. Warning-Banner-Free Embed Wrapper (<code>/exec</code> Iframe Host)
@@ -5432,7 +5373,7 @@
                 class="form-input"
                 id="input-admin-cms-hero-eyebrow"
                 maxlength="140"
-                placeholder="Online Learning Platform — Asia/Bangkok (UTC+7)"
+                placeholder="Online Learning Platform"
               />
             </div>
 
@@ -5734,7 +5675,7 @@
         <div>
           <span class="badge badge-ok">User Accounts &amp; Course Enrollments</span>
           <h2 style="margin: 8px 0 4px 0; font-size: 1.3rem; color: var(--color-brand-deep);">
-            User Administration &amp; Course Assignment Preparation
+            Students &amp; Administrators
           </h2>
           <p style="margin: 0; font-size: 0.92rem; color: var(--color-text-secondary);">
             Manage student and administrator accounts, assign biology courses, and reset passwords.
@@ -5865,12 +5806,12 @@
         <table class="data-table" aria-label="Portal Users and Course Assignments">
           <thead>
             <tr>
-              <th scope="col">User / Normalized Username</th>
+              <th scope="col">User</th>
               <th scope="col">Role &amp; Status</th>
-              <th scope="col">Last Login (Asia/Bangkok)</th>
+              <th scope="col">Last Sign-In</th>
               <th scope="col">Privacy &amp; Marketing Choice</th>
               <th scope="col">Assigned Courses</th>
-              <th scope="col">Ver &amp; Actions</th>
+              <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody id="admin-users-table-tbody">
@@ -5941,9 +5882,7 @@
           id="admin-user-editor-subtitle"
           style="margin: 0 0 14px 0; font-size: 0.88rem; color: var(--color-text-secondary);"
         >
-          Usernames are normalized to lowercase for uniqueness while preserving display casing.
-          When editing an existing user, their <code>marketing_opt_in</code> preference and
-          <code>PrivacyChoices</code> history are strictly preserved.
+          Create a new student or administrator account, or update an existing user’s profile and course enrollments.
         </p>
 
         <form id="form-admin-user-editor" novalidate>
@@ -5952,7 +5891,7 @@
 
           <div class="form-group">
             <label class="form-label" for="input-user-editor-username">
-              Username (Unique normalized 3–40 chars: <code>a-z, 0-9, ., _, -</code>) *
+              Username (3–40 characters: letters, numbers, ., _, -) *
             </label>
             <input
               type="text"
@@ -6029,8 +5968,7 @@
             <label class="checkbox-label" for="input-user-editor-minor-flag">
               <input type="checkbox" id="input-user-editor-minor-flag" />
               <span>
-                Minor Student Flag (<code>is_minor_flag = TRUE</code> — flags account for school
-                review of parental/guardian consent requirements)
+                Student is under 20 (Minor) — requires parent or guardian consent
               </span>
             </label>
           </div>
@@ -6042,7 +5980,7 @@
             style="margin-bottom: 14px;"
           >
             <div class="status-label">
-              Preserved Student Privacy &amp; Marketing Choice (Read-Only for Admin)
+              Student Privacy &amp; Email Preferences (Read-Only)
             </div>
             <div
               id="user-editor-privacy-readonly-text"
@@ -6060,8 +5998,7 @@
               Assigned Biology Courses
             </div>
             <p style="margin: 0 0 10px 0; font-size: 0.83rem; color: var(--color-text-secondary);">
-              Check the courses this user is enrolled in. Saving creates or updates real
-              <code>enr_...</code> rows in the <code>Enrollments</code> worksheet.
+              Select the biology courses this student can access.
             </p>
             <div id="user-editor-courses-checkbox-list">
               <p style="margin: 0; font-size: 0.85rem; color: var(--color-text-muted);">
@@ -6109,13 +6046,10 @@
           Revokes Active Sessions Immediately
         </span>
         <h3 style="margin: 6px 0 4px 0; font-size: 1.18rem; color: var(--color-brand-deep);">
-          Reset User Password &amp; Revoke Sessions
+          Reset User Password
         </h3>
         <p style="margin: 0 0 14px 0; font-size: 0.88rem; color: var(--color-text-secondary);">
-          Select any user from the table (click <strong>Edit / Courses / Reset PW</strong> on a row)
-          to reset their password. Resetting a password hashes the new password with
-          PBKDF2-HMAC-SHA256, increments the user's concurrency <code>version</code>, clears login
-          lockout counters, and immediately revokes all active sessions for that user.
+          Select a user from the table above to set a new password. Resetting a password immediately signs the user out of any active devices.
         </p>
 
         <form id="form-admin-reset-password" novalidate>
@@ -6369,7 +6303,7 @@
 
           <div class="form-group">
             <label class="form-label" for="select-course-editor-status">
-              Publication Status (<code>DRAFT</code> / <code>PUBLISHED</code> / <code>ARCHIVED</code>) *
+              Publication Status *
             </label>
             <select class="form-input" id="select-course-editor-status">
               <option value="PUBLISHED">PUBLISHED (Visible to Enrolled Students)</option>
@@ -6394,7 +6328,7 @@
 
           <div class="form-group">
             <label class="form-label" for="input-course-editor-calendar-tag">
-              Calendar Event Tag (<code>calendar_tag</code>)
+              Calendar Event Tag
             </label>
             <input
               type="text"
@@ -6422,14 +6356,14 @@
 
         <div class="form-group">
           <label class="form-label" for="input-course-editor-cover-file-id">
-            Course Cover Application File Reference (<code>cover_file_id</code> — PNG, JPEG, or WebP &le; 200 MB)
+            Course Cover Image (PNG, JPEG, or WebP)
           </label>
           <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
             <input
               type="text"
               class="form-input"
               id="input-course-editor-cover-file-id"
-              placeholder="fil_... application file ID (or upload cover image below)"
+              placeholder="Cover image File ID (or upload cover image below)"
               maxlength="100"
               style="flex: 1; min-width: 240px;"
             />
@@ -6438,7 +6372,7 @@
               class="btn btn-outline btn-sm"
               id="btn-course-editor-remove-cover"
             >
-              Remove Cover Reference
+              Remove Cover Image
             </button>
           </div>
           <div class="pb-file-upload-bar">
@@ -6454,7 +6388,7 @@
               class="btn btn-secondary btn-sm pb-btn-upload-animated"
               id="btn-course-editor-upload-cover"
             >
-              Upload Cover Image (&le; 200 MB)
+              Upload Cover Image
             </button>
             <span
               id="course-editor-cover-upload-status"
@@ -6467,7 +6401,7 @@
         <!-- Structured Rich-Text Editor: Course Objectives -->
         <div class="form-group">
           <label class="form-label">
-            Course Objectives — Structured Rich Text (<code>objectives_richtext_json</code>)
+            Course Objectives
           </label>
           <div id="richtext-editor-course-objectives"></div>
         </div>
@@ -6475,7 +6409,7 @@
         <!-- Structured Rich-Text Editor: Course Learning Outcomes -->
         <div class="form-group">
           <label class="form-label">
-            Course Learning Outcomes — Structured Rich Text (<code>outcomes_richtext_json</code>)
+            Course Learning Outcomes
           </label>
           <div id="richtext-editor-course-outcomes"></div>
         </div>
@@ -6624,12 +6558,12 @@
 
             <div class="form-group">
               <label class="form-label" for="select-card-editor-type">
-                Card Type (<code>READING_CARD</code> / <code>RECORDING_CARD</code> / <code>ASSESSMENT_LINK_CARD</code>) *
+                Card Type *
               </label>
               <select class="form-input" id="select-card-editor-type">
-                <option value="READING_CARD">READING_CARD (Reading Material / Study Note)</option>
-                <option value="RECORDING_CARD">RECORDING_CARD (Class Video Recording)</option>
-                <option value="ASSESSMENT_LINK_CARD">ASSESSMENT_LINK_CARD (Link Assessment from Library)</option>
+                <option value="READING_CARD">Reading Material / Study Note</option>
+                <option value="RECORDING_CARD">Class Video Recording</option>
+                <option value="ASSESSMENT_LINK_CARD">Linked Assessment / Quiz</option>
               </select>
             </div>
 
@@ -6738,14 +6672,14 @@
 
             <div class="form-group">
               <label class="form-label" for="input-card-editor-image-file-id">
-                Optional Card Figure Reference (<code>image_file_id</code> — PNG, JPEG, or WebP &le; 200 MB)
+                Optional Card Image / Diagram (PNG, JPEG, or WebP)
               </label>
               <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                 <input
                   type="text"
                   class="form-input"
                   id="input-card-editor-image-file-id"
-                  placeholder="fil_... application file ID"
+                  placeholder="Image File ID"
                   maxlength="100"
                   style="flex: 1; min-width: 180px;"
                 />
@@ -6770,7 +6704,7 @@
                   class="btn btn-secondary btn-sm pb-btn-upload-animated"
                   id="btn-card-editor-upload-image"
                 >
-                  Upload Card Image (&le; 200 MB)
+                  Upload Card Image
                 </button>
                 <span
                   id="card-editor-image-upload-status"
@@ -6797,7 +6731,7 @@
           <!-- Structured Rich-Text Editor: Card Content -->
           <div class="form-group">
             <label class="form-label">
-              Card Structured Rich-Text Content (<code>content_richtext_json</code> — Bold, Italic, Underline, Sizes, Lists, Links) *
+              Card Content *
             </label>
             <div id="richtext-editor-card-content"></div>
           </div>
@@ -6843,14 +6777,7 @@
         </div>
 
         <p style="margin: 0 0 12px 0; font-size: 0.9rem; color: var(--color-text-secondary);">
-          <strong>How Enrollment &amp; Status Changes Affect Student Views:</strong>
-          Every call to <code>student.getProfile</code> and <code>student.getCourseDetail</code>
-          re-verifies the student's <code>Enrollments</code> row (<code>status === 'ACTIVE'</code>)
-          and the course's publication state (<code>status === 'PUBLISHED'</code>) on the backend.
-          If an administrator removes a student's enrollment in Tab 2 or sets a course to
-          <code>DRAFT</code> / <code>ARCHIVED</code>, any open student view immediately receives
-          <code>ERR_FORBIDDEN_RESOURCE</code> on its next refresh or navigation action and returns
-          the student to their updated profile list.
+          Students listed below have active access to this course. You can add or remove course access anytime in the <strong>Users</strong> tab.
         </p>
 
         <div id="admin-course-enrolled-students-list" class="status-grid"></div>
@@ -8976,7 +8903,7 @@
         <div class="form-grid-2col">
           <div class="form-group">
             <label class="form-label" for="select-admin-invoice-student">
-              Select Student Account (<code>STUDENT</code> Role) *
+              Select Student Account *
             </label>
             <select class="form-input" id="select-admin-invoice-student" required>
               <option value="">-- Select a Student --</option>
@@ -8985,7 +8912,7 @@
 
           <div class="form-group">
             <label class="form-label" for="select-admin-invoice-course">
-              Optional Associated Course (<code>course_id</code>)
+              Optional Associated Course
             </label>
             <select class="form-input" id="select-admin-invoice-course">
               <option value="">-- Optional: General Tuition / No Specific Course --</option>
@@ -9008,7 +8935,7 @@
 
           <div class="form-group">
             <label class="form-label" for="input-admin-invoice-amount-thb">
-              Amount in THB (e.g. <code>3500.00</code> = stored as <code>350000</code> satang) *
+              Amount in THB (e.g. 3500.00) *
             </label>
             <input
               type="text"
@@ -9022,7 +8949,7 @@
 
           <div class="form-group">
             <label class="form-label" for="input-admin-invoice-due-date">
-              Due Date (<code>YYYY-MM-DD</code> in <code>Asia/Bangkok</code>) *
+              Due Date *
             </label>
             <input
               type="date"
@@ -9131,9 +9058,7 @@
             Awaiting-Verification Queue &amp; Receipt Review
           </h3>
           <p style="margin: 0; font-size: 0.88rem; color: var(--color-text-secondary);">
-            Review student payment submissions in <code>AWAITING_VERIFICATION</code>, inspect the
-            authorized receipt thumbnail and full-size slip, verify bank credit against official
-            records, and either <strong>Approve (Mark PAID)</strong> or <strong>Reject with a required reason</strong>.
+            Review student payment submissions, inspect the uploaded transfer slip, verify the transfer in the school’s bank or PromptPay account, and either <strong>Approve (Mark Paid)</strong> or <strong>Reject with a reason</strong>.
           </p>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
@@ -9164,14 +9089,10 @@
         role="note"
       >
         <p class="banner-title">
-          Mandatory Bank Credit Verification Reminder — Do Not Treat Receipt Image Alone as Proof
+          Bank Statement Verification Reminder
         </p>
         <p class="banner-text" id="admin-payment-verification-reminder-text" style="margin-bottom: 0;">
-          Before clicking <strong>Approve (Mark PAID)</strong>, you must verify in the school’s official
-          bank statement or PromptPay merchant/account ledger that: (1) actual funds were credited,
-          (2) the recipient account/PromptPay target matches the school’s snapshotted recipient details,
-          (3) the credited amount matches the exact THB &amp; integer satang total, and (4) the transaction
-          reference/timestamp is authentic. <strong>Never treat an uploaded receipt image alone as proof of payment.</strong>
+          Before clicking <strong>Approve (Mark Paid)</strong>, please confirm in the school’s bank or PromptPay statement that the exact amount was credited to the school’s account.
         </p>
       </div>
 
@@ -9371,21 +9292,7 @@
       </div>
 
       <p style="margin: 0 0 10px 0; font-size: 0.9rem; color: var(--color-text-secondary);">
-        <strong>Application Limit &amp; RPC Envelope Policy:</strong> The 200 MB (209,715,200 bytes) ceiling is an
-        application-level engineering limit (not an invented universal Apps Script quota) designed to account for
-        ~33.3% Base64 expansion (~2.67 MB inside a 4.00 MB JSON RPC envelope). Every upload inspects binary magic
-        bytes (PNG, JPEG, WebP, PDF) on the server, rejects SVG/HTML/executables/spoofed MIME types, writes to the
-        <code>Restricted</code> Drive folder outside <code>LockService</code>, and automatically trashes the Drive
-        file if <code>Files</code> worksheet persistence fails.
-      </p>
-      <p style="margin: 0 0 10px 0; font-size: 0.9rem; color: var(--color-text-secondary);">
-        <strong>Sandbox Download &amp; Revocation Honesty:</strong> Private files are fetched via authorized
-        <code>file.getContent</code> RPCs (using application <code>fil_...</code> IDs, never exposing a generic
-        Drive file reader) and rendered or downloaded using temporary in-memory <code>Blob</code> object URLs
-        (<code>URL.createObjectURL</code>) that are automatically revoked on view navigation and logout.
-        Apps Script <code>HtmlService</code> runs inside a sandboxed iframe and does not support custom HTTP
-        streaming headers. Revoking course enrollment immediately blocks future server reads, though files a user
-        already saved locally cannot be remotely erased.
+        Course images, PDF handouts, and payment slips are stored securely in the school’s private Google Drive folder and delivered only to authorized students and administrators. You can use the buttons above to scan for and clean up unused uploaded files older than 24 hours.
       </p>
       <div
         id="admin-step8-orphan-status"
@@ -9594,30 +9501,7 @@
 
       <!-- Architectural Explanation Card: Sender, Recipient, No Gmail Password & Uncertain Outcome Policy -->
       <div class="unavail-email-arch-box">
-        <strong>Step 14 Email Delivery &amp; Security Architecture Reference:</strong>
-        <ul style="margin: 6px 0 0 18px; padding: 0;">
-          <li>
-            <strong>Official School Sender Address (<code>pattanabhumi.biology@gmail.com</code>):</strong> All outbound notifications and security OTP emails are dispatched from <strong>Pattanabhumi Biology</strong> (<code>pattanabhumi.biology@gmail.com</code>) via <code>GmailApp</code> / <code>MailApp</code>.
-          </li>
-          <li>
-            <strong>Recipient Is Strictly the Configured School Notification Address:</strong> The
-            recipient is read on the server from <code>Settings.ADMIN_NOTIFICATION_EMAIL</code> (changeable
-            in Tab 1: School Settings). Any recipient or header field supplied by a browser client is
-            ignored and never used.
-          </li>
-          <li>
-            <strong>Zero Gmail Passwords in Code or Database:</strong> Because Apps Script uses the
-            authorized execution account's native OAuth scope for <code>MailApp</code>, no Gmail password,
-            app password, or SMTP secret belongs in the application.
-          </li>
-          <li>
-            <strong>Student Isolation &amp; Record-Before-Send Integrity:</strong> Students can view only
-            their own requests (<code>ERR_FORBIDDEN_RESOURCE</code> on cross-student access). Every request
-            is persisted in <code>UnavailabilityRequests</code> before <code>MailApp.sendEmail</code> is
-            called, and uncertain post-send database errors are flagged as
-            <code>UNCERTAIN_POST_SEND_UPDATE_FAILED</code> so duplicate emails are never sent automatically.
-          </li>
-        </ul>
+        <strong>How Absence Notifications Work:</strong> Student absence reports are saved to the school records first and then emailed automatically to the configured school notification address.
       </div>
     </div>
   </div>
@@ -10295,65 +10179,40 @@
         id="privacy-gate-document-text"
         style="white-space: pre-line; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px dashed var(--color-brand-border); color: var(--color-text-primary); font-weight: 500;"
       ></div>
-      <h3>1. Educational &amp; Administrative Data Processed</h3>
+      <h3>1. Information We Collect to Support Your Learning</h3>
       <p>
-        Pattanabhumi Biology processes your account profile (username, full name, email address,
-        role, and last login timestamp), course enrollments, tuition installment records, uploaded
-        payment receipt images, and class unavailability reports so the school can deliver biology
-        tutoring courses, verify tuition payments, and coordinate class schedules in the
-        <code>Asia/Bangkok</code> timezone.
+        Pattanabhumi Biology collects your student profile (username, full name, and email address), course enrollments, assessment progress, tuition payment records, uploaded transfer slips, and class absence notices so we can deliver your biology courses, verify tuition payments, and keep your class schedule up to date.
       </p>
 
-      <h3>2. Where Portal Records Are Stored</h3>
+      <h3>2. How Your Information Is Stored</h3>
       <p>
-        Application records are stored in a private Google Sheet, uploaded course materials and
-        payment receipts are stored in restricted Google Drive folders owned by the school, class
-        schedules are read from Google Calendar, and unavailability notifications are sent via
-        Gmail / Google Apps Script <code>MailApp</code>.
+        Your student records, uploaded course handouts, and payment slips are stored securely in the school’s private cloud storage and are accessible only to you and authorized school instructors and administrators.
       </p>
 
-      <h3>3. Essential Browser Storage &amp; Cookie Policy</h3>
+      <h3>3. Sign-In Sessions &amp; Browser Storage</h3>
       <ul>
         <li>
-          <strong>Default In-Memory Session Credential:</strong> When you sign in without checking
-          "Remember me", your opaque session token is held only in browser memory and is cleared as
-          soon as you close or refresh the tab.
+          <strong>Standard Sign-In:</strong> When you sign in without checking "Remember me", your session stays active only while your browser tab is open.
         </li>
         <li>
-          <strong>Optional "Remember Me" Storage (<code>localStorage</code>):</strong> If you check
-          "Remember me", an opaque 256-bit bearer token is stored in browser
-          <code>localStorage</code> (<code>pb_lms_session_token_v1</code>) for up to 7 days.
+          <strong>"Remember Me" (Optional):</strong> If you check "Remember me", your browser securely saves your sign-in session for up to 7 days on this device so you do not have to sign in every time.
         </li>
         <li>
-          <strong>No Custom <code>HttpOnly</code> Cookies &amp; No Tracking Cookies:</strong>
-          Because Google Apps Script HTML Service runs inside a sandboxed
-          <code>*.googleusercontent.com</code> iframe, this web app does not issue custom
-          <code>HttpOnly</code> cookies, never stores passwords, banking details, profile data, or
-          login bearer tokens in cookies, and uses zero advertising or cross-site tracking cookies.
-          A non-sensitive UI banner preference (<code>pb_ui_storage_notice_ack</code>) may be saved
-          via a first-party cookie or <code>localStorage</code> fallback.
+          <strong>No Advertising or Tracking Cookies:</strong> This learning portal does not use advertising cookies or third-party trackers, and never stores your password or banking details in browser cookies.
         </li>
       </ul>
 
-      <h3>4. Important Notice Regarding School Legal Review &amp; Minor Students</h3>
+      <h3>4. Students Under 20 &amp; Parent/Guardian Consent</h3>
       <p>
-        Acknowledging this notice records the version and server timestamp of your review in the
-        <code>PrivacyChoices</code> sheet. However, a single checkbox does <strong>not</strong> by
-        itself constitute complete legal compliance under the Thai Personal Data Protection Act
-        (PDPA B.E. 2562) or other applicable laws, and this software does not invent statutory
-        retention periods. <strong>Pattanabhumi Biology administration must review this notice with
-        qualified legal counsel, establish official data-retention schedules, and verify parental or
-        legal guardian consent requirements for minor students.</strong>
+        If you are under 20 years of age, please review this notice together with your parent or legal guardian in accordance with school enrollment policies and the Thai Personal Data Protection Act (PDPA).
       </p>
     </div>
 
     <!-- Legal & Minor Review Callout Banner -->
     <div class="banner banner-warning" style="margin-bottom: 14px;">
-      <p class="banner-title">School Compliance &amp; Minor Student Consent Notice</p>
+      <p class="banner-title">Parent / Guardian Notice for Students Under 20</p>
       <p class="banner-text">
-        The school must review this Privacy Notice and verify parental/guardian consent rules for
-        minor students. Marketing email consent below is completely separate and optional—you do
-        not need to check the marketing box to study or use any portal feature.
+        Students under 20 should review this Privacy Notice with a parent or legal guardian. Optional school news emails are completely separate—you do not need to opt into marketing emails to access your courses or exams.
       </p>
     </div>
 
@@ -10655,8 +10514,7 @@
           id="unavail-modal-subtitle"
           style="margin: 0; font-size: 0.92rem; color: var(--color-text-secondary);"
         >
-          Submit your unavailable date(s) and reason below. Your request is recorded in the school
-          database first and then sent in English to the configured school notification email.
+          Let your instructor know in advance if you will miss a scheduled class.
         </p>
       </div>
       <button
@@ -10671,18 +10529,14 @@
 
     <!-- Required Notice: Request Does NOT Automatically Cancel a Class -->
     <div class="unavail-policy-callout" role="note" id="unavail-modal-non-cancellation-notice">
-      <strong>Important Notice — Does Not Automatically Cancel a Class:</strong> Submitting an
-      unavailability report notifies the school administration and instructor of your planned
-      absence, but it <strong>does NOT automatically cancel, reschedule, or excuse a scheduled class
-      session</strong>. Please check with your instructor or school office regarding make-up material
-      or class recordings.
+      <strong>Please Note:</strong> Submitting an absence notice informs your instructor and the school office of your planned absence, but it <strong>does not automatically cancel or reschedule a class session</strong>. Please check with your instructor regarding make-up materials or class recordings.
     </div>
 
     <form id="form-report-unavailability" novalidate>
       <!-- Session-Derived Student Identity (Read-Only) -->
       <div class="status-item" style="margin-bottom: 14px;">
         <div class="status-label">
-          Student Identity (Derived Strictly From Verified Server Session — Cannot Be Spoofed)
+          Student Account
         </div>
         <div
           id="unavail-modal-student-identity"
@@ -10695,7 +10549,7 @@
       <div class="form-grid-2col" style="margin-bottom: 12px;">
         <div class="form-group" style="margin-bottom: 0;">
           <label class="form-label" for="input-unavail-start-date">
-            Unavailable Date / Start Date (<code>Asia/Bangkok</code>, <code>YYYY-MM-DD</code>) *
+            Absence Start Date *
           </label>
           <input
             type="date"
@@ -10758,7 +10612,7 @@
       >
         <div class="spinner" aria-hidden="true"></div>
         <p style="margin: 8px 0 0 0; font-weight: 700; color: var(--color-brand-deep);">
-          Recording unavailability request in database first, then dispatching English notification email&hellip;
+          Submitting your absence notice&hellip;
         </p>
       </div>
 
@@ -10786,18 +10640,14 @@
             class="btn btn-secondary btn-sm"
             id="btn-unavail-modal-retry-email"
           >
-            Retry Notification Email (Controlled &amp; Bounded)
+            Resend Notification Email
           </button>
         </div>
       </div>
 
       <!-- Sender / Recipient / No-Gmail-Password Disclosure -->
       <div class="unavail-email-arch-box" style="margin-bottom: 16px;">
-        <strong>Email Delivery &amp; Security Disclosure:</strong> Your request is saved in
-        <code>UnavailabilityRequests</code> before email is attempted. The notification email is sent in
-        English from the Google account authorized to run Apps Script to the school’s configured
-        <code>ADMIN_NOTIFICATION_EMAIL</code> (no Gmail password is stored in the app). Rate limit:
-        maximum 5 requests per 15 minutes.
+        <strong>How It Works:</strong> Your absence notice is saved to your student record and emailed automatically to your instructor and the school office.
       </div>
 
       <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">

@@ -491,65 +491,40 @@
         id="privacy-gate-document-text"
         style="white-space: pre-line; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px dashed var(--color-brand-border); color: var(--color-text-primary); font-weight: 500;"
       ></div>
-      <h3>1. Educational &amp; Administrative Data Processed</h3>
+      <h3>1. Information We Collect to Support Your Learning</h3>
       <p>
-        Pattanabhumi Biology processes your account profile (username, full name, email address,
-        role, and last login timestamp), course enrollments, tuition installment records, uploaded
-        payment receipt images, and class unavailability reports so the school can deliver biology
-        tutoring courses, verify tuition payments, and coordinate class schedules in the
-        <code>Asia/Bangkok</code> timezone.
+        Pattanabhumi Biology collects your student profile (username, full name, and email address), course enrollments, assessment progress, tuition payment records, uploaded transfer slips, and class absence notices so we can deliver your biology courses, verify tuition payments, and keep your class schedule up to date.
       </p>
 
-      <h3>2. Where Portal Records Are Stored</h3>
+      <h3>2. How Your Information Is Stored</h3>
       <p>
-        Application records are stored in a private Google Sheet, uploaded course materials and
-        payment receipts are stored in restricted Google Drive folders owned by the school, class
-        schedules are read from Google Calendar, and unavailability notifications are sent via
-        Gmail / Google Apps Script <code>MailApp</code>.
+        Your student records, uploaded course handouts, and payment slips are stored securely in the school’s private cloud storage and are accessible only to you and authorized school instructors and administrators.
       </p>
 
-      <h3>3. Essential Browser Storage &amp; Cookie Policy</h3>
+      <h3>3. Sign-In Sessions &amp; Browser Storage</h3>
       <ul>
         <li>
-          <strong>Default In-Memory Session Credential:</strong> When you sign in without checking
-          "Remember me", your opaque session token is held only in browser memory and is cleared as
-          soon as you close or refresh the tab.
+          <strong>Standard Sign-In:</strong> When you sign in without checking "Remember me", your session stays active only while your browser tab is open.
         </li>
         <li>
-          <strong>Optional "Remember Me" Storage (<code>localStorage</code>):</strong> If you check
-          "Remember me", an opaque 256-bit bearer token is stored in browser
-          <code>localStorage</code> (<code>pb_lms_session_token_v1</code>) for up to 7 days.
+          <strong>"Remember Me" (Optional):</strong> If you check "Remember me", your browser securely saves your sign-in session for up to 7 days on this device so you do not have to sign in every time.
         </li>
         <li>
-          <strong>No Custom <code>HttpOnly</code> Cookies &amp; No Tracking Cookies:</strong>
-          Because Google Apps Script HTML Service runs inside a sandboxed
-          <code>*.googleusercontent.com</code> iframe, this web app does not issue custom
-          <code>HttpOnly</code> cookies, never stores passwords, banking details, profile data, or
-          login bearer tokens in cookies, and uses zero advertising or cross-site tracking cookies.
-          A non-sensitive UI banner preference (<code>pb_ui_storage_notice_ack</code>) may be saved
-          via a first-party cookie or <code>localStorage</code> fallback.
+          <strong>No Advertising or Tracking Cookies:</strong> This learning portal does not use advertising cookies or third-party trackers, and never stores your password or banking details in browser cookies.
         </li>
       </ul>
 
-      <h3>4. Important Notice Regarding School Legal Review &amp; Minor Students</h3>
+      <h3>4. Students Under 20 &amp; Parent/Guardian Consent</h3>
       <p>
-        Acknowledging this notice records the version and server timestamp of your review in the
-        <code>PrivacyChoices</code> sheet. However, a single checkbox does <strong>not</strong> by
-        itself constitute complete legal compliance under the Thai Personal Data Protection Act
-        (PDPA B.E. 2562) or other applicable laws, and this software does not invent statutory
-        retention periods. <strong>Pattanabhumi Biology administration must review this notice with
-        qualified legal counsel, establish official data-retention schedules, and verify parental or
-        legal guardian consent requirements for minor students.</strong>
+        If you are under 20 years of age, please review this notice together with your parent or legal guardian in accordance with school enrollment policies and the Thai Personal Data Protection Act (PDPA).
       </p>
     </div>
 
     <!-- Legal & Minor Review Callout Banner -->
     <div class="banner banner-warning" style="margin-bottom: 14px;">
-      <p class="banner-title">School Compliance &amp; Minor Student Consent Notice</p>
+      <p class="banner-title">Parent / Guardian Notice for Students Under 20</p>
       <p class="banner-text">
-        The school must review this Privacy Notice and verify parental/guardian consent rules for
-        minor students. Marketing email consent below is completely separate and optional—you do
-        not need to check the marketing box to study or use any portal feature.
+        Students under 20 should review this Privacy Notice with a parent or legal guardian. Optional school news emails are completely separate—you do not need to opt into marketing emails to access your courses or exams.
       </p>
     </div>
 
