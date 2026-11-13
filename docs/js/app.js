@@ -3032,6 +3032,8 @@
       toggleHidden('btn-mobile-logout', !isSignedIn);
 
       /* Admin-only controls (Strictly hidden for students and unauthenticated visitors) */
+      toggleHidden('nav-desktop-exams', !isAdmin);
+      toggleHidden('nav-mobile-exams', !isAdmin);
       toggleHidden('nav-desktop-admin', !isAdmin);
       toggleHidden('nav-mobile-admin', !isAdmin);
 
@@ -4983,6 +4985,24 @@
         return;
       }
 
+      if (targetView === 'admin-exams') {
+        if (usr.role !== 'ADMIN') {
+          showUiErrorBanner({
+            code: 'ERR_FORBIDDEN_ROLE',
+            action: 'ui.navigateAdminExams',
+            requestId: 'ui_guard',
+            message:
+              'Access denied: Exams & Quizzes Studio is restricted to administrator accounts.'
+          });
+          return;
+        }
+        showSectionView('admin');
+        if (typeof enterAdminExamsStudioMode === 'function') {
+          enterAdminExamsStudioMode('builder');
+        }
+        return;
+      }
+
       if (targetView === 'admin') {
         if (usr.role !== 'ADMIN') {
           showUiErrorBanner({
@@ -4993,6 +5013,9 @@
               'Access denied: Admin Dashboard is restricted to administrator accounts.'
           });
           return;
+        }
+        if (typeof exitAdminExamsStudioMode === 'function') {
+          exitAdminExamsStudioMode();
         }
         showSectionView('admin');
         refreshAdminDashboardSummary();
@@ -5173,7 +5196,11 @@
         if (profJumpExamCreationBtn.dataset) profJumpExamCreationBtn.dataset.boundSub = '1';
         profJumpExamCreationBtn.addEventListener('click', function () {
           showSectionView('admin');
-          switchAdminSubTab('exam-creation', true, true);
+          if (typeof enterAdminExamsStudioMode === 'function') {
+            enterAdminExamsStudioMode('builder');
+          } else {
+            switchAdminSubTab('exam-creation', true, true);
+          }
         });
       }
       var profJumpExamIntegrityBtn = document.getElementById('btn-profile-admin-jump-exam-integrity');
@@ -5181,7 +5208,11 @@
         if (profJumpExamIntegrityBtn.dataset) profJumpExamIntegrityBtn.dataset.boundSub = '1';
         profJumpExamIntegrityBtn.addEventListener('click', function () {
           showSectionView('admin');
-          switchAdminSubTab('exam-integrity', true, true);
+          if (typeof enterAdminExamsStudioMode === 'function') {
+            enterAdminExamsStudioMode('integrity');
+          } else {
+            switchAdminSubTab('exam-integrity', true, true);
+          }
         });
       }
     }
@@ -17784,7 +17815,8 @@ var qrcode = (function() {
       var courseSelectIds = [
         'select-admin-exams-course-filter',
         'select-exam-editor-course',
-        'select-exam-assign-course'
+        'select-exam-assign-course',
+        'select-forms-exam-course'
       ];
       for (var s = 0; s < courseSelectIds.length; s++) {
         var sel = document.getElementById(courseSelectIds[s]);
@@ -18325,11 +18357,15 @@ var qrcode = (function() {
           var editBtn = document.createElement('button');
           editBtn.type = 'button';
           editBtn.className = 'btn btn-secondary btn-sm';
-          editBtn.textContent = 'Edit';
+          editBtn.textContent = 'Edit in Form Builder';
           editBtn.addEventListener('click', function () {
-            populateAdminExamEditorForEditPhase3(ex);
-            if (typeof PBAdminActionModal === 'object' && PBAdminActionModal) {
-              PBAdminActionModal.open('admin-exam-editor-card', 'Create / Edit Examination Set & Section Builder');
+            if (typeof openFormsExamBuilderWithExam === 'function') {
+              openFormsExamBuilderWithExam(ex);
+            } else {
+              populateAdminExamEditorForEditPhase3(ex);
+              if (typeof PBAdminActionModal === 'object' && PBAdminActionModal) {
+                PBAdminActionModal.open('admin-exam-editor-card', 'Create / Edit Examination Set & Section Builder');
+              }
             }
           });
           btnWrap.appendChild(editBtn);
@@ -19263,6 +19299,1467 @@ var qrcode = (function() {
         });
     }
 
+    // ========================================================================
+    // DEDICATED EXAMS & QUIZZES STUDIO + GOOGLE FORMS STYLE EXAM BUILDER
+    // ========================================================================
+    var isExamStudioModeActive = false;
+    var currentExamStudioTab = 'builder';
+    var formsBuilderQuestionCards = [];
+    var formsBuilderCardSeq = 1;
+
+    function updateNavbarActiveForExamStudio(inExamStudio) {
+      var navBtns = document.querySelectorAll('[data-nav-view]');
+      for (var j = 0; j < navBtns.length; j++) {
+        var btn = navBtns[j];
+        var tv = btn.getAttribute('data-nav-view');
+        if (tv === 'admin-exams') {
+          btn.classList.toggle('is-active', Boolean(inExamStudio));
+          if (inExamStudio) btn.setAttribute('aria-current', 'page');
+          else btn.removeAttribute('aria-current');
+        } else if (tv === 'admin') {
+          btn.classList.toggle('is-active', !inExamStudio);
+          if (!inExamStudio) btn.setAttribute('aria-current', 'page');
+          else btn.removeAttribute('aria-current');
+        }
+      }
+    }
+
+    function enterAdminExamsStudioMode(opt_studioTab) {
+      isExamStudioModeActive = true;
+      var adminHeader = document.getElementById('admin-header-overview-card');
+      var studioHeader = document.getElementById('admin-exams-studio-header-card');
+      if (adminHeader) adminHeader.classList.add('hidden');
+      if (studioHeader) studioHeader.classList.remove('hidden');
+      updateNavbarActiveForExamStudio(true);
+      switchAdminExamStudioTab(opt_studioTab || currentExamStudioTab || 'builder');
+    }
+
+    function exitAdminExamsStudioMode() {
+      if (!isExamStudioModeActive) return;
+      isExamStudioModeActive = false;
+      var adminHeader = document.getElementById('admin-header-overview-card');
+      var studioHeader = document.getElementById('admin-exams-studio-header-card');
+      if (adminHeader) adminHeader.classList.remove('hidden');
+      if (studioHeader) studioHeader.classList.add('hidden');
+      closeFormsExamBuilderToCatalog();
+      if (
+        currentAdminTab === 'exam-creation' ||
+        currentAdminTab === 'exam-integrity' ||
+        currentAdminTab === 'assessments'
+      ) {
+        switchAdminSubTab('settings', true, false);
+      } else {
+        switchAdminSubTab(currentAdminTab || 'settings', true, false);
+      }
+      updateNavbarActiveForExamStudio(false);
+    }
+
+    function switchAdminExamStudioTab(studioTab) {
+      currentExamStudioTab = studioTab || 'builder';
+      var tabIds = [
+        { k: 'builder', id: 'btn-exam-studio-tab-builder' },
+        { k: 'grading', id: 'btn-exam-studio-tab-grading' },
+        { k: 'integrity', id: 'btn-exam-studio-tab-integrity' },
+        { k: 'qbank', id: 'btn-exam-studio-tab-qbank' }
+      ];
+      for (var i = 0; i < tabIds.length; i++) {
+        var b = document.getElementById(tabIds[i].id);
+        var active = tabIds[i].k === currentExamStudioTab;
+        if (b) {
+          b.classList.toggle('is-active', active);
+          b.setAttribute('aria-selected', active ? 'true' : 'false');
+        }
+      }
+
+      // Hide the old sub-category header card inside admin-panel-exam-creation when in Studio mode
+      var creationPanel = document.getElementById('admin-panel-exam-creation');
+      if (creationPanel && creationPanel.firstElementChild && creationPanel.firstElementChild.querySelector('#admin-exam-creation-subnav')) {
+        creationPanel.firstElementChild.classList.toggle('hidden', isExamStudioModeActive);
+      }
+
+      if (currentExamStudioTab === 'builder') {
+        switchAdminSubTab('exam-creation', true, false);
+        switchAdminExamCreationSubCategory('sets');
+      } else if (currentExamStudioTab === 'qbank') {
+        closeFormsExamBuilderToCatalog();
+        switchAdminSubTab('exam-creation', true, false);
+        switchAdminExamCreationSubCategory('qbank');
+      } else if (currentExamStudioTab === 'grading') {
+        closeFormsExamBuilderToCatalog();
+        switchAdminSubTab('assessments', true, false);
+        switchAdminAssessmentsSubCategory('attempts');
+      } else if (currentExamStudioTab === 'integrity') {
+        closeFormsExamBuilderToCatalog();
+        switchAdminSubTab('exam-integrity', true, false);
+      }
+      updateNavbarActiveForExamStudio(isExamStudioModeActive);
+    }
+
+    function createBlankFormsQuestionCardState(opt_overrides) {
+      var ov = opt_overrides && typeof opt_overrides === 'object' ? opt_overrides : {};
+      var qType = ov.questionType || 'SINGLE_CHOICE';
+      var defaultOpts =
+        qType === 'TRUE_FALSE'
+          ? [
+              { text: 'True', isCorrect: true, pinPosition: 'FIXED' },
+              { text: 'False', isCorrect: false, pinPosition: 'FIXED' }
+            ]
+          : [
+              { text: 'Option A', isCorrect: true, pinPosition: 'NONE' },
+              { text: 'Option B', isCorrect: false, pinPosition: 'NONE' },
+              { text: 'Option C', isCorrect: false, pinPosition: 'NONE' },
+              { text: 'Option D', isCorrect: false, pinPosition: 'NONE' }
+            ];
+      return {
+        localId: 'fcard_' + (formsBuilderCardSeq++),
+        questionId: ov.questionId || '',
+        expectedVersion: ov.expectedVersion || '',
+        questionCode: ov.questionCode || '',
+        title: ov.title || '',
+        questionType: qType,
+        stem: ov.stem !== undefined ? ov.stem : '',
+        points: ov.points !== undefined ? String(ov.points) : '2',
+        negativePoints: ov.negativePoints !== undefined ? String(ov.negativePoints) : '0',
+        difficulty: ov.difficulty || 'MEDIUM',
+        topicTags: ov.topicTags || 'General Biology',
+        options: Array.isArray(ov.options) && ov.options.length > 0 ? ov.options : defaultOpts,
+        multiSelectRule: ov.multiSelectRule || 'EXACT_MATCH',
+        numericTarget: ov.numericTarget !== undefined ? String(ov.numericTarget) : '0',
+        numericTolerance: ov.numericTolerance !== undefined ? String(ov.numericTolerance) : '0',
+        numericUnit: ov.numericUnit || '',
+        shortAnswerMode: ov.shortAnswerMode || 'MANUAL',
+        acceptedAnswers: ov.acceptedAnswers || '',
+        sampleModelAnswer: ov.sampleModelAnswer || '',
+        explanation: ov.explanation || '',
+        imageFileIds: Array.isArray(ov.imageFileIds) ? ov.imageFileIds.slice() : [],
+        imageAltText: ov.imageAltText || '',
+        isDirty: Boolean(ov.isDirty !== undefined ? ov.isDirty : !ov.questionId)
+      };
+    }
+
+    function mapQuestionDtoToFormsCardState(qDto, opt_pointsDisplay, opt_negPointsDisplay) {
+      if (!qDto) return createBlankFormsQuestionCardState();
+      var qType = qDto.questionType || 'SINGLE_CHOICE';
+      var opts = [];
+      if (Array.isArray(qDto.options) && qDto.options.length > 0) {
+        for (var i = 0; i < qDto.options.length; i++) {
+          var o = qDto.options[i];
+          opts.push({
+            text: o.plainText || (o.contentRichText && o.contentRichText.plainText) || '',
+            isCorrect: Boolean(o.isCorrect),
+            pinPosition: o.pinPosition || 'NONE'
+          });
+        }
+        // Ensure at least one option is marked correct if private data wasn't loaded yet
+        var anyCorrect = opts.some(function (x) { return x.isCorrect; });
+        if (!anyCorrect && opts.length > 0) opts[0].isCorrect = true;
+      }
+      var gSpec = qDto.gradingSpec || {};
+      var pts =
+        opt_pointsDisplay !== undefined
+          ? parseFloat(String(opt_pointsDisplay)) || 2
+          : (Number(qDto.defaultPointsBp || 200) / 100);
+      var negPts =
+        opt_negPointsDisplay !== undefined
+          ? parseFloat(String(opt_negPointsDisplay)) || 0
+          : (Number(qDto.negativePointsBp || 0) / 100);
+      var imgIds = Array.isArray(qDto.imageFileIds) && qDto.imageFileIds.length > 0
+        ? qDto.imageFileIds.slice()
+        : (qDto.imageFileId ? [qDto.imageFileId] : []);
+
+      return createBlankFormsQuestionCardState({
+        questionId: qDto.questionId || '',
+        expectedVersion: qDto.version || 1,
+        questionCode: qDto.questionCode || '',
+        title: qDto.title || '',
+        questionType: qType,
+        stem: qDto.stemPlainText || '',
+        points: pts,
+        negativePoints: negPts,
+        difficulty: qDto.difficulty || 'MEDIUM',
+        topicTags: Array.isArray(qDto.topicTags) && qDto.topicTags.length > 0 ? qDto.topicTags.join(', ') : 'General Biology',
+        options: opts,
+        multiSelectRule: gSpec.multiSelectScoringRule || 'EXACT_MATCH',
+        numericTarget: gSpec.targetValue !== undefined ? gSpec.targetValue : '0',
+        numericTolerance: gSpec.toleranceValue !== undefined ? gSpec.toleranceValue : '0',
+        numericUnit: qDto.unitLabel || '',
+        shortAnswerMode: qDto.gradingMode || 'MANUAL',
+        acceptedAnswers: Array.isArray(gSpec.acceptedAnswers) ? gSpec.acceptedAnswers.join('\n') : '',
+        sampleModelAnswer: gSpec.sampleModelAnswer || '',
+        explanation: qDto.explanationPlainText || '',
+        imageFileIds: imgIds,
+        imageAltText: qDto.imageAltText || '',
+        isDirty: false
+      });
+    }
+
+    function updateFormsBuilderSummaryBadge() {
+      var totalPts = 0;
+      for (var i = 0; i < formsBuilderQuestionCards.length; i++) {
+        var p = parseFloat(formsBuilderQuestionCards[i].points);
+        if (isFinite(p) && p > 0) totalPts += p;
+      }
+      var count = formsBuilderQuestionCards.length;
+      setText(
+        'pb-forms-live-summary',
+        count + (count === 1 ? ' Question' : ' Questions') + ' \u2022 ' + totalPts.toFixed(2) + ' pts'
+      );
+    }
+
+    function renderFormsBuilderQuestionCards() {
+      var container = document.getElementById('pb-forms-questions-container');
+      if (!container) return;
+      while (container.firstChild) container.removeChild(container.firstChild);
+      updateFormsBuilderSummaryBadge();
+
+      for (var idx = 0; idx < formsBuilderQuestionCards.length; idx++) {
+        (function (card, cardIndex) {
+          var cardEl = document.createElement('div');
+          cardEl.className = 'pb-forms-q-card';
+          cardEl.setAttribute('data-forms-card-id', card.localId);
+
+          // 1. Card Top Bar: Question # Badge + Points + Move/Duplicate/Delete
+          var hdr = document.createElement('div');
+          hdr.className = 'pb-forms-q-card-header';
+
+          var leftHdr = document.createElement('div');
+          leftHdr.style.display = 'flex';
+          leftHdr.style.alignItems = 'center';
+          leftHdr.style.gap = '8px';
+          leftHdr.style.flexWrap = 'wrap';
+
+          var numBdg = document.createElement('span');
+          numBdg.className = 'pb-forms-q-num-badge';
+          numBdg.textContent = 'Question ' + (cardIndex + 1);
+          leftHdr.appendChild(numBdg);
+
+          if (card.questionCode) {
+            var codeTag = document.createElement('span');
+            codeTag.className = 'badge';
+            codeTag.style.fontSize = '0.73rem';
+            codeTag.textContent = card.questionCode;
+            leftHdr.appendChild(codeTag);
+          }
+
+          hdr.appendChild(leftHdr);
+
+          var rightHdr = document.createElement('div');
+          rightHdr.style.display = 'flex';
+          rightHdr.style.alignItems = 'center';
+          rightHdr.style.gap = '6px';
+          rightHdr.style.flexWrap = 'wrap';
+
+          var ptsLabel = document.createElement('label');
+          ptsLabel.style.fontSize = '0.78rem';
+          ptsLabel.style.fontWeight = '700';
+          ptsLabel.style.color = 'var(--color-text-secondary)';
+          ptsLabel.textContent = 'Points:';
+          rightHdr.appendChild(ptsLabel);
+
+          var ptsInp = document.createElement('input');
+          ptsInp.type = 'number';
+          ptsInp.className = 'form-input';
+          ptsInp.min = '0.25';
+          ptsInp.max = '100';
+          ptsInp.step = '0.25';
+          ptsInp.style.width = '76px';
+          ptsInp.style.padding = '4px 8px';
+          ptsInp.value = card.points;
+          ptsInp.addEventListener('input', function () {
+            card.points = ptsInp.value || '1';
+            card.isDirty = true;
+            updateFormsBuilderSummaryBadge();
+          });
+          rightHdr.appendChild(ptsInp);
+
+          var upBtn = document.createElement('button');
+          upBtn.type = 'button';
+          upBtn.className = 'btn btn-outline btn-sm';
+          upBtn.textContent = '\u2191';
+          upBtn.title = 'Move Question Up';
+          upBtn.disabled = cardIndex === 0;
+          upBtn.addEventListener('click', function () {
+            if (cardIndex <= 0) return;
+            var tmp = formsBuilderQuestionCards[cardIndex - 1];
+            formsBuilderQuestionCards[cardIndex - 1] = formsBuilderQuestionCards[cardIndex];
+            formsBuilderQuestionCards[cardIndex] = tmp;
+            renderFormsBuilderQuestionCards();
+          });
+          rightHdr.appendChild(upBtn);
+
+          var dnBtn = document.createElement('button');
+          dnBtn.type = 'button';
+          dnBtn.className = 'btn btn-outline btn-sm';
+          dnBtn.textContent = '\u2193';
+          dnBtn.title = 'Move Question Down';
+          dnBtn.disabled = cardIndex === formsBuilderQuestionCards.length - 1;
+          dnBtn.addEventListener('click', function () {
+            if (cardIndex >= formsBuilderQuestionCards.length - 1) return;
+            var tmp = formsBuilderQuestionCards[cardIndex + 1];
+            formsBuilderQuestionCards[cardIndex + 1] = formsBuilderQuestionCards[cardIndex];
+            formsBuilderQuestionCards[cardIndex] = tmp;
+            renderFormsBuilderQuestionCards();
+          });
+          rightHdr.appendChild(dnBtn);
+
+          var dupBtn = document.createElement('button');
+          dupBtn.type = 'button';
+          dupBtn.className = 'btn btn-outline btn-sm';
+          dupBtn.textContent = 'Duplicate';
+          dupBtn.addEventListener('click', function () {
+            var copyOpts = card.options.map(function (o) {
+              return { text: o.text, isCorrect: o.isCorrect, pinPosition: o.pinPosition };
+            });
+            var cloned = createBlankFormsQuestionCardState({
+              questionType: card.questionType,
+              stem: card.stem,
+              points: card.points,
+              negativePoints: card.negativePoints,
+              difficulty: card.difficulty,
+              topicTags: card.topicTags,
+              options: copyOpts,
+              numericTarget: card.numericTarget,
+              numericTolerance: card.numericTolerance,
+              numericUnit: card.numericUnit,
+              shortAnswerMode: card.shortAnswerMode,
+              acceptedAnswers: card.acceptedAnswers,
+              sampleModelAnswer: card.sampleModelAnswer,
+              explanation: card.explanation,
+              imageFileIds: card.imageFileIds.slice(),
+              imageAltText: card.imageAltText,
+              isDirty: true
+            });
+            formsBuilderQuestionCards.splice(cardIndex + 1, 0, cloned);
+            renderFormsBuilderQuestionCards();
+          });
+          rightHdr.appendChild(dupBtn);
+
+          var delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.className = 'btn btn-outline btn-sm';
+          delBtn.style.color = '#DC2626';
+          delBtn.textContent = 'Delete';
+          delBtn.addEventListener('click', function () {
+            if (formsBuilderQuestionCards.length <= 1) {
+              PBNotify.toast('warning', 'Minimum 1 Question', 'An exam must have at least one question card.');
+              return;
+            }
+            formsBuilderQuestionCards.splice(cardIndex, 1);
+            renderFormsBuilderQuestionCards();
+          });
+          rightHdr.appendChild(delBtn);
+
+          hdr.appendChild(rightHdr);
+          cardEl.appendChild(hdr);
+
+          // 2. Question Stem + Question Type Selector Row
+          var stemRow = document.createElement('div');
+          stemRow.className = 'pb-forms-q-stem-row';
+
+          var stemInp = document.createElement('textarea');
+          stemInp.className = 'pb-forms-q-stem-input';
+          stemInp.rows = 2;
+          stemInp.placeholder = 'Write your question prompt here...';
+          stemInp.value = card.stem;
+          stemInp.addEventListener('input', function () {
+            card.stem = stemInp.value;
+            card.isDirty = true;
+          });
+          stemRow.appendChild(stemInp);
+
+          var typeSel = document.createElement('select');
+          typeSel.className = 'form-input';
+          var typeChoices = [
+            { v: 'SINGLE_CHOICE', l: '\u25C9 Multiple Choice (1 Correct)' },
+            { v: 'MULTIPLE_SELECT', l: '\u2611 Checkboxes (Multi-Select)' },
+            { v: 'TRUE_FALSE', l: '\u2713 True / False' },
+            { v: 'NUMERIC_RESPONSE', l: '# Numeric Calculation' },
+            { v: 'SHORT_ANSWER', l: '\u270E Short Answer' },
+            { v: 'WRITTEN_RESPONSE', l: '\u2261 Written Essay / Rubric' }
+          ];
+          for (var tc = 0; tc < typeChoices.length; tc++) {
+            var topt = document.createElement('option');
+            topt.value = typeChoices[tc].v;
+            topt.textContent = typeChoices[tc].l;
+            if (typeChoices[tc].v === card.questionType) topt.selected = true;
+            typeSel.appendChild(topt);
+          }
+          typeSel.addEventListener('change', function () {
+            card.questionType = typeSel.value;
+            card.isDirty = true;
+            if (card.questionType === 'TRUE_FALSE') {
+              card.options = [
+                { text: 'True', isCorrect: true, pinPosition: 'FIXED' },
+                { text: 'False', isCorrect: false, pinPosition: 'FIXED' }
+              ];
+            } else if (
+              (card.questionType === 'SINGLE_CHOICE' || card.questionType === 'MULTIPLE_SELECT') &&
+              card.options.length < 2
+            ) {
+              card.options = [
+                { text: 'Option A', isCorrect: true, pinPosition: 'NONE' },
+                { text: 'Option B', isCorrect: false, pinPosition: 'NONE' },
+                { text: 'Option C', isCorrect: false, pinPosition: 'NONE' },
+                { text: 'Option D', isCorrect: false, pinPosition: 'NONE' }
+              ];
+            }
+            if (card.questionType === 'SINGLE_CHOICE') {
+              var foundOne = false;
+              for (var oi = 0; oi < card.options.length; oi++) {
+                if (card.options[oi].isCorrect && !foundOne) {
+                  foundOne = true;
+                } else {
+                  card.options[oi].isCorrect = false;
+                }
+              }
+              if (!foundOne && card.options.length > 0) card.options[0].isCorrect = true;
+            }
+            renderFormsBuilderQuestionCards();
+          });
+          stemRow.appendChild(typeSel);
+          cardEl.appendChild(stemRow);
+
+          // 3. Diagram Preview & Quick Upload Row (if images attached)
+          if (card.imageFileIds && card.imageFileIds.length > 0) {
+            var imgBox = document.createElement('div');
+            imgBox.style.padding = '10px 12px';
+            imgBox.style.marginBottom = '10px';
+            imgBox.style.background = '#F8FAFC';
+            imgBox.style.borderRadius = '10px';
+            imgBox.style.border = '1px solid #E2E8F0';
+
+            var imgTop = document.createElement('div');
+            imgTop.style.display = 'flex';
+            imgTop.style.alignItems = 'center';
+            imgTop.style.justifyContent = 'space-between';
+            imgTop.style.marginBottom = '8px';
+
+            var imgLbl = document.createElement('strong');
+            imgLbl.style.fontSize = '0.8rem';
+            imgLbl.style.color = 'var(--color-brand-deep)';
+            imgLbl.textContent = 'Attached Diagram(s): ' + card.imageFileIds.join(', ');
+            imgTop.appendChild(imgLbl);
+
+            var rmImgBtn = document.createElement('button');
+            rmImgBtn.type = 'button';
+            rmImgBtn.className = 'btn btn-outline btn-sm';
+            rmImgBtn.textContent = 'Remove Diagram';
+            rmImgBtn.addEventListener('click', function () {
+              card.imageFileIds = [];
+              card.isDirty = true;
+              renderFormsBuilderQuestionCards();
+            });
+            imgTop.appendChild(rmImgBtn);
+            imgBox.appendChild(imgTop);
+
+            var gal = document.createElement('div');
+            gal.className = 'pb-qbank-image-gallery';
+            for (var im = 0; im < card.imageFileIds.length; im++) {
+              var stg = document.createElement('div');
+              stg.className = 'pb-qbank-image-thumb-stage';
+              stg.style.maxWidth = '220px';
+              gal.appendChild(stg);
+              renderDirectImageElementIntoStage(stg, card.imageFileIds[im], '', card.imageAltText || 'Biology diagram');
+            }
+            imgBox.appendChild(gal);
+            cardEl.appendChild(imgBox);
+          }
+
+          // 4. Type-Specific Answer Area
+          var qType = card.questionType;
+          if (qType === 'SINGLE_CHOICE' || qType === 'MULTIPLE_SELECT' || qType === 'TRUE_FALSE') {
+            var optHint = document.createElement('div');
+            optHint.style.fontSize = '0.78rem';
+            optHint.style.color = 'var(--color-text-secondary)';
+            optHint.style.marginBottom = '4px';
+            optHint.textContent =
+              qType === 'MULTIPLE_SELECT'
+                ? 'Check the box next to ALL correct answer choices:'
+                : 'Select the radio button next to the correct answer:';
+            cardEl.appendChild(optHint);
+
+            var optList = document.createElement('div');
+            optList.className = 'pb-forms-options-list';
+
+            for (var oIdx = 0; oIdx < card.options.length; oIdx++) {
+              (function (optObj, optionIndex) {
+                var row = document.createElement('div');
+                row.className = 'pb-forms-option-row' + (optObj.isCorrect ? ' is-correct-option' : '');
+
+                var selInp = document.createElement('input');
+                selInp.type = qType === 'MULTIPLE_SELECT' ? 'checkbox' : 'radio';
+                selInp.name = 'forms_correct_' + card.localId;
+                selInp.checked = Boolean(optObj.isCorrect);
+                selInp.title = 'Mark as correct answer';
+                selInp.addEventListener('change', function () {
+                  card.isDirty = true;
+                  if (qType === 'MULTIPLE_SELECT') {
+                    optObj.isCorrect = selInp.checked;
+                  } else {
+                    for (var k = 0; k < card.options.length; k++) {
+                      card.options[k].isCorrect = k === optionIndex;
+                    }
+                  }
+                  renderFormsBuilderQuestionCards();
+                });
+                row.appendChild(selInp);
+
+                var pill = document.createElement('span');
+                pill.className = 'pb-forms-opt-key-pill';
+                pill.textContent = qType === 'TRUE_FALSE' ? (optionIndex === 0 ? 'T' : 'F') : String.fromCharCode(65 + optionIndex);
+                row.appendChild(pill);
+
+                var txtInp = document.createElement('input');
+                txtInp.type = 'text';
+                txtInp.className = 'pb-forms-opt-input';
+                txtInp.placeholder = 'Option ' + String.fromCharCode(65 + optionIndex) + '...';
+                txtInp.value = optObj.text;
+                txtInp.readOnly = qType === 'TRUE_FALSE';
+                txtInp.addEventListener('input', function () {
+                  optObj.text = txtInp.value;
+                  card.isDirty = true;
+                });
+                row.appendChild(txtInp);
+
+                if (optObj.isCorrect) {
+                  var corBadge = document.createElement('span');
+                  corBadge.className = 'badge badge-ok';
+                  corBadge.style.fontSize = '0.7rem';
+                  corBadge.textContent = '\u2713 Correct Key';
+                  row.appendChild(corBadge);
+                }
+
+                if (qType !== 'TRUE_FALSE' && card.options.length > 2) {
+                  var rmOpt = document.createElement('button');
+                  rmOpt.type = 'button';
+                  rmOpt.className = 'btn btn-outline btn-sm';
+                  rmOpt.style.padding = '2px 7px';
+                  rmOpt.textContent = '\u00D7';
+                  rmOpt.title = 'Remove this choice';
+                  rmOpt.addEventListener('click', function () {
+                    card.options.splice(optionIndex, 1);
+                    if (!card.options.some(function (x) { return x.isCorrect; }) && card.options.length > 0) {
+                      card.options[0].isCorrect = true;
+                    }
+                    card.isDirty = true;
+                    renderFormsBuilderQuestionCards();
+                  });
+                  row.appendChild(rmOpt);
+                }
+
+                optList.appendChild(row);
+              })(card.options[oIdx], oIdx);
+            }
+            cardEl.appendChild(optList);
+
+            if (qType !== 'TRUE_FALSE' && card.options.length < 10) {
+              var addOptBtn = document.createElement('button');
+              addOptBtn.type = 'button';
+              addOptBtn.className = 'btn btn-outline btn-sm';
+              addOptBtn.textContent = '+ Add Option (' + String.fromCharCode(65 + card.options.length) + ')';
+              addOptBtn.addEventListener('click', function () {
+                var nextLetter = String.fromCharCode(65 + card.options.length);
+                card.options.push({
+                  text: 'Option ' + nextLetter,
+                  isCorrect: false,
+                  pinPosition: 'NONE'
+                });
+                card.isDirty = true;
+                renderFormsBuilderQuestionCards();
+              });
+              cardEl.appendChild(addOptBtn);
+            }
+          } else if (qType === 'NUMERIC_RESPONSE') {
+            var numGrid = document.createElement('div');
+            numGrid.className = 'form-grid-2col';
+            numGrid.style.background = '#F0FDF4';
+            numGrid.style.padding = '12px';
+            numGrid.style.borderRadius = '10px';
+            numGrid.style.border = '1px solid #BBF7D0';
+
+            var tgWrap = document.createElement('div');
+            tgWrap.className = 'form-group';
+            tgWrap.style.margin = '0';
+            var tgLbl = document.createElement('label');
+            tgLbl.className = 'form-label';
+            tgLbl.textContent = 'Correct Numeric Value *';
+            var tgInp = document.createElement('input');
+            tgInp.type = 'number';
+            tgInp.step = 'any';
+            tgInp.className = 'form-input';
+            tgInp.value = card.numericTarget;
+            tgInp.addEventListener('input', function () {
+              card.numericTarget = tgInp.value;
+              card.isDirty = true;
+            });
+            tgWrap.appendChild(tgLbl);
+            tgWrap.appendChild(tgInp);
+            numGrid.appendChild(tgWrap);
+
+            var tolWrap = document.createElement('div');
+            tolWrap.className = 'form-group';
+            tolWrap.style.margin = '0';
+            var tolLbl = document.createElement('label');
+            tolLbl.className = 'form-label';
+            tolLbl.textContent = 'Allowed Tolerance (\u00B1) & Unit';
+            var tolRow = document.createElement('div');
+            tolRow.style.display = 'flex';
+            tolRow.style.gap = '6px';
+            var tolInp = document.createElement('input');
+            tolInp.type = 'number';
+            tolInp.step = 'any';
+            tolInp.className = 'form-input';
+            tolInp.placeholder = '\u00B10';
+            tolInp.value = card.numericTolerance;
+            tolInp.addEventListener('input', function () {
+              card.numericTolerance = tolInp.value;
+              card.isDirty = true;
+            });
+            var unitInp = document.createElement('input');
+            unitInp.type = 'text';
+            unitInp.className = 'form-input';
+            unitInp.placeholder = 'Unit (e.g. mM, \u00B0C)';
+            unitInp.value = card.numericUnit;
+            unitInp.addEventListener('input', function () {
+              card.numericUnit = unitInp.value;
+              card.isDirty = true;
+            });
+            tolRow.appendChild(tolInp);
+            tolRow.appendChild(unitInp);
+            tolWrap.appendChild(tolLbl);
+            tolWrap.appendChild(tolRow);
+            numGrid.appendChild(tolWrap);
+            cardEl.appendChild(numGrid);
+          } else if (qType === 'SHORT_ANSWER' || qType === 'WRITTEN_RESPONSE') {
+            var saBox = document.createElement('div');
+            saBox.style.background = '#F8FAFC';
+            saBox.style.padding = '12px';
+            saBox.style.borderRadius = '10px';
+            saBox.style.border = '1px solid #E2E8F0';
+
+            var saLbl = document.createElement('label');
+            saLbl.className = 'form-label';
+            saLbl.textContent =
+              qType === 'SHORT_ANSWER'
+                ? 'Accepted Auto-Match Answers (One per line, or leave blank for manual grading)'
+                : 'Grading Rubric / Model Answer for Instructor Reference';
+            var saTxt = document.createElement('textarea');
+            saTxt.className = 'form-input';
+            saTxt.rows = 2;
+            saTxt.placeholder =
+              qType === 'SHORT_ANSWER'
+                ? 'e.g. Photolysis of water\nSplitting of H2O'
+                : 'Key points required for full credit...';
+            saTxt.value = qType === 'SHORT_ANSWER' ? card.acceptedAnswers : card.sampleModelAnswer;
+            saTxt.addEventListener('input', function () {
+              if (qType === 'SHORT_ANSWER') {
+                card.acceptedAnswers = saTxt.value;
+                card.shortAnswerMode = saTxt.value.trim() ? 'NORMALIZED_AUTO' : 'MANUAL';
+              } else {
+                card.sampleModelAnswer = saTxt.value;
+              }
+              card.isDirty = true;
+            });
+            saBox.appendChild(saLbl);
+            saBox.appendChild(saTxt);
+            cardEl.appendChild(saBox);
+          }
+
+          // 5. Card Footer: Answer Explanation + Diagram Upload + Optional Advanced Expander
+          var ftr = document.createElement('div');
+          ftr.className = 'pb-forms-q-footer';
+
+          var expInp = document.createElement('input');
+          expInp.type = 'text';
+          expInp.className = 'form-input';
+          expInp.style.flex = '1 1 260px';
+          expInp.style.fontSize = '0.85rem';
+          expInp.placeholder = '\uD83D\uDCA1 Answer key explanation / rationale shown to students (optional)...';
+          expInp.value = card.explanation;
+          expInp.addEventListener('input', function () {
+            card.explanation = expInp.value;
+            card.isDirty = true;
+          });
+          ftr.appendChild(expInp);
+
+          var rightFtr = document.createElement('div');
+          rightFtr.style.display = 'flex';
+          rightFtr.style.alignItems = 'center';
+          rightFtr.style.gap = '8px';
+          rightFtr.style.flexWrap = 'wrap';
+
+          var fileInp = document.createElement('input');
+          fileInp.type = 'file';
+          fileInp.accept = 'image/png,image/jpeg,image/webp,image/gif';
+          fileInp.className = 'hidden';
+          var upImgBtn = document.createElement('button');
+          upImgBtn.type = 'button';
+          upImgBtn.className = 'btn btn-outline btn-sm';
+          upImgBtn.textContent = '\uD83D\uDDBC Add Diagram';
+          upImgBtn.addEventListener('click', function () {
+            fileInp.click();
+          });
+          fileInp.addEventListener('change', function () {
+            var f = fileInp.files && fileInp.files[0];
+            if (!f) return;
+            runButtonWithLoadingState(upImgBtn, 'Uploading...', function () {
+              return readBrowserFileAsBase64Step8(f).then(function (fData) {
+                return rpcCallEnvelope('admin.uploadFile', {
+                  purpose: 'QUESTION_IMAGE',
+                  originalFilename: fData.originalFilename,
+                  mimeType: fData.mimeType,
+                  dataBase64: fData.dataBase64
+                }).then(function (env) {
+                  var fid = env.data && env.data.file && env.data.file.fileId;
+                  if (fid) {
+                    card.imageFileIds.push(fid);
+                    if (!card.imageAltText) {
+                      card.imageAltText = 'Biology diagram for question ' + (cardIndex + 1);
+                    }
+                    card.isDirty = true;
+                    renderFormsBuilderQuestionCards();
+                    PBNotify.toast('success', 'Diagram Uploaded', 'Attached ' + fid + ' to Question ' + (cardIndex + 1));
+                  }
+                });
+              });
+            });
+          });
+          rightFtr.appendChild(fileInp);
+          rightFtr.appendChild(upImgBtn);
+
+          ftr.appendChild(rightFtr);
+          cardEl.appendChild(ftr);
+
+          // Optional per-card Advanced Settings (Difficulty, Topic, Question Code)
+          var advDetails = document.createElement('details');
+          advDetails.style.marginTop = '8px';
+          var advSum = document.createElement('summary');
+          advSum.style.fontSize = '0.76rem';
+          advSum.style.color = 'var(--color-text-muted)';
+          advSum.style.cursor = 'pointer';
+          advSum.textContent = 'More options (Difficulty, Topic Tag, Negative Marking, Question Code)';
+          advDetails.appendChild(advSum);
+
+          var advGrid = document.createElement('div');
+          advGrid.className = 'form-grid-2col';
+          advGrid.style.marginTop = '8px';
+          advGrid.style.padding = '10px';
+          advGrid.style.background = '#F8FAFC';
+          advGrid.style.borderRadius = '8px';
+
+          var difSel = document.createElement('select');
+          difSel.className = 'form-input';
+          ['EASY', 'MEDIUM', 'HARD', 'OLYMPIAD'].forEach(function (d) {
+            var o = document.createElement('option');
+            o.value = d;
+            o.textContent = 'Difficulty: ' + d;
+            if (card.difficulty === d) o.selected = true;
+            difSel.appendChild(o);
+          });
+          difSel.addEventListener('change', function () {
+            card.difficulty = difSel.value;
+            card.isDirty = true;
+          });
+          advGrid.appendChild(difSel);
+
+          var topInp = document.createElement('input');
+          topInp.type = 'text';
+          topInp.className = 'form-input';
+          topInp.placeholder = 'Topic tag (e.g. Photosynthesis, Genetics)';
+          topInp.value = card.topicTags;
+          topInp.addEventListener('input', function () {
+            card.topicTags = topInp.value;
+            card.isDirty = true;
+          });
+          advGrid.appendChild(topInp);
+
+          advDetails.appendChild(advGrid);
+          cardEl.appendChild(advDetails);
+
+          container.appendChild(cardEl);
+        })(formsBuilderQuestionCards[idx], idx);
+      }
+    }
+
+    function openFormsExamBuilderForNewExam() {
+      populateAdminExamBuilderCourseAndStudentDropdownsPhase3();
+      var catalogCard = document.getElementById('admin-exam-builder-catalog-card');
+      var workspace = document.getElementById('pb-forms-builder-workspace');
+      if (catalogCard) catalogCard.classList.add('hidden');
+      if (workspace) workspace.classList.remove('hidden');
+
+      var idEl = document.getElementById('input-forms-exam-id');
+      var verEl = document.getElementById('input-forms-exam-version');
+      var titleEl = document.getElementById('input-forms-exam-title');
+      var descEl = document.getElementById('textarea-forms-exam-description');
+      var codeEl = document.getElementById('input-forms-exam-code');
+      var modeEl = document.getElementById('select-forms-exam-mode');
+      var durEl = document.getElementById('input-forms-exam-duration');
+      var passEl = document.getElementById('input-forms-exam-pass-pct');
+      var attEl = document.getElementById('input-forms-exam-attempts');
+      var scEl = document.getElementById('select-forms-score-policy');
+      var exEl = document.getElementById('select-forms-explanation-policy');
+      var openEl = document.getElementById('input-forms-open-at');
+      var closeEl = document.getElementById('input-forms-close-at');
+      var secTitleEl = document.getElementById('input-forms-sec-title');
+      var secModeEl = document.getElementById('select-forms-sec-mode');
+      var crsEl = document.getElementById('select-forms-exam-course');
+
+      if (idEl) idEl.value = '';
+      if (verEl) verEl.value = '';
+      if (titleEl) titleEl.value = '';
+      if (descEl) descEl.value = '';
+      if (codeEl) codeEl.value = '';
+      if (modeEl) modeEl.value = 'MOCK_EXAM';
+      if (durEl) durEl.value = '45';
+      if (passEl) passEl.value = '60';
+      if (attEl) attEl.value = '1';
+      if (scEl) scEl.value = 'IMMEDIATE_AUTO';
+      if (exEl) exEl.value = 'WITH_SCORE';
+      if (openEl) openEl.value = '';
+      if (closeEl) closeEl.value = '';
+      if (secTitleEl) secTitleEl.value = 'Part I: Biology Questions';
+      if (secModeEl) secModeEl.value = 'FIXED_ITEMS';
+      if (crsEl && !crsEl.value && crsEl.options.length > 1) {
+        crsEl.selectedIndex = 1;
+      }
+
+      setText('pb-forms-status-badge', 'NEW EXAM / QUIZ');
+      var prog = document.getElementById('pb-forms-progress-banner');
+      if (prog) prog.classList.add('hidden');
+
+      formsBuilderQuestionCards = [createBlankFormsQuestionCardState()];
+      renderFormsBuilderQuestionCards();
+      if (titleEl) titleEl.focus();
+    }
+
+    function openFormsExamBuilderWithExam(examDto) {
+      if (!examDto) {
+        openFormsExamBuilderForNewExam();
+        return;
+      }
+      populateAdminExamBuilderCourseAndStudentDropdownsPhase3();
+      var catalogCard = document.getElementById('admin-exam-builder-catalog-card');
+      var workspace = document.getElementById('pb-forms-builder-workspace');
+      if (catalogCard) catalogCard.classList.add('hidden');
+      if (workspace) workspace.classList.remove('hidden');
+
+      var idEl = document.getElementById('input-forms-exam-id');
+      var verEl = document.getElementById('input-forms-exam-version');
+      var titleEl = document.getElementById('input-forms-exam-title');
+      var descEl = document.getElementById('textarea-forms-exam-description');
+      var codeEl = document.getElementById('input-forms-exam-code');
+      var crsEl = document.getElementById('select-forms-exam-course');
+      var modeEl = document.getElementById('select-forms-exam-mode');
+      var durEl = document.getElementById('input-forms-exam-duration');
+      var passEl = document.getElementById('input-forms-exam-pass-pct');
+      var attEl = document.getElementById('input-forms-exam-attempts');
+      var scEl = document.getElementById('select-forms-score-policy');
+      var exEl = document.getElementById('select-forms-explanation-policy');
+      var openEl = document.getElementById('input-forms-open-at');
+      var closeEl = document.getElementById('input-forms-close-at');
+      var rqEl = document.getElementById('chk-forms-rand-questions');
+      var roEl = document.getElementById('chk-forms-rand-options');
+      var pfEl = document.getElementById('chk-forms-practice-feedback');
+      var secTitleEl = document.getElementById('input-forms-sec-title');
+      var secModeEl = document.getElementById('select-forms-sec-mode');
+      var secDrawEl = document.getElementById('input-forms-sec-pool-draw');
+
+      if (idEl) idEl.value = examDto.examSetId || '';
+      if (verEl) verEl.value = String(examDto.version || 1);
+      if (titleEl) titleEl.value = examDto.title || '';
+      if (descEl) descEl.value = examDto.descriptionPlainText || examDto.instructionsPlainText || '';
+      if (codeEl) codeEl.value = examDto.examCode || '';
+      if (crsEl) crsEl.value = examDto.courseId || '';
+      if (modeEl) modeEl.value = examDto.examMode || 'MOCK_EXAM';
+      if (durEl) durEl.value = String(examDto.durationMinutes !== undefined ? examDto.durationMinutes : 45);
+      if (passEl) passEl.value = String(examDto.passThresholdPct || 60);
+      if (attEl) attEl.value = String(examDto.maxAttempts !== undefined ? examDto.maxAttempts : 1);
+      if (scEl) scEl.value = examDto.scoreReleasePolicy || 'IMMEDIATE_AUTO';
+      if (exEl) exEl.value = examDto.explanationReleasePolicy || 'WITH_SCORE';
+      if (openEl) openEl.value = examDto.openAtUtc || '';
+      if (closeEl) closeEl.value = examDto.closeAtUtc || '';
+      if (rqEl) rqEl.checked = Boolean(examDto.randomizeQuestions);
+      if (roEl) roEl.checked = Boolean(examDto.randomizeOptions);
+      if (pfEl) pfEl.checked = Boolean(examDto.allowPerQuestionPracticeFeedback);
+
+      setText(
+        'pb-forms-status-badge',
+        'EDITING: ' + (examDto.examCode || 'EXAM') + ' (' + (examDto.status || 'DRAFT') + ')'
+      );
+
+      // Build lookup map of full question DTOs (with private answer keys) from currentQBankQuestionsPhase2
+      var qbankById = {};
+      if (Array.isArray(currentQBankQuestionsPhase2)) {
+        for (var q = 0; q < currentQBankQuestionsPhase2.length; q++) {
+          qbankById[currentQBankQuestionsPhase2[q].questionId] = currentQBankQuestionsPhase2[q];
+        }
+      }
+
+      var loadedCards = [];
+      if (Array.isArray(examDto.sections) && examDto.sections.length > 0) {
+        var s0 = examDto.sections[0];
+        if (secTitleEl) secTitleEl.value = s0.title || 'Part I: Biology Questions';
+        if (secModeEl) {
+          secModeEl.value = s0.selectionMode || 'FIXED_ITEMS';
+          if (secDrawEl) secDrawEl.classList.toggle('hidden', secModeEl.value !== 'QUESTION_POOL');
+        }
+        if (secDrawEl) secDrawEl.value = String(s0.poolDrawCount || 5);
+
+        for (var si = 0; si < examDto.sections.length; si++) {
+          var sec = examDto.sections[si];
+          var items = Array.isArray(sec.items) ? sec.items : [];
+          for (var k = 0; k < items.length; k++) {
+            var it = items[k];
+            var fullQ = qbankById[it.questionId] || it.questionPreview || null;
+            loadedCards.push(
+              mapQuestionDtoToFormsCardState(fullQ, it.pointsDisplay, it.negativePointsDisplay)
+            );
+          }
+        }
+      }
+
+      formsBuilderQuestionCards =
+        loadedCards.length > 0 ? loadedCards : [createBlankFormsQuestionCardState()];
+      renderFormsBuilderQuestionCards();
+
+      // If Question Bank wasn't loaded yet, fetch it with includePrivate:true so correct answer keys populate accurately
+      if (Object.keys(qbankById).length === 0) {
+        loadAdminQuestionBankPhase2(1, true).then(function () {
+          var freshMap = {};
+          if (Array.isArray(currentQBankQuestionsPhase2)) {
+            for (var fi = 0; fi < currentQBankQuestionsPhase2.length; fi++) {
+              freshMap[currentQBankQuestionsPhase2[fi].questionId] = currentQBankQuestionsPhase2[fi];
+            }
+          }
+          for (var ci = 0; ci < formsBuilderQuestionCards.length; ci++) {
+            var c = formsBuilderQuestionCards[ci];
+            if (c.questionId && freshMap[c.questionId] && !c.isDirty) {
+              formsBuilderQuestionCards[ci] = mapQuestionDtoToFormsCardState(
+                freshMap[c.questionId],
+                c.points,
+                c.negativePoints
+              );
+            }
+          }
+          renderFormsBuilderQuestionCards();
+        });
+      }
+    }
+
+    function closeFormsExamBuilderToCatalog() {
+      var catalogCard = document.getElementById('admin-exam-builder-catalog-card');
+      var workspace = document.getElementById('pb-forms-builder-workspace');
+      if (workspace) workspace.classList.add('hidden');
+      if (catalogCard) catalogCard.classList.remove('hidden');
+    }
+
+    function renderFormsImportBankDrawerList() {
+      var listEl = document.getElementById('pb-forms-import-bank-list');
+      if (!listEl) return;
+      while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
+
+      var searchInp = document.getElementById('input-forms-import-search');
+      var kw = searchInp ? searchInp.value.trim().toLowerCase() : '';
+      var questions = Array.isArray(currentQBankQuestionsPhase2) ? currentQBankQuestionsPhase2 : [];
+
+      var matches = questions.filter(function (q) {
+        if (q.status === 'ARCHIVED') return false;
+        if (!kw) return true;
+        var hay = ((q.questionCode || '') + ' ' + (q.title || '') + ' ' + (q.stemPlainText || '')).toLowerCase();
+        return hay.indexOf(kw) !== -1;
+      });
+
+      if (matches.length === 0) {
+        var emptyP = document.createElement('p');
+        emptyP.style.margin = '6px 0';
+        emptyP.style.fontSize = '0.84rem';
+        emptyP.style.color = 'var(--color-text-muted)';
+        emptyP.textContent = 'No matching questions found in the Question Bank.';
+        listEl.appendChild(emptyP);
+        return;
+      }
+
+      for (var i = 0; i < matches.length; i++) {
+        (function (qDto) {
+          var row = document.createElement('div');
+          row.className = 'pb-forms-import-item';
+
+          var info = document.createElement('div');
+          info.style.fontSize = '0.85rem';
+          var strong = document.createElement('strong');
+          strong.style.color = 'var(--color-brand-deep)';
+          strong.textContent = '[' + qDto.questionCode + '] ';
+          info.appendChild(strong);
+          var span = document.createElement('span');
+          span.textContent = (qDto.stemPlainText || qDto.title || '').slice(0, 120);
+          info.appendChild(span);
+          row.appendChild(info);
+
+          var addBtn = document.createElement('button');
+          addBtn.type = 'button';
+          addBtn.className = 'btn btn-secondary btn-sm';
+          addBtn.textContent = '+ Add to Exam';
+          addBtn.addEventListener('click', function () {
+            formsBuilderQuestionCards.push(mapQuestionDtoToFormsCardState(qDto));
+            renderFormsBuilderQuestionCards();
+            PBNotify.toast('success', 'Question Added', 'Added ' + qDto.questionCode + ' to the form.');
+          });
+          row.appendChild(addBtn);
+          listEl.appendChild(row);
+        })(matches[i]);
+      }
+    }
+
+    function setFormsBuilderProgressBanner(variant, title, body) {
+      var banner = document.getElementById('pb-forms-progress-banner');
+      if (!banner) return;
+      if (variant === 'hidden') {
+        banner.classList.add('hidden');
+        return;
+      }
+      banner.className = 'banner banner-' + (variant || 'info');
+      setText('pb-forms-progress-title', title || '');
+      setText('pb-forms-progress-body', body || '');
+      banner.classList.remove('hidden');
+    }
+
+    function saveAllFormsQuestionsAndBuildExamPayload() {
+      var examTitle = ((document.getElementById('input-forms-exam-title') || {}).value || '').trim();
+      if (!examTitle) {
+        return Promise.reject(new Error('Please enter an Exam or Quiz Title at the top of the form.'));
+      }
+      var courseId = ((document.getElementById('select-forms-exam-course') || {}).value || '').trim();
+      if (!courseId) {
+        return Promise.reject(new Error('Please select an Assigned Course for this exam.'));
+      }
+      if (formsBuilderQuestionCards.length === 0) {
+        return Promise.reject(new Error('Please add at least one question card to the exam.'));
+      }
+
+      var rawCode = ((document.getElementById('input-forms-exam-code') || {}).value || '').trim().toUpperCase();
+      if (!rawCode) {
+        var slug = examTitle
+          .toUpperCase()
+          .replace(/[^A-Z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .slice(0, 14);
+        var suffix = String(Date.now()).slice(-5);
+        rawCode = 'BIO-' + (slug || 'EXAM') + '-' + suffix;
+        var codeInp = document.getElementById('input-forms-exam-code');
+        if (codeInp) codeInp.value = rawCode;
+      }
+
+      // Validate all cards upfront before making network calls
+      for (var vIdx = 0; vIdx < formsBuilderQuestionCards.length; vIdx++) {
+        var c = formsBuilderQuestionCards[vIdx];
+        var qNum = vIdx + 1;
+        if (!String(c.stem || '').trim()) {
+          return Promise.reject(new Error('Question ' + qNum + ' is missing its question prompt text.'));
+        }
+        if (c.questionType === 'SINGLE_CHOICE' || c.questionType === 'MULTIPLE_SELECT' || c.questionType === 'TRUE_FALSE') {
+          var nonEmptyOpts = c.options.filter(function (o) { return String(o.text || '').trim().length > 0; });
+          if (nonEmptyOpts.length < 2) {
+            return Promise.reject(new Error('Question ' + qNum + ' must have at least 2 non-empty answer choices.'));
+          }
+          var correctCnt = nonEmptyOpts.filter(function (o) { return Boolean(o.isCorrect); }).length;
+          if (correctCnt < 1) {
+            return Promise.reject(new Error('Question ' + qNum + ' must have a correct answer selected.'));
+          }
+        }
+      }
+
+      var chain = Promise.resolve();
+      var totalCards = formsBuilderQuestionCards.length;
+
+      for (var idx = 0; idx < totalCards; idx++) {
+        (function (card, cardIdx) {
+          chain = chain.then(function () {
+            if (card.questionId && !card.isDirty) {
+              return Promise.resolve();
+            }
+            setFormsBuilderProgressBanner(
+              'info',
+              'Saving Questions (' + (cardIdx + 1) + ' of ' + totalCards + ')...',
+              'Saving Question ' + (cardIdx + 1) + ': ' + String(card.stem || '').slice(0, 70)
+            );
+
+            var qCode = String(card.questionCode || '').trim().toUpperCase();
+            if (!qCode) {
+              qCode = (rawCode.slice(0, 26) + '-Q' + String(cardIdx + 1) + '-' + String(Date.now()).slice(-4)).slice(0, 46);
+            }
+            var qTitle = String(card.title || '').trim();
+            if (!qTitle) {
+              qTitle = String(card.stem || 'Question ' + (cardIdx + 1)).replace(/\s+/g, ' ').trim().slice(0, 120);
+            }
+
+            var optionsPayload = [];
+            if (
+              card.questionType === 'SINGLE_CHOICE' ||
+              card.questionType === 'MULTIPLE_SELECT' ||
+              card.questionType === 'TRUE_FALSE'
+            ) {
+              for (var oi = 0; oi < card.options.length; oi++) {
+                var o = card.options[oi];
+                var txt = String(o.text || '').trim();
+                if (!txt) continue;
+                optionsPayload.push({
+                  optionKey:
+                    card.questionType === 'TRUE_FALSE'
+                      ? oi === 0
+                        ? 'TRUE'
+                        : 'FALSE'
+                      : String.fromCharCode(65 + optionsPayload.length),
+                  text: txt,
+                  isCorrect: Boolean(o.isCorrect),
+                  pinPosition: o.pinPosition || 'NONE'
+                });
+              }
+            }
+
+            var imgIds = Array.isArray(card.imageFileIds) ? card.imageFileIds : [];
+            var altTxt = String(card.imageAltText || '').trim();
+            if (imgIds.length > 0 && !altTxt) {
+              altTxt = 'Biology diagram for ' + qCode;
+            }
+
+            var qPayload = {
+              questionId: card.questionId || '',
+              expectedVersion: card.expectedVersion ? Number(card.expectedVersion) : undefined,
+              questionCode: qCode,
+              title: qTitle,
+              questionType: card.questionType,
+              difficulty: card.difficulty || 'MEDIUM',
+              defaultPoints: String(card.points || '2'),
+              negativePoints: String(card.negativePoints || '0'),
+              topicTags: card.topicTags || 'General Biology',
+              status: 'PUBLISHED',
+              stimulusId: '',
+              stemRichText: card.stem,
+              imageFileId: imgIds.join(','),
+              imageFileIds: imgIds,
+              imageAltText: altTxt,
+              accessibleDesignFlag: 'STANDARD_ALT',
+              options: optionsPayload,
+              multiSelectScoringRule: card.multiSelectRule || 'EXACT_MATCH',
+              unitLabel: card.numericUnit || '',
+              numericSpec: {
+                matchMode: 'EXACT_WITH_TOLERANCE',
+                targetValue: String(card.numericTarget || '0'),
+                toleranceType: 'ABSOLUTE',
+                toleranceValue: String(card.numericTolerance || '0'),
+                roundingDecimals: '',
+                rangeMin: '',
+                rangeMax: ''
+              },
+              gradingMode:
+                card.questionType === 'WRITTEN_RESPONSE'
+                  ? 'MANUAL'
+                  : card.questionType === 'SHORT_ANSWER'
+                  ? card.acceptedAnswers && card.acceptedAnswers.trim()
+                    ? 'NORMALIZED_AUTO'
+                    : 'MANUAL'
+                  : 'AUTO',
+              maxLengthChars: 1500,
+              acceptedAnswers: card.acceptedAnswers || '',
+              sampleModelAnswer: card.sampleModelAnswer || '',
+              explanationRichText: card.explanation || '',
+              referenceText: '',
+              adminNotes: ''
+            };
+
+            return rpcCallEnvelope('admin.questions.save', qPayload).then(function (env) {
+              var savedQ = env.data && env.data.question;
+              if (savedQ && savedQ.questionId) {
+                card.questionId = savedQ.questionId;
+                card.expectedVersion = savedQ.version || 1;
+                card.questionCode = savedQ.questionCode || qCode;
+                card.title = savedQ.title || qTitle;
+                card.isDirty = false;
+              }
+            });
+          });
+        })(formsBuilderQuestionCards[idx], idx);
+      }
+
+      return chain.then(function () {
+        invalidateQBankClientCachePhase2();
+        var sectionItems = [];
+        for (var i = 0; i < formsBuilderQuestionCards.length; i++) {
+          var c = formsBuilderQuestionCards[i];
+          sectionItems.push({
+            questionId: c.questionId,
+            points: String(c.points || '2'),
+            negativePoints: String(c.negativePoints || '0')
+          });
+        }
+
+        var examId = ((document.getElementById('input-forms-exam-id') || {}).value || '').trim();
+        var examVer = ((document.getElementById('input-forms-exam-version') || {}).value || '').trim();
+        var examMode = (document.getElementById('select-forms-exam-mode') || {}).value || 'MOCK_EXAM';
+        var durVal = (document.getElementById('input-forms-exam-duration') || {}).value || '45';
+        if (examMode === 'MOCK_EXAM' && Number(durVal) <= 0) {
+          durVal = '45';
+        }
+        var descTxt = (document.getElementById('textarea-forms-exam-description') || {}).value || '';
+        var secMode = (document.getElementById('select-forms-sec-mode') || {}).value || 'FIXED_ITEMS';
+        var poolDraw = Number((document.getElementById('input-forms-sec-pool-draw') || {}).value || 1);
+        if (secMode === 'QUESTION_POOL' && poolDraw > sectionItems.length) {
+          poolDraw = sectionItems.length;
+        }
+
+        return {
+          examSetId: examId,
+          expectedVersion: examVer ? Number(examVer) : undefined,
+          examCode: rawCode,
+          title: examTitle,
+          courseId: courseId,
+          examMode: examMode,
+          durationMinutes: String(durVal),
+          maxAttempts: (document.getElementById('input-forms-exam-attempts') || {}).value || (examMode === 'PRACTICE' ? '0' : '1'),
+          openAtUtc: (document.getElementById('input-forms-open-at') || {}).value || '',
+          closeAtUtc: (document.getElementById('input-forms-close-at') || {}).value || '',
+          scoreReleasePolicy: (document.getElementById('select-forms-score-policy') || {}).value || 'IMMEDIATE_AUTO',
+          explanationReleasePolicy: (document.getElementById('select-forms-explanation-policy') || {}).value || 'WITH_SCORE',
+          aggregationRule: 'BEST_PUBLISHED',
+          passThresholdPct: (document.getElementById('input-forms-exam-pass-pct') || {}).value || '60',
+          randomizeQuestions: Boolean((document.getElementById('chk-forms-rand-questions') || {}).checked),
+          randomizeOptions: Boolean((document.getElementById('chk-forms-rand-options') || { checked: true }).checked),
+          allowPerQuestionPracticeFeedback:
+            examMode === 'PRACTICE' && Boolean((document.getElementById('chk-forms-practice-feedback') || {}).checked),
+          copyPolicyEnabled: Boolean((document.getElementById('chk-forms-copy-policy') || { checked: true }).checked),
+          descriptionRichText: descTxt,
+          instructionsRichText: descTxt,
+          sections: [
+            {
+              title: (document.getElementById('input-forms-sec-title') || {}).value || 'Part I: Biology Questions',
+              selectionMode: secMode,
+              poolDrawCount: poolDraw,
+              items: sectionItems
+            }
+          ]
+        };
+      });
+    }
+
+    function handleFormsSaveExamDraft(triggerBtn) {
+      return runButtonWithLoadingState(triggerBtn, 'Saving Exam...', function () {
+        return saveAllFormsQuestionsAndBuildExamPayload()
+          .then(function (examPayload) {
+            setFormsBuilderProgressBanner('info', 'Saving Exam Set...', 'Linking all questions into ' + examPayload.examCode + '...');
+            return rpcCallEnvelope('admin.exams.saveDraft', examPayload);
+          })
+          .then(function (env) {
+            renderAdminExamsTablePhase3(env.data);
+            var saved = env.data && env.data.exam;
+            if (saved) {
+              var idEl = document.getElementById('input-forms-exam-id');
+              var verEl = document.getElementById('input-forms-exam-version');
+              if (idEl) idEl.value = saved.examSetId || '';
+              if (verEl) verEl.value = String(saved.version || 1);
+              setText('pb-forms-status-badge', 'SAVED DRAFT: ' + (saved.examCode || ''));
+            }
+            renderFormsBuilderQuestionCards();
+            setFormsBuilderProgressBanner(
+              'success',
+              'Exam Draft Saved!',
+              'All questions and exam settings have been saved. Click "Publish Exam" when ready for students.'
+            );
+            PBNotify.toast('success', 'Exam Draft Saved', 'Saved ' + ((saved && saved.title) || 'exam') + ' with ' + formsBuilderQuestionCards.length + ' question(s).');
+          })
+          .catch(function (err) {
+            var msg = (err && err.message) || 'Failed to save exam.';
+            setFormsBuilderProgressBanner('danger', 'Could Not Save Exam', msg);
+            PBNotify.toast('danger', 'Save Error', msg);
+          });
+      });
+    }
+
+    function handleFormsPublishExamNow(triggerBtn) {
+      return runButtonWithLoadingState(triggerBtn, 'Publishing Exam...', function () {
+        return saveAllFormsQuestionsAndBuildExamPayload()
+          .then(function (examPayload) {
+            setFormsBuilderProgressBanner('info', 'Validating & Publishing...', 'Saving exam structure and publishing live version...');
+            return rpcCallEnvelope('admin.exams.saveDraft', examPayload);
+          })
+          .then(function (draftEnv) {
+            var savedExam = draftEnv.data && draftEnv.data.exam;
+            if (!savedExam || !savedExam.examSetId) {
+              throw new Error('Could not resolve saved examSetId.');
+            }
+            return rpcCallEnvelope('admin.exams.publish', { examSetId: savedExam.examSetId });
+          })
+          .then(function (pubEnv) {
+            renderAdminExamsTablePhase3(pubEnv.data);
+            var pubExam = pubEnv.data && pubEnv.data.exam;
+            if (pubExam) {
+              var idEl = document.getElementById('input-forms-exam-id');
+              var verEl = document.getElementById('input-forms-exam-version');
+              if (idEl) idEl.value = pubExam.examSetId || '';
+              if (verEl) verEl.value = String(pubExam.version || 1);
+              setText('pb-forms-status-badge', 'PUBLISHED LIVE: ' + (pubExam.examCode || ''));
+            }
+            renderFormsBuilderQuestionCards();
+            setFormsBuilderProgressBanner(
+              'success',
+              'Exam Published Live!',
+              'Students enrolled in the assigned course can now take this exam.'
+            );
+            PBNotify.toast('success', 'Exam Published!', 'Your exam is now live for students.');
+          })
+          .catch(function (err) {
+            var msg = (err && err.message) || 'Validation failed.';
+            setFormsBuilderProgressBanner('danger', 'Publication Blocked', msg);
+            PBNotify.toast('danger', 'Publication Blocked', msg);
+          });
+      });
+    }
+
+    function initGoogleFormsExamStudioBindings() {
+      var studioTabBtns = document.querySelectorAll('[data-exam-studio-tab]');
+      for (var i = 0; i < studioTabBtns.length; i++) {
+        (function (btn) {
+          if (btn.dataset && btn.dataset.boundStudio) return;
+          if (btn.dataset) btn.dataset.boundStudio = '1';
+          btn.addEventListener('click', function () {
+            switchAdminExamStudioTab(btn.getAttribute('data-exam-studio-tab'));
+          });
+        })(studioTabBtns[i]);
+      }
+
+      var openFormsBtns = [
+        document.getElementById('btn-admin-open-forms-builder'),
+        document.getElementById('btn-studio-launch-forms-builder')
+      ];
+      for (var b = 0; b < openFormsBtns.length; b++) {
+        (function (btn) {
+          if (!btn || (btn.dataset && btn.dataset.boundFormsOpen)) return;
+          if (btn.dataset) btn.dataset.boundFormsOpen = '1';
+          btn.addEventListener('click', function () {
+            if (isExamStudioModeActive && currentExamStudioTab !== 'builder') {
+              switchAdminExamStudioTab('builder');
+            }
+            openFormsExamBuilderForNewExam();
+          });
+        })(openFormsBtns[b]);
+      }
+
+      var studioRefreshBtn = document.getElementById('btn-studio-refresh-all');
+      if (studioRefreshBtn && !(studioRefreshBtn.dataset && studioRefreshBtn.dataset.boundStudioRef)) {
+        if (studioRefreshBtn.dataset) studioRefreshBtn.dataset.boundStudioRef = '1';
+        studioRefreshBtn.addEventListener('click', function () {
+          switchAdminExamStudioTab(currentExamStudioTab || 'builder');
+        });
+      }
+
+      var backBtn = document.getElementById('btn-forms-builder-back');
+      if (backBtn && !(backBtn.dataset && backBtn.dataset.boundBack)) {
+        if (backBtn.dataset) backBtn.dataset.boundBack = '1';
+        backBtn.addEventListener('click', function () {
+          closeFormsExamBuilderToCatalog();
+          loadAdminExamSetsPhase3();
+        });
+      }
+
+      var addQBtns = [
+        document.getElementById('btn-forms-add-question-top'),
+        document.getElementById('btn-forms-add-question-bottom')
+      ];
+      for (var aq = 0; aq < addQBtns.length; aq++) {
+        (function (btn) {
+          if (!btn || (btn.dataset && btn.dataset.boundAddQ)) return;
+          if (btn.dataset) btn.dataset.boundAddQ = '1';
+          btn.addEventListener('click', function () {
+            formsBuilderQuestionCards.push(createBlankFormsQuestionCardState());
+            renderFormsBuilderQuestionCards();
+            var container = document.getElementById('pb-forms-questions-container');
+            if (container && container.lastElementChild) {
+              try {
+                container.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              } catch (e) {}
+            }
+          });
+        })(addQBtns[aq]);
+      }
+
+      var importBtns = [
+        document.getElementById('btn-forms-import-bank-top'),
+        document.getElementById('btn-forms-import-bank-bottom')
+      ];
+      for (var im = 0; im < importBtns.length; im++) {
+        (function (btn) {
+          if (!btn || (btn.dataset && btn.dataset.boundImp)) return;
+          if (btn.dataset) btn.dataset.boundImp = '1';
+          btn.addEventListener('click', function () {
+            var drw = document.getElementById('pb-forms-import-bank-drawer');
+            if (!drw) return;
+            drw.classList.remove('hidden');
+            if (!Array.isArray(currentQBankQuestionsPhase2) || currentQBankQuestionsPhase2.length === 0) {
+              loadAdminQuestionBankPhase2(1, true).then(function () {
+                renderFormsImportBankDrawerList();
+              });
+            } else {
+              renderFormsImportBankDrawerList();
+            }
+          });
+        })(importBtns[im]);
+      }
+
+      var closeImpBtn = document.getElementById('btn-forms-close-import-drawer');
+      if (closeImpBtn && !(closeImpBtn.dataset && closeImpBtn.dataset.boundCloseImp)) {
+        if (closeImpBtn.dataset) closeImpBtn.dataset.boundCloseImp = '1';
+        closeImpBtn.addEventListener('click', function () {
+          var drw = document.getElementById('pb-forms-import-bank-drawer');
+          if (drw) drw.classList.add('hidden');
+        });
+      }
+
+      var impSearch = document.getElementById('input-forms-import-search');
+      if (impSearch && !(impSearch.dataset && impSearch.dataset.boundSearchImp)) {
+        if (impSearch.dataset) impSearch.dataset.boundSearchImp = '1';
+        impSearch.addEventListener('input', function () {
+          renderFormsImportBankDrawerList();
+        });
+      }
+
+      var secModeSel = document.getElementById('select-forms-sec-mode');
+      if (secModeSel && !(secModeSel.dataset && secModeSel.dataset.boundSecMode)) {
+        if (secModeSel.dataset) secModeSel.dataset.boundSecMode = '1';
+        secModeSel.addEventListener('change', function () {
+          var drawInp = document.getElementById('input-forms-sec-pool-draw');
+          if (drawInp) drawInp.classList.toggle('hidden', secModeSel.value !== 'QUESTION_POOL');
+        });
+      }
+
+      var saveDraftBtns = [
+        document.getElementById('btn-forms-save-draft'),
+        document.getElementById('btn-forms-save-draft-bottom')
+      ];
+      for (var sd = 0; sd < saveDraftBtns.length; sd++) {
+        (function (btn) {
+          if (!btn || (btn.dataset && btn.dataset.boundSaveDraft)) return;
+          if (btn.dataset) btn.dataset.boundSaveDraft = '1';
+          btn.addEventListener('click', function () {
+            handleFormsSaveExamDraft(btn);
+          });
+        })(saveDraftBtns[sd]);
+      }
+
+      var pubBtns = [
+        document.getElementById('btn-forms-publish-exam'),
+        document.getElementById('btn-forms-publish-exam-bottom')
+      ];
+      for (var pb = 0; pb < pubBtns.length; pb++) {
+        (function (btn) {
+          if (!btn || (btn.dataset && btn.dataset.boundPubExam)) return;
+          if (btn.dataset) btn.dataset.boundPubExam = '1';
+          btn.addEventListener('click', function () {
+            handleFormsPublishExamNow(btn);
+          });
+        })(pubBtns[pb]);
+      }
+    }
+
     function initExamPhase3BuilderAndCatalogBindings() {
       // Admin Exam Builder modal trigger
       var openBuilderBtn = document.getElementById('btn-admin-open-exam-builder-modal');
@@ -19477,6 +20974,10 @@ var qrcode = (function() {
               setText('exam-assign-status-text', 'Error: ' + ((err && err.message) || 'Failed to save assignment'));
             });
         });
+      }
+
+      if (typeof initGoogleFormsExamStudioBindings === 'function') {
+        initGoogleFormsExamStudioBindings();
       }
 
       // Student Course Catalog filter & modal bindings

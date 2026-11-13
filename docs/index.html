@@ -116,7 +116,15 @@
           >
             Class Calendar
           </button>
-          <!-- Admin Dashboard Link: Strictly visible ONLY to ADMIN role -->
+          <!-- Admin Exam Studio & Admin Dashboard Links: Strictly visible ONLY to ADMIN role -->
+          <button
+            type="button"
+            class="nav-link hidden"
+            id="nav-desktop-exams"
+            data-nav-view="admin-exams"
+          >
+            Exams &amp; Quizzes
+          </button>
           <button
             type="button"
             class="nav-link hidden"
@@ -274,7 +282,15 @@
           >
             Class Calendar
           </button>
-          <!-- Admin Dashboard: Visible ONLY to ADMIN role -->
+          <!-- Admin Exam Studio & Admin Dashboard: Visible ONLY to ADMIN role -->
+          <button
+            type="button"
+            class="mobile-nav-link hidden"
+            id="nav-mobile-exams"
+            data-nav-view="admin-exams"
+          >
+            Exams &amp; Quizzes
+          </button>
           <button
             type="button"
             class="mobile-nav-link hidden"
@@ -4536,6 +4552,22 @@
       </div>
     </div>
 
+    <!-- Dedicated Exams & Quizzes Studio Banner (Quick Launch) -->
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 12px 16px; margin-bottom: 14px; border-radius: 14px; background: linear-gradient(135deg, #F0FDFA 0%, #ECFEFF 100%); border: 1.5px solid rgba(6, 182, 212, 0.28);">
+      <div>
+        <span class="badge badge-ok">NEW EXAM STUDIO</span>
+        <strong style="margin-left: 8px; color: var(--color-brand-deep); font-size: 0.96rem;">
+          Looking for Exam &amp; Quiz Creation, Grading, or Integrity Monitoring?
+        </strong>
+        <span style="display: block; font-size: 0.84rem; color: var(--color-text-secondary); margin-top: 2px;">
+          All examination tools now live in the dedicated <strong>Exams &amp; Quizzes</strong> navbar tab with the new Google Forms-style all-in-one builder.
+        </span>
+      </div>
+      <button type="button" class="btn btn-primary btn-sm" id="btn-admin-open-exam-studio" data-nav-view="admin-exams">
+        Open Exams &amp; Quizzes Studio &rarr;
+      </button>
+    </div>
+
     <!-- Step 6 Admin Sub-Navigation Tabs -->
     <div class="admin-subnav" role="tablist" aria-label="Admin Dashboard Sections">
       <button
@@ -4547,7 +4579,7 @@
         aria-controls="admin-panel-settings"
         data-admin-tab="settings"
       >
-        1. School Settings &amp; Public Website CMS
+        1. School Settings &amp; Website CMS
       </button>
       <button
         type="button"
@@ -4573,36 +4605,36 @@
       </button>
       <button
         type="button"
-        class="admin-subnav-btn"
+        class="admin-subnav-btn hidden"
         id="btn-admin-tab-assessments"
         role="tab"
         aria-selected="false"
         aria-controls="admin-panel-assessments"
         data-admin-tab="assessments"
       >
-        4. Assessments, Grading &amp; Scores
+        Assessments &amp; Grading
       </button>
       <button
         type="button"
-        class="admin-subnav-btn"
+        class="admin-subnav-btn hidden"
         id="btn-admin-tab-exam-creation"
         role="tab"
         aria-selected="false"
         aria-controls="admin-panel-exam-creation"
         data-admin-tab="exam-creation"
       >
-        5. Examination Creation &amp; Question Bank
+        Exam Creation
       </button>
       <button
         type="button"
-        class="admin-subnav-btn"
+        class="admin-subnav-btn hidden"
         id="btn-admin-tab-exam-integrity"
         role="tab"
         aria-selected="false"
         aria-controls="admin-panel-exam-integrity"
         data-admin-tab="exam-integrity"
       >
-        6. Examination Integrity &amp; Appeals
+        Exam Integrity
       </button>
       <button
         type="button"
@@ -4613,7 +4645,7 @@
         aria-controls="admin-panel-invoices"
         data-admin-tab="invoices"
       >
-        7. Tuition Invoices &amp; Payments
+        4. Tuition Invoices &amp; Payments
       </button>
       <button
         type="button"
@@ -4624,7 +4656,7 @@
         aria-controls="admin-panel-overview"
         data-admin-tab="overview"
       >
-        8. Portal Summary &amp; Logo Diagnostics
+        5. Portal Summary &amp; Logo Diagnostics
       </button>
       <button
         type="button"
@@ -4635,7 +4667,7 @@
         aria-controls="admin-panel-unavailability"
         data-admin-tab="unavailability"
       >
-        9. Unavailability Reports
+        6. Unavailability Reports
       </button>
     </div>
 
@@ -4660,6 +4692,44 @@
         <div class="status-label">Active Privacy Notice Version</div>
         <div class="status-value" id="admin-summary-privacy-version">-</div>
       </div>
+    </div>
+  </div>
+
+  <!-- Dedicated Exams & Quizzes Studio Header Card (Visible when opened via Top-Level "Exams & Quizzes" Tab) -->
+  <div class="card hidden" id="admin-exams-studio-header-card" style="margin-bottom: 16px; border: 1.5px solid rgba(6, 182, 212, 0.32); background: linear-gradient(135deg, #FFFFFF 0%, #F0FDFA 100%);">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 14px;">
+      <div>
+        <span class="badge badge-ok">EXAMS &amp; QUIZZES STUDIO</span>
+        <h1 style="margin: 6px 0 4px 0; font-size: 1.48rem; color: var(--color-brand-deep);">
+          Pattanabhumi Biology &mdash; Exams &amp; Quizzes Management
+        </h1>
+        <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
+          Build complete exam sets in one place (Google Forms style), grade student attempts, publish scores, and monitor exam integrity.
+        </p>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-primary btn-sm" id="btn-studio-launch-forms-builder">
+          + Create New Exam / Quiz (Form Builder)
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-studio-refresh-all">
+          Refresh Studio
+        </button>
+      </div>
+    </div>
+
+    <div class="admin-subnav" id="admin-exams-studio-subnav" role="tablist" aria-label="Exams and Quizzes Studio Sections" style="margin: 0;">
+      <button type="button" class="admin-subnav-btn is-active" id="btn-exam-studio-tab-builder" data-exam-studio-tab="builder" role="tab" aria-selected="true">
+        1. Exam &amp; Quiz Builder (All-in-One)
+      </button>
+      <button type="button" class="admin-subnav-btn" id="btn-exam-studio-tab-grading" data-exam-studio-tab="grading" role="tab" aria-selected="false">
+        2. Submissions, Grading &amp; Scores
+      </button>
+      <button type="button" class="admin-subnav-btn" id="btn-exam-studio-tab-integrity" data-exam-studio-tab="integrity" role="tab" aria-selected="false">
+        3. Integrity &amp; Appeals
+      </button>
+      <button type="button" class="admin-subnav-btn" id="btn-exam-studio-tab-qbank" data-exam-studio-tab="qbank" role="tab" aria-selected="false">
+        4. Question Bank Library
+      </button>
     </div>
   </div>
 
@@ -7488,6 +7558,213 @@
       </div>
     </div>
 
+    <!-- ======================================================================
+         GOOGLE FORMS / MS FORMS STYLE ALL-IN-ONE EXAM & QUIZ BUILDER WORKSPACE
+         ====================================================================== -->
+    <div id="pb-forms-builder-workspace" class="pb-forms-builder-workspace hidden" aria-label="All-in-One Exam and Quiz Builder">
+      <!-- Top Sticky Toolbar -->
+      <div class="pb-forms-sticky-toolbar">
+        <div class="pb-forms-toolbar-left">
+          <button type="button" class="btn btn-outline btn-sm" id="btn-forms-builder-back">
+            &larr; Back to Exam Sets
+          </button>
+          <span class="badge badge-ok" id="pb-forms-status-badge">NEW EXAM</span>
+          <span class="pb-forms-live-summary" id="pb-forms-live-summary">1 Question &bull; 2.00 pts</span>
+        </div>
+        <div class="pb-forms-toolbar-right">
+          <button type="button" class="btn btn-outline btn-sm" id="btn-forms-add-question-top">
+            + Add Question
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-forms-import-bank-top">
+            + Import from Bank
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-forms-save-draft">
+            Save Draft
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-forms-publish-exam">
+            Publish Exam
+          </button>
+        </div>
+      </div>
+
+      <!-- Status / Progress Banner -->
+      <div id="pb-forms-progress-banner" class="banner banner-info hidden" style="margin-bottom: 14px;">
+        <strong id="pb-forms-progress-title">Saving Exam...</strong>
+        <div id="pb-forms-progress-body" style="font-size: 0.86rem; margin-top: 2px;"></div>
+      </div>
+
+      <!-- Top Exam Header Card (Google Forms Title Card with Top Accent Bar) -->
+      <div class="card pb-forms-header-card">
+        <input type="hidden" id="input-forms-exam-id" value="" />
+        <input type="hidden" id="input-forms-exam-version" value="" />
+
+        <div class="pb-forms-header-top-row">
+          <div style="flex: 1 1 320px;">
+            <label for="input-forms-exam-title" class="pb-sr-only">Exam or Quiz Title</label>
+            <input
+              type="text"
+              id="input-forms-exam-title"
+              class="pb-forms-title-input"
+              placeholder="Untitled Biology Exam or Quiz"
+              value=""
+              required
+            />
+            <label for="textarea-forms-exam-description" class="pb-sr-only">Exam Description &amp; Instructions</label>
+            <textarea
+              id="textarea-forms-exam-description"
+              class="pb-forms-desc-input"
+              rows="2"
+              placeholder="Form description or pre-exam instructions for students (optional)..."
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- Essential Exam Settings Row -->
+        <div class="pb-forms-QuickSettings-grid">
+          <div class="form-group" style="margin: 0;">
+            <label for="select-forms-exam-course" class="form-label" style="font-size: 0.78rem;">Assigned Course *</label>
+            <select id="select-forms-exam-course" class="form-input">
+              <option value="">-- Select Course --</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label for="select-forms-exam-mode" class="form-label" style="font-size: 0.78rem;">Exam / Quiz Mode</label>
+            <select id="select-forms-exam-mode" class="form-input">
+              <option value="PRACTICE">Practice Quiz (Retakes &amp; Instant Key)</option>
+              <option value="MOCK_EXAM" selected>Timed Mock Exam (Strict Timer)</option>
+              <option value="ASSIGNED_ASSESSMENT">Assigned Course Assessment</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label for="input-forms-exam-duration" class="form-label" style="font-size: 0.78rem;">Time Limit (Minutes, 0 = Untimed)</label>
+            <input type="number" id="input-forms-exam-duration" class="form-input" min="0" max="600" value="45" />
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label for="input-forms-exam-pass-pct" class="form-label" style="font-size: 0.78rem;">Pass Threshold (%)</label>
+            <input type="number" id="input-forms-exam-pass-pct" class="form-input" min="0" max="100" value="60" />
+          </div>
+        </div>
+
+        <!-- Collapsible Advanced Exam Policies Drawer -->
+        <details class="pb-forms-advanced-drawer" id="pb-forms-exam-policies-drawer">
+          <summary class="pb-forms-advanced-summary">
+            &#9881; Advanced Exam Policies, Schedule &amp; Section Pool Settings (Optional)
+          </summary>
+          <div class="pb-forms-advanced-body">
+            <div class="form-grid-2col">
+              <div class="form-group">
+                <label for="input-forms-exam-code" class="form-label">Exam Code (Auto-generated if left blank)</label>
+                <input type="text" id="input-forms-exam-code" class="form-input" placeholder="Auto-generated e.g. BIO-EXAM-..." />
+              </div>
+              <div class="form-group">
+                <label for="input-forms-exam-attempts" class="form-label">Allowed Attempts (0 = Unlimited in Practice)</label>
+                <input type="number" id="input-forms-exam-attempts" class="form-input" min="0" max="100" value="1" />
+              </div>
+              <div class="form-group">
+                <label for="select-forms-score-policy" class="form-label">Score Release Policy</label>
+                <select id="select-forms-score-policy" class="form-input">
+                  <option value="IMMEDIATE_AUTO" selected>Release immediately after submission (if auto-graded)</option>
+                  <option value="MANUAL_ADMIN">Hold until instructor publishes manually</option>
+                  <option value="AFTER_CLOSE">Release automatically after closing deadline</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="select-forms-explanation-policy" class="form-label">Answer Key &amp; Explanation Release</label>
+                <select id="select-forms-explanation-policy" class="form-input">
+                  <option value="WITH_SCORE" selected>Release together with score</option>
+                  <option value="MANUAL_ADMIN">Hold until released manually</option>
+                  <option value="AFTER_CLOSE">Release after closing deadline</option>
+                  <option value="NEVER">Never show explanations</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="input-forms-open-at" class="form-label">Opening Date/Time (Optional YYYY-MM-DDTHH:mm)</label>
+                <input type="text" id="input-forms-open-at" class="form-input" placeholder="e.g. 2026-11-01T08:00" />
+              </div>
+              <div class="form-group">
+                <label for="input-forms-close-at" class="form-label">Closing Deadline (Optional YYYY-MM-DDTHH:mm)</label>
+                <input type="text" id="input-forms-close-at" class="form-input" placeholder="e.g. 2026-12-31T23:59" />
+              </div>
+              <div class="form-group">
+                <label for="input-forms-sec-title" class="form-label">Section Header Title</label>
+                <input type="text" id="input-forms-sec-title" class="form-input" value="Part I: Biology Questions" />
+              </div>
+              <div class="form-group">
+                <label for="select-forms-sec-mode" class="form-label">Question Delivery Mode</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <select id="select-forms-sec-mode" class="form-input" style="flex: 1;">
+                    <option value="FIXED_ITEMS" selected>Deliver all questions in order</option>
+                    <option value="QUESTION_POOL">Random Pool (Draw N questions)</option>
+                  </select>
+                  <input type="number" id="input-forms-sec-pool-draw" class="form-input hidden" min="1" max="100" value="5" style="width: 90px;" title="Number of random questions to draw" placeholder="Draw N" />
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 18px; flex-wrap: wrap; margin-top: 8px;">
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem;">
+                <input type="checkbox" id="chk-forms-rand-questions" />
+                Shuffle question order
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem;">
+                <input type="checkbox" id="chk-forms-rand-options" checked />
+                Shuffle answer choices (A, B, C, D)
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem;">
+                <input type="checkbox" id="chk-forms-practice-feedback" />
+                Allow instant check per question (Practice mode only)
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem;">
+                <input type="checkbox" id="chk-forms-copy-policy" checked />
+                Enable Copy-Protection &amp; Integrity Guard
+              </label>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <!-- Inline Import from Question Bank Drawer (Toggled via "+ Import from Bank") -->
+      <div id="pb-forms-import-bank-drawer" class="card hidden" style="margin-bottom: 16px; border: 1.5px solid var(--color-brand-primary);">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+          <div>
+            <span class="badge badge-ok">IMPORT EXISTING QUESTIONS</span>
+            <h3 style="margin: 4px 0 0 0; font-size: 1.05rem; color: var(--color-brand-deep);">
+              Click any question from your Question Bank to add it to this exam
+            </h3>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="search" id="input-forms-import-search" class="form-input" placeholder="Filter by keyword or code..." style="min-width: 220px;" />
+            <button type="button" class="btn btn-outline btn-sm" id="btn-forms-close-import-drawer">Close</button>
+          </div>
+        </div>
+        <div id="pb-forms-import-bank-list" style="max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;"></div>
+      </div>
+
+      <!-- Dynamic Question Cards List (Google Forms Style) -->
+      <div id="pb-forms-questions-container" class="pb-forms-questions-container"></div>
+
+      <!-- Bottom Add Question & Save Bar -->
+      <div class="card pb-forms-bottom-action-card">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-primary btn-sm" id="btn-forms-add-question-bottom">
+              + Add Question Card
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-forms-import-bank-bottom">
+              + Import from Question Bank
+            </button>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-forms-save-draft-bottom">
+              Save Exam Draft
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-forms-publish-exam-bottom">
+              Validate &amp; Publish Exam
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Phase 3 Administrator Examination Builder, Section Composer & Assignment Manager (#admin-exam-builder-catalog-card) -->
     <div class="card" id="admin-exam-builder-catalog-card" style="margin-top: 0;">
       <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
@@ -7514,8 +7791,11 @@
           <button type="button" class="btn btn-secondary btn-sm" id="btn-admin-open-exam-assign-modal">
             Student Assignments &amp; Accommodations
           </button>
-          <button type="button" class="btn btn-primary btn-sm" id="btn-admin-open-exam-builder-modal">
-            + Create Examination Set
+          <button type="button" class="btn btn-primary btn-sm" id="btn-admin-open-forms-builder">
+            + Create Exam / Quiz (Form Builder)
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-admin-open-exam-builder-modal" title="Open legacy section checklist modal">
+            Classic Builder
           </button>
         </div>
       </div>
