@@ -1306,9 +1306,10 @@
   .pb-rt-attachment-img {
     display: block;
     max-width: 100%;
-    max-height: 360px;
+    max-height: none;
     width: auto;
     height: auto;
+    object-fit: contain;
     border-radius: var(--radius-sm);
     border: 1px solid var(--color-brand-border);
     background: #FFFFFF;
@@ -1400,6 +1401,14 @@
     overflow: hidden;
   }
 
+  .student-course-cover.has-cover-img {
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .student-course-cover-img {
     position: absolute;
     inset: 0;
@@ -1407,6 +1416,17 @@
     height: 100%;
     object-fit: cover;
     z-index: 1;
+  }
+
+  .student-course-cover.has-cover-img .student-course-cover-img {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    height: auto;
+    max-height: none !important;
+    object-fit: contain;
+    border-radius: 0;
+    display: block;
   }
 
   .student-course-cover-overlay {
@@ -1420,6 +1440,12 @@
     background: rgba(16, 42, 30, 0.72);
     padding: 6px 10px;
     border-radius: var(--radius-sm);
+  }
+
+  .student-course-cover.has-cover-img .student-course-cover-overlay {
+    border-radius: 0;
+    padding: 8px 12px;
+    background: rgba(16, 42, 30, 0.9);
   }
 
   .student-course-body {
@@ -5897,6 +5923,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
     gap: 10px;
     margin-bottom: 10px;
   }
@@ -5909,6 +5936,13 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
+    flex: 1 1 180px;
+  }
+
+  #login-skeleton-step-badge {
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
   }
 
   .pb-login-skeleton-pulse-dot {
@@ -6006,13 +6040,21 @@
     border-radius: 18px;
     background: linear-gradient(135deg, #E0F2FE 0%, #D1FAE5 50%, #F1F5F9 100%);
     border: 1.5px solid #CCFBF1;
-    min-height: 120px;
+    min-height: 72px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 12px;
+    padding: 8px;
     transition: border-color 300ms ease, box-shadow 300ms ease;
+  }
+
+  .pb-blur-up-stage.is-banner {
+    padding: 0;
+    min-height: 0;
+    background: transparent;
+    border: 1px solid var(--color-brand-border);
+    border-radius: 16px;
   }
 
   .pb-blur-up-stage.is-uploading::after {
@@ -6032,11 +6074,12 @@
 
   .pb-blur-up-img {
     max-width: 100%;
-    max-height: 260px;
+    max-height: none;
     width: auto;
     height: auto;
     border-radius: 12px;
     object-fit: contain;
+    display: block;
     filter: blur(18px) scale(1.05);
     opacity: 0.68;
     transition:
@@ -6044,6 +6087,15 @@
       transform 520ms cubic-bezier(0.22, 1, 0.36, 1),
       opacity 420ms ease;
     will-change: filter, transform, opacity;
+  }
+
+  .pb-blur-up-stage.is-banner .pb-blur-up-img {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: none;
+    border-radius: 15px;
+    object-fit: contain;
   }
 
   .pb-blur-up-img.is-sharp {
@@ -7250,7 +7302,7 @@
    * ========================================================================== */
 
   /* 1. Payment Steps Redesign Matching Attached Stepper UI Reference (image_a8917e.png) */
-  .pb-payment-checkout-workspace {
+  .pb-payment-checkout-workspace:not(.hidden) {
     display: grid;
     grid-template-columns: 1fr;
     gap: 18px;
@@ -7259,7 +7311,7 @@
   }
 
   @media (min-width: 880px) {
-    .pb-payment-checkout-workspace {
+    .pb-payment-checkout-workspace:not(.hidden) {
       grid-template-columns: 325px minmax(0, 1fr);
       gap: 22px;
     }
@@ -8445,7 +8497,11 @@
     box-sizing: border-box !important;
   }
 
-  .pb-payment-checkout-workspace {
+  .pb-payment-checkout-workspace.hidden {
+    display: none !important;
+  }
+
+  .pb-payment-checkout-workspace:not(.hidden) {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) !important;
     gap: 18px !important;
@@ -8453,7 +8509,7 @@
   }
 
   @media (min-width: 920px) {
-    .pb-payment-checkout-workspace {
+    .pb-payment-checkout-workspace:not(.hidden) {
       grid-template-columns: 310px minmax(0, 1fr) !important;
       gap: 22px !important;
     }
@@ -8558,6 +8614,11 @@
       white-space: normal !important;
       text-align: center !important;
       line-height: 1.3 !important;
+    }
+
+    #login-skeleton-step-badge {
+      white-space: nowrap !important;
+      flex-shrink: 0 !important;
     }
 
     /* Compact In-Page Quick Jump Bars on Mobile (#payments-inpage-toc-bar, #calendar-inpage-toc-bar, #profile-inpage-toc-bar) */
@@ -12451,7 +12512,8 @@
   .pb-qbank-image-thumb-stage {
     position: relative;
     width: 100%;
-    height: 150px;
+    min-height: 140px;
+    height: auto;
     border-radius: 12px;
     background: linear-gradient(135deg, #ECFEFF 0%, #F0FDF4 100%);
     border: 1px solid #CCFBF1;
@@ -12479,9 +12541,9 @@
   .pb-actual-image-preview,
   .pb-qbank-image-thumb-stage img {
     width: 100% !important;
-    height: 100% !important;
+    height: auto !important;
     max-width: 100% !important;
-    max-height: 100% !important;
+    max-height: none !important;
     object-fit: contain !important;
     border-radius: 8px;
     display: block !important;
@@ -14384,8 +14446,11 @@
   }
 
   .admin-receipt-queue-thumb .pb-blur-up-img {
+    width: 100% !important;
+    height: auto !important;
     max-width: 100% !important;
-    max-height: 82px !important;
+    max-height: 150px !important;
+    object-fit: contain !important;
     border-radius: 6px !important;
   }
 

@@ -3523,7 +3523,7 @@
           if (c.coverFileId && /^fil_[a-z0-9_-]{4,64}$/i.test(c.coverFileId)) {
             var coverImg = document.createElement('img');
             coverImg.className = 'student-course-cover-img pb-blur-up-img hidden';
-            coverImg.alt = (c.title || c.courseCode) + ' cover image';
+            coverImg.alt = (c.title || c.courseCode || 'Course') + ' cover';
             coverDiv.appendChild(coverImg);
 
             PBObjectUrlManager.fetchAndCreateObjectUrl(c.coverFileId, c.courseId)
@@ -3535,6 +3535,7 @@
                 };
                 coverImg.src = entry.objectUrl;
                 coverImg.classList.remove('hidden');
+                coverDiv.classList.add('has-cover-img');
                 setTimeout(function () {
                   coverImg.classList.add('is-sharp');
                 }, 120);
@@ -5363,6 +5364,9 @@
       showSectionView(usr.role === 'ADMIN' ? 'admin' : 'profile');
     }
 
+    var currentAdminBillingSubView = 'queue';
+    var currentStudentPaymentSubView = 'checkout';
+
     function setPaymentsViewRoleMode(isAdminStudioMode, opt_studentPreview) {
       var adminStudio = document.getElementById('admin-panel-invoices');
       var studentWs = document.getElementById('student-payments-workspace');
@@ -5377,32 +5381,43 @@
       if (previewBanner) {
         previewBanner.classList.toggle('hidden', !(isAdminStudioMode && opt_studentPreview));
       }
+      if (showAdmin) {
+        switchAdminBillingSubView(currentAdminBillingSubView);
+      } else {
+        switchStudentPaymentSubView(currentStudentPaymentSubView);
+      }
     }
 
     function switchAdminBillingSubView(subViewKey) {
       var mode = subViewKey || 'queue';
-      var queueCard = document.getElementById('admin-receipt-verification-queue-card');
-      var invCard = document.getElementById('admin-invoices-directory-card');
+      currentAdminBillingSubView = mode;
+      var queueCard = document.getElementById('admin-payment-verification-card');
+      var invCard = document.getElementById('admin-invoices-management-card');
       if (queueCard) {
         queueCard.classList.toggle('hidden', mode === 'invoices');
       }
       if (invCard) {
         invCard.classList.toggle('hidden', mode === 'queue');
       }
-      var btns = document.querySelectorAll('[data-admin-billing-subview]');
+      var btns = document.querySelectorAll('[data-admin-billing-tab], [data-admin-billing-subview]');
       for (var i = 0; i < btns.length; i++) {
         var b = btns[i];
-        var active = b.getAttribute('data-admin-billing-subview') === mode;
+        var key = b.getAttribute('data-admin-billing-tab') || b.getAttribute('data-admin-billing-subview');
+        var active = key === mode;
         b.classList.toggle('is-active', active);
         b.setAttribute('aria-selected', active ? 'true' : 'false');
+      }
+      if (typeof PBFloatingToc === 'object' && PBFloatingToc && currentActiveViewName === 'payments') {
+        PBFloatingToc.syncForActiveView('payments');
       }
     }
 
     function switchStudentPaymentSubView(subViewKey) {
       var mode = subViewKey || 'checkout';
-      var checkoutWrap = document.getElementById('student-payment-subview-checkout');
-      var invoicesWrap = document.getElementById('student-payment-subview-invoices');
-      var historyWrap = document.getElementById('student-payment-subview-history');
+      currentStudentPaymentSubView = mode;
+      var checkoutWrap = document.getElementById('student-payment-checkout-workspace-box');
+      var invoicesWrap = document.getElementById('student-all-invoices-card');
+      var historyWrap = document.getElementById('student-payment-history-card');
       if (checkoutWrap) {
         checkoutWrap.classList.toggle('hidden', mode !== 'checkout');
       }
@@ -5412,12 +5427,16 @@
       if (historyWrap) {
         historyWrap.classList.toggle('hidden', mode !== 'history');
       }
-      var btns = document.querySelectorAll('[data-student-pay-subview]');
+      var btns = document.querySelectorAll('[data-student-pay-tab], [data-student-pay-subview]');
       for (var i = 0; i < btns.length; i++) {
         var b = btns[i];
-        var active = b.getAttribute('data-student-pay-subview') === mode;
+        var key = b.getAttribute('data-student-pay-tab') || b.getAttribute('data-student-pay-subview');
+        var active = key === mode;
         b.classList.toggle('is-active', active);
         b.setAttribute('aria-selected', active ? 'true' : 'false');
+      }
+      if (typeof PBFloatingToc === 'object' && PBFloatingToc && currentActiveViewName === 'payments') {
+        PBFloatingToc.syncForActiveView('payments');
       }
     }
 
@@ -8099,7 +8118,7 @@
       });
     }
 
-    function renderPrivateImagePreviewStep8(containerId, fileId, courseId, captionText) {
+    function renderPrivateImagePreviewStep8(containerId, fileId, courseId, captionText, opt_options) {
       var box = document.getElementById(containerId);
       if (!box) {
         return;
@@ -8114,12 +8133,16 @@
       }
       box.classList.remove('hidden');
 
+      var opts = opt_options || {};
+      var isBanner =
+        opts.variant === 'banner' || containerId === 'student-course-cover-banner';
+
       var stage = document.createElement('div');
-      stage.className = 'pb-blur-up-stage is-uploading';
+      stage.className = 'pb-blur-up-stage is-uploading' + (isBanner ? ' is-banner' : '');
 
       var statusSpan = document.createElement('div');
       statusSpan.className = 'pb-blur-up-caption';
-      statusSpan.textContent = 'Loading progressive image preview (' + cleanId + ')...';
+      statusSpan.textContent = 'Loading image preview...';
       stage.appendChild(statusSpan);
       box.appendChild(stage);
 
@@ -8129,8 +8152,8 @@
             stage.removeChild(stage.firstChild);
           }
           var img = document.createElement('img');
-          img.className = 'pb-file-preview-thumb pb-blur-up-img';
-          img.alt = captionText || entry.originalFilename || 'Authorized Private Image';
+          img.className = 'pb-blur-up-img';
+          img.alt = captionText || 'Authorized Image';
           img.onload = function () {
             stage.classList.remove('is-uploading');
             setTimeout(function () {
@@ -8144,13 +8167,12 @@
           }, 120);
           stage.appendChild(img);
 
-          var meta = document.createElement('div');
-          meta.className = 'pb-blur-up-caption';
-          var sizeKb = Math.round((entry.sizeBytes || 0) / 1024 * 10) / 10;
-          var cleanName = entry.originalFilename || cleanId;
-          meta.textContent = cleanName + (sizeKb > 0 ? ' (' + sizeKb + ' KB)' : '');
-          meta.title = cleanName + ' (' + (entry.mimeType || 'image') + ', ' + sizeKb + ' KB)';
-          stage.appendChild(meta);
+          if (opts.showCaption === true && opts.caption) {
+            var meta = document.createElement('div');
+            meta.className = 'pb-blur-up-caption';
+            meta.textContent = String(opts.caption);
+            stage.appendChild(meta);
+          }
         })
         .catch(function (err) {
           stage.classList.remove('is-uploading');
@@ -8313,7 +8335,7 @@
             var badge = document.createElement('span');
             badge.className = 'badge badge-ok';
             badge.style.marginBottom = '6px';
-            badge.textContent = 'Loading Authorized Image (' + imgBlock.fileId + ')...';
+            badge.textContent = 'Loading image...';
             fig.appendChild(badge);
 
             var imgEl = document.createElement('img');
@@ -8321,7 +8343,7 @@
             imgEl.alt = imgBlock.altText || imgBlock.caption || 'Course illustration';
             fig.appendChild(imgEl);
 
-            if (imgBlock.caption) {
+            if (imgBlock.caption && !/\.(png|jpe?g|webp|gif|svg|bmp)$/i.test(String(imgBlock.caption).trim())) {
               var cap = document.createElement('figcaption');
               cap.className = 'pb-rt-attachment-caption';
               cap.textContent = imgBlock.caption;
@@ -8341,10 +8363,9 @@
               .then(function (entry) {
                 imgEl.src = entry.objectUrl;
                 imgEl.classList.remove('hidden');
-                badge.textContent =
-                  'Private Drive Image (' +
-                  (entry.originalFilename || imgBlock.fileId) +
-                  ')';
+                if (badge && badge.parentNode) {
+                  badge.parentNode.removeChild(badge);
+                }
               })
               .catch(function (err) {
                 badge.className = 'badge badge-incomplete';
@@ -8976,8 +8997,8 @@
                 state.doc.blocks.push({
                   type: 'image_attachment',
                   fileId: uploaded.fileId,
-                  caption: uploaded.originalFilename || '',
-                  altText: uploaded.originalFilename || 'Course illustration'
+                  caption: '',
+                  altText: 'Course illustration'
                 });
                 state.activeBlockIdx = state.doc.blocks.length - 1;
                 setCourseEditorDirtyState(true, editorLabel);
@@ -9230,6 +9251,25 @@
             if (!confirmDiscardUnsavedChangesIfNeeded('editing course ' + c.courseCode)) {
               return;
             }
+            var cached =
+              currentSelectedCourseDetail &&
+              currentSelectedCourseDetail.course &&
+              currentSelectedCourseDetail.course.courseId === c.courseId
+                ? currentSelectedCourseDetail
+                : adminCourseDetailCacheById[c.courseId];
+            if (cached && cached.course) {
+              currentSelectedCourseDetail = cached;
+              populateCourseEditorForm(cached.course);
+              var wsOpen = document.getElementById('admin-selected-course-workspace');
+              if (wsOpen) wsOpen.classList.remove('hidden');
+              renderSelectedCourseSectionsAndCards(cached);
+              PBAdminActionModal.open(
+                'admin-course-editor-card',
+                'Edit Course: [' + c.courseCode + '] ' + c.title
+              );
+              loadAdminCourseEditorDetailStep7(c.courseId, true);
+              return;
+            }
             withButtonAndAreaLoading(editMetaBtn, tr, function () {
               return loadAdminCourseEditorDetailStep7(c.courseId).then(function () {
                 PBAdminActionModal.open(
@@ -9251,6 +9291,22 @@
             }
             var ws = document.getElementById('admin-selected-course-workspace');
             if (ws) ws.classList.remove('hidden');
+            var cached =
+              currentSelectedCourseDetail &&
+              currentSelectedCourseDetail.course &&
+              currentSelectedCourseDetail.course.courseId === c.courseId
+                ? currentSelectedCourseDetail
+                : adminCourseDetailCacheById[c.courseId];
+            if (cached && cached.course) {
+              currentSelectedCourseDetail = cached;
+              populateCourseEditorForm(cached.course);
+              populateSectionEditorForm(null);
+              populateCardEditorForm(null);
+              renderSelectedCourseSectionsAndCards(cached);
+              PBFloatingToc.jumpToTargetElement('admin-selected-course-workspace');
+              loadAdminCourseEditorDetailStep7(c.courseId, true);
+              return;
+            }
             renderSectionsWorkspaceSkeleton();
             PBFloatingToc.jumpToTargetElement('admin-selected-course-workspace');
             withButtonAndAreaLoading(editBtn, tr, function () {
@@ -9281,10 +9337,28 @@
             c.status === 'ARCHIVED' ? 'Restore course' : 'Archive course'
           );
           toggleArchiveBtn.addEventListener('click', function () {
-            withButtonAndAreaLoading(toggleArchiveBtn, tr, function () {
+            var prevStatus = c.status;
+            c.status = nextStatus;
+            if (
+              currentSelectedCourseDetail &&
+              currentSelectedCourseDetail.course &&
+              currentSelectedCourseDetail.course.courseId === c.courseId
+            ) {
+              currentSelectedCourseDetail.course.status = nextStatus;
+              syncCourseCachesAfterMutation(currentSelectedCourseDetail);
+            } else {
+              renderAdminCoursesTable(currentAdminCoursesList);
+            }
+            enqueueCourseMutation(c.courseId, 'Status', function () {
+              var liveVer =
+                (currentSelectedCourseDetail &&
+                  currentSelectedCourseDetail.course &&
+                  currentSelectedCourseDetail.course.courseId === c.courseId &&
+                  currentSelectedCourseDetail.course.version) ||
+                c.version;
               return rpcCallEnvelope('admin.saveCourse', {
                 courseId: c.courseId,
-                expectedVersion: c.version,
+                expectedVersion: liveVer,
                 courseCode: c.courseCode,
                 title: c.title,
                 subtitle: c.subtitle,
@@ -9292,21 +9366,34 @@
                 status: nextStatus,
                 sortOrder: c.sortOrder,
                 calendarTag: c.calendarTag
-              })
+              }, { suppressErrorBanner: true })
                 .then(function (env) {
+                  var d = env.data || {};
+                  if (pendingCourseMutationCountById[c.courseId] <= 1 && d.course) {
+                    if (
+                      currentSelectedCourseDetail &&
+                      currentSelectedCourseDetail.course &&
+                      currentSelectedCourseDetail.course.courseId === c.courseId
+                    ) {
+                      currentSelectedCourseDetail = d;
+                    }
+                    syncCourseCachesAfterMutation(d);
+                  }
                   setAdminCoursesAlert(
                     'success',
                     'Course Status Updated',
-                    (env.data && env.data.savedMessage) || 'Updated course status.'
+                    d.savedMessage || 'Updated course status.'
                   );
-                  return loadAdminCoursesAndAssessmentsStep7(c.courseId);
+                  return d;
                 })
                 .catch(function (err) {
+                  c.status = prevStatus;
                   setAdminCoursesAlert(
                     'danger',
                     'Course Update Failed (' + (err.code || 'ERR') + ')',
                     err.message || ''
                   );
+                  return loadAdminCoursesAndAssessmentsStep7(c.courseId);
                 });
             });
           });
@@ -9855,9 +9942,7 @@
           setBtnVectorIcon(upBtn, 'up', 'Up', 'Move section up');
           upBtn.disabled = secIndex === 0;
           upBtn.addEventListener('click', function () {
-            withButtonAndAreaLoading(upBtn, secBox, function () {
-              return handleAdminReorderSections(secIndex, -1);
-            });
+            handleAdminReorderSections(secIndex, -1);
           });
           secBtns.appendChild(upBtn);
 
@@ -9867,9 +9952,7 @@
           setBtnVectorIcon(downBtn, 'down', 'Down', 'Move section down');
           downBtn.disabled = secIndex === sections.length - 1;
           downBtn.addEventListener('click', function () {
-            withButtonAndAreaLoading(downBtn, secBox, function () {
-              return handleAdminReorderSections(secIndex, 1);
-            });
+            handleAdminReorderSections(secIndex, 1);
           });
           secBtns.appendChild(downBtn);
 
@@ -9924,26 +10007,72 @@
                 : sec.canHardDelete
                 ? 'REMOVE'
                 : 'ARCHIVE';
-            withButtonAndAreaLoading(removeOrArchiveBtn, secBox, function () {
-              return rpcCallEnvelope('admin.removeOrArchiveSection', {
-              courseId: course.courseId,
-              sectionId: sec.sectionId,
-              expectedVersion: sec.version,
-              mode: mode
-            })
-              .then(function (env) {
-                var d = env.data || {};
-                currentSelectedCourseDetail = d;
-                renderSelectedCourseSectionsAndCards(d);
-                setAdminCoursesAlert('success', 'Section Updated', d.savedMessage || '');
-              })
-              .catch(function (err) {
-                setAdminCoursesAlert(
-                  'danger',
-                  'Section Action Failed (' + (err.code || 'ERR') + ')',
-                  err.message || ''
+            var courseId = course.courseId;
+            var sectionId = sec.sectionId;
+            if (currentSelectedCourseDetail && Array.isArray(currentSelectedCourseDetail.sections)) {
+              if (mode === 'REMOVE') {
+                currentSelectedCourseDetail.sections = currentSelectedCourseDetail.sections.filter(
+                  function (item) {
+                    return item && item.sectionId !== sectionId;
+                  }
                 );
-              });
+              } else {
+                for (var sIdxLive = 0; sIdxLive < currentSelectedCourseDetail.sections.length; sIdxLive++) {
+                  if (currentSelectedCourseDetail.sections[sIdxLive].sectionId === sectionId) {
+                    currentSelectedCourseDetail.sections[sIdxLive].status =
+                      mode === 'ARCHIVE' ? 'ARCHIVED' : 'PUBLISHED';
+                    break;
+                  }
+                }
+              }
+              syncCourseCachesAfterMutation(currentSelectedCourseDetail);
+              populateCardEditorDropdowns(
+                currentSelectedCourseDetail.sections || [],
+                currentSelectedCourseDetail.assessmentsLibrary || currentAdminAssessmentsList
+              );
+              renderSelectedCourseSectionsAndCards(currentSelectedCourseDetail);
+            }
+            enqueueCourseMutation(courseId, 'Section Status', function () {
+              var liveSecVer = sec.version || 1;
+              if (currentSelectedCourseDetail && Array.isArray(currentSelectedCourseDetail.sections)) {
+                for (var li = 0; li < currentSelectedCourseDetail.sections.length; li++) {
+                  if (currentSelectedCourseDetail.sections[li].sectionId === sectionId) {
+                    liveSecVer = currentSelectedCourseDetail.sections[li].version || liveSecVer;
+                    break;
+                  }
+                }
+              }
+              return rpcCallEnvelope('admin.removeOrArchiveSection', {
+                courseId: courseId,
+                sectionId: sectionId,
+                expectedVersion: liveSecVer,
+                mode: mode
+              }, { suppressErrorBanner: true })
+                .then(function (env) {
+                  var d = env.data || {};
+                  if (pendingCourseMutationCountById[courseId] <= 1) {
+                    currentSelectedCourseDetail = d;
+                    syncCourseCachesAfterMutation(d);
+                    populateCardEditorDropdowns(
+                      d.sections || [],
+                      d.assessmentsLibrary || currentAdminAssessmentsList
+                    );
+                    renderSelectedCourseSectionsAndCards(d);
+                  } else if (d.course && currentSelectedCourseDetail && currentSelectedCourseDetail.course) {
+                    currentSelectedCourseDetail.course.version = d.course.version;
+                    syncCourseVersionInputsFromDetail(currentSelectedCourseDetail);
+                  }
+                  setAdminCoursesAlert('success', 'Section Updated', d.savedMessage || '');
+                  return d;
+                })
+                .catch(function (err) {
+                  setAdminCoursesAlert(
+                    'danger',
+                    'Section Action Failed (' + (err.code || 'ERR') + ')',
+                    err.message || ''
+                  );
+                  return loadAdminCourseEditorDetailStep7(courseId);
+                });
             });
           });
           secBtns.appendChild(removeOrArchiveBtn);
@@ -10039,9 +10168,7 @@
                 setBtnVectorIcon(cUpBtn, 'up', 'Up', 'Move card up');
                 cUpBtn.disabled = cardIndex === 0;
                 cUpBtn.addEventListener('click', function () {
-                  withButtonAndAreaLoading(cUpBtn, cardItem, function () {
-                    return handleAdminReorderCards(sec, cardIndex, -1);
-                  });
+                  handleAdminReorderCards(sec, cardIndex, -1);
                 });
                 cardControls.appendChild(cUpBtn);
 
@@ -10051,9 +10178,7 @@
                 setBtnVectorIcon(cDownBtn, 'down', 'Down', 'Move card down');
                 cDownBtn.disabled = cardIndex === cards.length - 1;
                 cDownBtn.addEventListener('click', function () {
-                  withButtonAndAreaLoading(cDownBtn, cardItem, function () {
-                    return handleAdminReorderCards(sec, cardIndex, 1);
-                  });
+                  handleAdminReorderCards(sec, cardIndex, 1);
                 });
                 cardControls.appendChild(cDownBtn);
 
@@ -10082,26 +10207,61 @@
                   crd.status === 'ARCHIVED' ? 'Restore card' : 'Archive card'
                 );
                 cArchBtn.addEventListener('click', function () {
-                  withButtonAndAreaLoading(cArchBtn, cardItem, function () {
+                  var courseId = course.courseId;
+                  var cardId = crd.cardId;
+                  if (currentSelectedCourseDetail && Array.isArray(currentSelectedCourseDetail.sections)) {
+                    for (var sIdxL = 0; sIdxL < currentSelectedCourseDetail.sections.length; sIdxL++) {
+                      var sCards = currentSelectedCourseDetail.sections[sIdxL].cards || [];
+                      for (var cIdxL = 0; cIdxL < sCards.length; cIdxL++) {
+                        if (sCards[cIdxL] && sCards[cIdxL].cardId === cardId) {
+                          sCards[cIdxL].status = nextMode === 'ARCHIVE' ? 'ARCHIVED' : 'PUBLISHED';
+                          break;
+                        }
+                      }
+                    }
+                    syncCourseCachesAfterMutation(currentSelectedCourseDetail);
+                    renderSelectedCourseSectionsAndCards(currentSelectedCourseDetail);
+                  }
+                  enqueueCourseMutation(courseId, 'Card Status', function () {
+                    var liveCardVer = crd.version || 1;
+                    if (currentSelectedCourseDetail && Array.isArray(currentSelectedCourseDetail.sections)) {
+                      for (var sl = 0; sl < currentSelectedCourseDetail.sections.length; sl++) {
+                        var sc = currentSelectedCourseDetail.sections[sl].cards || [];
+                        for (var cl = 0; cl < sc.length; cl++) {
+                          if (sc[cl] && sc[cl].cardId === cardId) {
+                            liveCardVer = sc[cl].version || liveCardVer;
+                            break;
+                          }
+                        }
+                      }
+                    }
                     return rpcCallEnvelope('admin.removeOrArchiveCard', {
-                    courseId: course.courseId,
-                    cardId: crd.cardId,
-                    expectedVersion: crd.version,
-                    mode: nextMode
-                  })
-                    .then(function (env) {
-                      var d = env.data || {};
-                      currentSelectedCourseDetail = d;
-                      renderSelectedCourseSectionsAndCards(d);
-                      setAdminCoursesAlert('success', 'Card Updated', d.savedMessage || '');
-                    })
-                    .catch(function (err) {
-                      setAdminCoursesAlert(
-                        'danger',
-                        'Card Update Failed (' + (err.code || 'ERR') + ')',
-                        err.message || ''
-                      );
-                    });
+                      courseId: courseId,
+                      cardId: cardId,
+                      expectedVersion: liveCardVer,
+                      mode: nextMode
+                    }, { suppressErrorBanner: true })
+                      .then(function (env) {
+                        var d = env.data || {};
+                        if (pendingCourseMutationCountById[courseId] <= 1) {
+                          currentSelectedCourseDetail = d;
+                          syncCourseCachesAfterMutation(d);
+                          renderSelectedCourseSectionsAndCards(d);
+                        } else if (d.course && currentSelectedCourseDetail && currentSelectedCourseDetail.course) {
+                          currentSelectedCourseDetail.course.version = d.course.version;
+                          syncCourseVersionInputsFromDetail(currentSelectedCourseDetail);
+                        }
+                        setAdminCoursesAlert('success', 'Card Updated', d.savedMessage || '');
+                        return d;
+                      })
+                      .catch(function (err) {
+                        setAdminCoursesAlert(
+                          'danger',
+                          'Card Update Failed (' + (err.code || 'ERR') + ')',
+                          err.message || ''
+                        );
+                        return loadAdminCourseEditorDetailStep7(courseId);
+                      });
                   });
                 });
                 cardControls.appendChild(cArchBtn);
@@ -10168,22 +10328,208 @@
       }
     }
 
-    function loadAdminCourseEditorDetailStep7(courseId) {
+    var adminCourseDetailCacheById = {};
+    var pendingCourseMutationQueues = {};
+    var pendingCourseMutationCountById = {};
+
+    function cloneCourseDetailSafe(detail) {
+      if (!detail || typeof detail !== 'object') return detail;
+      try {
+        return JSON.parse(JSON.stringify(detail));
+      } catch (e) {
+        return detail;
+      }
+    }
+
+    function updateCourseSyncIndicatorBadge(courseId, isSyncing, opt_label) {
+      var pending = courseId ? Number(pendingCourseMutationCountById[courseId] || 0) : 0;
+      var dirtyBadge = document.getElementById('admin-course-dirty-badge');
+      if (isSyncing || pending > 0) {
+        if (dirtyBadge) {
+          dirtyBadge.className = 'badge badge-incomplete';
+          dirtyBadge.textContent = 'Saving' + (opt_label ? ' (' + opt_label + ')' : '') + '...';
+        }
+        return;
+      }
+      if (!hasUnsavedCourseChanges && dirtyBadge) {
+        dirtyBadge.className = 'badge badge-ok';
+        dirtyBadge.textContent = 'Saved & Synced';
+      }
+    }
+
+    function syncCourseVersionInputsFromDetail(detail) {
+      if (!detail || !detail.course || !detail.course.courseId) return;
+      var crs = detail.course;
+      var edIdEl = document.getElementById('input-course-editor-id');
+      if (edIdEl && edIdEl.value.trim() === crs.courseId) {
+        setInputValue('input-course-editor-version', String(crs.version || 1));
+        setText(
+          'course-editor-version-badge',
+          'Version: v' +
+            String(crs.version || 1) +
+            (crs.updatedAtBangkok ? ' | Updated: ' + crs.updatedAtBangkok : '')
+        );
+      }
+    }
+
+    function syncCourseCachesAfterMutation(detail) {
+      if (!detail || !detail.course || !detail.course.courseId) return;
+      var crs = detail.course;
+      var courseId = crs.courseId;
+      adminCourseDetailCacheById[courseId] = detail;
+      syncCourseVersionInputsFromDetail(detail);
+
+      var secs = Array.isArray(detail.sections) ? detail.sections : [];
+      var cardTotal = 0;
+      for (var si = 0; si < secs.length; si++) {
+        cardTotal += Array.isArray(secs[si].cards) ? secs[si].cards.length : 0;
+      }
+
+      if (Array.isArray(currentAdminCoursesList)) {
+        var foundIdx = -1;
+        for (var i = 0; i < currentAdminCoursesList.length; i++) {
+          if (currentAdminCoursesList[i] && currentAdminCoursesList[i].courseId === courseId) {
+            foundIdx = i;
+            break;
+          }
+        }
+        var summaryPatch = {
+          courseId: courseId,
+          courseCode: crs.courseCode,
+          title: crs.title,
+          subtitle: crs.subtitle || '',
+          status: crs.status || 'PUBLISHED',
+          sortOrder: crs.sortOrder !== undefined ? crs.sortOrder : 10,
+          calendarTag: crs.calendarTag || '',
+          coverFileId: crs.coverFileId || '',
+          version: crs.version || 1,
+          updatedAtBangkok: crs.updatedAtBangkok || crs.updatedAtUtc || 'Just now',
+          sectionCount: secs.length,
+          cardCount: cardTotal
+        };
+        if (foundIdx !== -1) {
+          var existingRow = currentAdminCoursesList[foundIdx];
+          for (var k in summaryPatch) {
+            if (Object.prototype.hasOwnProperty.call(summaryPatch, k)) {
+              existingRow[k] = summaryPatch[k];
+            }
+          }
+        } else {
+          currentAdminCoursesList.push(summaryPatch);
+        }
+        currentAdminCoursesList.sort(function (a, b) {
+          var diff = (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0);
+          if (diff !== 0) return diff;
+          return String(a.courseCode || '').localeCompare(String(b.courseCode || ''));
+        });
+        currentAdminAvailableCourses = currentAdminCoursesList.filter(function (c) {
+          return c.status !== 'ARCHIVED';
+        });
+        renderAdminCoursesTable(currentAdminCoursesList);
+        if (typeof renderUserEditorCourseCheckboxes === 'function' && typeof getCheckedCourseIdsInUserEditor === 'function') {
+          renderUserEditorCourseCheckboxes(getCheckedCourseIdsInUserEditor());
+        }
+      }
+
+      if (studentCourseDetailCacheById && studentCourseDetailCacheById[courseId]) {
+        var prevStu = studentCourseDetailCacheById[courseId];
+        var pubSections = [];
+        for (var psIdx = 0; psIdx < secs.length; psIdx++) {
+          var sec = secs[psIdx];
+          if (sec && sec.status === 'PUBLISHED') {
+            var secCopy = cloneCourseDetailSafe(sec);
+            var rawCards = Array.isArray(secCopy.cards) ? secCopy.cards : [];
+            secCopy.cards = rawCards.filter(function (crd) {
+              return crd && crd.status === 'PUBLISHED';
+            });
+            pubSections.push(secCopy);
+          }
+        }
+        prevStu.course = cloneCourseDetailSafe(crs);
+        prevStu.sections = pubSections;
+        if (
+          currentStudentCourseId === courseId &&
+          currentActiveViewName === 'courseDetail' &&
+          typeof applyStudentCourseDetailBundleToDom === 'function'
+        ) {
+          try {
+            applyStudentCourseDetailBundleToDom(prevStu);
+          } catch (ignoreStuSyncErr) {}
+        }
+      }
+    }
+
+    function enqueueCourseMutation(courseId, label, runnerFn) {
+      var key = courseId || '__new_course__';
+      pendingCourseMutationCountById[key] =
+        Number(pendingCourseMutationCountById[key] || 0) + 1;
+      updateCourseSyncIndicatorBadge(key, true, label);
+
+      var prev = pendingCourseMutationQueues[key] || Promise.resolve();
+      var next = prev.then(
+        function () {
+          return runnerFn();
+        },
+        function () {
+          return runnerFn();
+        }
+      );
+
+      var cleanup = function () {
+        pendingCourseMutationCountById[key] = Math.max(
+          0,
+          Number(pendingCourseMutationCountById[key] || 1) - 1
+        );
+        updateCourseSyncIndicatorBadge(key, false);
+      };
+
+      pendingCourseMutationQueues[key] = next.then(cleanup, cleanup);
+      return next;
+    }
+
+    function loadAdminCourseEditorDetailStep7(courseId, opt_silentBackground) {
       if (!courseId) {
         return Promise.resolve();
       }
-      if (!currentSelectedCourseDetail || !currentSelectedCourseDetail.course || currentSelectedCourseDetail.course.courseId !== courseId) {
-        renderSectionsWorkspaceSkeleton();
+      var hasMatchingSelected =
+        currentSelectedCourseDetail &&
+        currentSelectedCourseDetail.course &&
+        currentSelectedCourseDetail.course.courseId === courseId;
+      var cachedDetail = hasMatchingSelected
+        ? currentSelectedCourseDetail
+        : adminCourseDetailCacheById[courseId];
+      if (!hasMatchingSelected && !opt_silentBackground) {
+        if (cachedDetail && cachedDetail.course) {
+          currentSelectedCourseDetail = cachedDetail;
+          populateCourseEditorForm(cachedDetail.course);
+          populateSectionEditorForm(null);
+          populateCardEditorForm(null);
+          var wsCached = document.getElementById('admin-selected-course-workspace');
+          if (wsCached) {
+            wsCached.classList.remove('hidden');
+          }
+          renderSelectedCourseSectionsAndCards(cachedDetail);
+        } else {
+          renderSectionsWorkspaceSkeleton();
+        }
       }
       return rpcCallEnvelope('admin.getCourseEditorDetail', { courseId: courseId }, {
         suppressErrorBanner: true
       })
         .then(function (envelope) {
           var d = envelope.data || {};
+          if (pendingCourseMutationCountById[courseId] > 0) {
+            return currentSelectedCourseDetail || d;
+          }
           currentSelectedCourseDetail = d;
-          populateCourseEditorForm(d.course);
-          populateSectionEditorForm(null);
-          populateCardEditorForm(null);
+          adminCourseDetailCacheById[courseId] = d;
+          if (!opt_silentBackground || !hasUnsavedCourseChanges) {
+            populateCourseEditorForm(d.course);
+            populateSectionEditorForm(null);
+            populateCardEditorForm(null);
+          } else {
+            syncCourseVersionInputsFromDetail(d);
+          }
           var ws = document.getElementById('admin-selected-course-workspace');
           if (ws) {
             ws.classList.remove('hidden');
@@ -10331,6 +10677,12 @@
         .then(function (envelope) {
           var d = envelope.data || {};
           PBAdminActionModal.close();
+          if (adminCourseDetailCacheById && adminCourseDetailCacheById[target.courseId]) {
+            delete adminCourseDetailCacheById[target.courseId];
+          }
+          if (studentCourseDetailCacheById && studentCourseDetailCacheById[target.courseId]) {
+            delete studentCourseDetailCacheById[target.courseId];
+          }
           if (
             currentSelectedCourseDetail &&
             currentSelectedCourseDetail.course &&
@@ -10377,6 +10729,16 @@
       );
       if (opt_forceStaleVersion === true) {
         expectedVersion = 999999;
+      } else if (
+        courseId &&
+        currentSelectedCourseDetail &&
+        currentSelectedCourseDetail.course &&
+        currentSelectedCourseDetail.course.courseId === courseId
+      ) {
+        expectedVersion = Math.max(
+          expectedVersion,
+          Number(currentSelectedCourseDetail.course.version || 1)
+        );
       }
 
       var objEditor = richTextEditorsRegistry['richtext-editor-course-objectives'];
@@ -10398,6 +10760,101 @@
         outcomesRichText: outEditor ? outEditor.getValue() : createDefaultEmptyRichTextDoc()
       };
 
+      if (!payload.courseCode || !payload.title) {
+        setText('admin-course-editor-status', 'Course Code and Course Title are required.');
+        setAdminCoursesAlert(
+          'warning',
+          'Missing Required Fields',
+          'Please enter both Course Code and Course Title before saving.'
+        );
+        return Promise.resolve();
+      }
+
+      if (courseId && opt_forceStaleVersion !== true) {
+        if (
+          currentSelectedCourseDetail &&
+          currentSelectedCourseDetail.course &&
+          currentSelectedCourseDetail.course.courseId === courseId
+        ) {
+          var crs = currentSelectedCourseDetail.course;
+          crs.courseCode = payload.courseCode;
+          crs.title = payload.title;
+          crs.subtitle = payload.subtitle;
+          crs.status = payload.status;
+          crs.sortOrder = payload.sortOrder;
+          crs.calendarTag = payload.calendarTag;
+          crs.coverFileId = payload.coverFileId;
+          crs.objectivesRichText = payload.objectivesRichText;
+          crs.outcomesRichText = payload.outcomesRichText;
+          syncCourseCachesAfterMutation(currentSelectedCourseDetail);
+          renderSelectedCourseSectionsAndCards(currentSelectedCourseDetail);
+        } else {
+          syncCourseCachesAfterMutation({
+            course: {
+              courseId: courseId,
+              courseCode: payload.courseCode,
+              title: payload.title,
+              subtitle: payload.subtitle,
+              status: payload.status,
+              sortOrder: payload.sortOrder,
+              calendarTag: payload.calendarTag,
+              coverFileId: payload.coverFileId,
+              version: expectedVersion
+            },
+            sections: []
+          });
+        }
+        setCourseEditorDirtyState(false);
+        setText('admin-course-editor-status', 'Saved locally — syncing to database...');
+        PBAdminActionModal.close();
+
+        return enqueueCourseMutation(courseId, 'Course Details', function () {
+          var liveExpectedVer = payload.expectedVersion;
+          if (
+            currentSelectedCourseDetail &&
+            currentSelectedCourseDetail.course &&
+            currentSelectedCourseDetail.course.courseId === courseId &&
+            currentSelectedCourseDetail.course.version
+          ) {
+            liveExpectedVer = Math.max(
+              liveExpectedVer,
+              Number(currentSelectedCourseDetail.course.version || 1)
+            );
+          }
+          payload.expectedVersion = liveExpectedVer;
+          return rpcCallEnvelope('admin.saveCourse', payload, { suppressErrorBanner: true })
+            .then(function (envelope) {
+              var d = envelope.data || {};
+              if (pendingCourseMutationCountById[courseId] <= 1 && d.course) {
+                currentSelectedCourseDetail = d;
+                renderSelectedCourseSectionsAndCards(d);
+                populateCourseEditorForm(d.course);
+              } else if (d.course && currentSelectedCourseDetail && currentSelectedCourseDetail.course) {
+                currentSelectedCourseDetail.course.version = d.course.version;
+              }
+              syncCourseCachesAfterMutation(d.course ? d : currentSelectedCourseDetail);
+              setCourseEditorDirtyState(false);
+              setText('admin-course-editor-status', d.savedMessage || 'Course saved.');
+              setAdminCoursesAlert('success', 'Course Saved', d.savedMessage || '');
+              renderDiagnosticResult('PASS: Course saved via admin.saveCourse', d);
+              return d;
+            })
+            .catch(function (err) {
+              setText(
+                'admin-course-editor-status',
+                'Save failed (' + (err.code || 'ERR') + '): ' + (err.message || '')
+              );
+              setAdminCoursesAlert(
+                'danger',
+                'Course Save Blocked (' + (err.code || 'ERR') + ')',
+                err.message || ''
+              );
+              renderDiagnosticResult('Course save rejected (' + err.code + ')', err);
+              return loadAdminCoursesAndAssessmentsStep7(courseId);
+            });
+        });
+      }
+
       return rpcCallEnvelope('admin.saveCourse', payload)
         .then(function (envelope) {
           var d = envelope.data || {};
@@ -10406,10 +10863,15 @@
           setText('admin-course-editor-status', d.savedMessage || 'Course saved.');
           setAdminCoursesAlert('success', 'Course Saved', d.savedMessage || '');
           PBAdminActionModal.close();
+          syncCourseCachesAfterMutation(d);
+          if (d.course) {
+            populateCourseEditorForm(d.course);
+            var wsNew = document.getElementById('admin-selected-course-workspace');
+            if (wsNew) wsNew.classList.remove('hidden');
+            renderSelectedCourseSectionsAndCards(d);
+          }
           renderDiagnosticResult('PASS: Course saved via admin.saveCourse', d);
-          return loadAdminCoursesAndAssessmentsStep7(
-            d.course ? d.course.courseId : courseId
-          );
+          return d;
         })
         .catch(function (err) {
           setText(
@@ -10442,46 +10904,103 @@
       var title = document.getElementById('input-section-editor-title').value.trim();
       var status = document.getElementById('select-section-editor-status').value;
 
-      return rpcCallEnvelope('admin.saveSection', {
-        courseId: courseId,
-        sectionId: sectionId,
-        expectedVersion: expectedVersion,
-        title: title,
-        status: status,
-        sectionType: 'CUSTOM'
-      })
-        .then(function (envelope) {
-          var d = envelope.data || {};
-          currentSelectedCourseDetail = d;
-          populateSectionEditorForm(null);
-          populateCardEditorDropdowns(
-            d.sections || [],
-            d.assessmentsLibrary || currentAdminAssessmentsList
-          );
-          renderSelectedCourseSectionsAndCards(d);
-          setText('admin-section-editor-status', d.savedMessage || 'Section saved.');
-          setCourseEditorDirtyState(false);
-          PBAdminActionModal.close();
-          renderDiagnosticResult('PASS: Section saved via admin.saveSection', d);
-        })
-        .catch(function (err) {
-          setText(
-            'admin-section-editor-status',
-            'Error (' + (err.code || 'ERR') + '): ' + (err.message || '')
-          );
-          setAdminCoursesAlert(
-            'danger',
-            'Section Save Failed (' + (err.code || 'ERR') + ')',
-            err.message || ''
-          );
+      if (!title) {
+        setText('admin-section-editor-status', 'Section Title is required.');
+        var secTitleInp = document.getElementById('input-section-editor-title');
+        if (secTitleInp) secTitleInp.focus();
+        return Promise.resolve();
+      }
+
+      var secsList = Array.isArray(currentSelectedCourseDetail.sections)
+        ? currentSelectedCourseDetail.sections
+        : (currentSelectedCourseDetail.sections = []);
+      var tempSecId = sectionId || '__opt_sec_' + String(Date.now());
+      if (sectionId) {
+        for (var i = 0; i < secsList.length; i++) {
+          if (secsList[i] && secsList[i].sectionId === sectionId) {
+            expectedVersion = Math.max(expectedVersion, Number(secsList[i].version || 1));
+            secsList[i].title = title;
+            secsList[i].status = status;
+            break;
+          }
+        }
+      } else {
+        secsList.push({
+          sectionId: tempSecId,
+          courseId: courseId,
+          title: title,
+          status: status,
+          sectionType: 'CUSTOM',
+          isDefaultSection: false,
+          canHardDelete: true,
+          sortOrder: (secsList.length + 1) * 10,
+          version: 1,
+          updatedAtBangkok: 'Saving...',
+          cards: []
         });
+      }
+
+      populateSectionEditorForm(null);
+      populateCardEditorDropdowns(
+        secsList,
+        currentSelectedCourseDetail.assessmentsLibrary || currentAdminAssessmentsList
+      );
+      syncCourseCachesAfterMutation(currentSelectedCourseDetail);
+      renderSelectedCourseSectionsAndCards(currentSelectedCourseDetail);
+      setCourseEditorDirtyState(false);
+      PBAdminActionModal.close();
+
+      return enqueueCourseMutation(courseId, 'Section Save', function () {
+        return rpcCallEnvelope('admin.saveSection', {
+          courseId: courseId,
+          sectionId: sectionId,
+          expectedVersion: expectedVersion,
+          title: title,
+          status: status,
+          sectionType: 'CUSTOM'
+        }, { suppressErrorBanner: true })
+          .then(function (envelope) {
+            var d = envelope.data || {};
+            if (pendingCourseMutationCountById[courseId] <= 1) {
+              currentSelectedCourseDetail = d;
+              populateCardEditorDropdowns(
+                d.sections || [],
+                d.assessmentsLibrary || currentAdminAssessmentsList
+              );
+              renderSelectedCourseSectionsAndCards(d);
+            } else if (d.course && currentSelectedCourseDetail && currentSelectedCourseDetail.course) {
+              currentSelectedCourseDetail.course.version = d.course.version;
+            }
+            syncCourseCachesAfterMutation(d);
+            setText('admin-section-editor-status', d.savedMessage || 'Section saved.');
+            setAdminCoursesAlert('success', 'Section Saved', d.savedMessage || '');
+            setCourseEditorDirtyState(false);
+            renderDiagnosticResult('PASS: Section saved via admin.saveSection', d);
+            return d;
+          })
+          .catch(function (err) {
+            setText(
+              'admin-section-editor-status',
+              'Error (' + (err.code || 'ERR') + '): ' + (err.message || '')
+            );
+            setAdminCoursesAlert(
+              'danger',
+              'Section Save Failed (' + (err.code || 'ERR') + ')',
+              err.message || ''
+            );
+            return loadAdminCourseEditorDetailStep7(courseId);
+          });
+      });
     }
 
     function handleAdminReorderSections(secIndex, directionDelta) {
       if (!currentSelectedCourseDetail || !currentSelectedCourseDetail.course) {
         return Promise.resolve();
       }
-      var secs = (currentSelectedCourseDetail.sections || []).slice();
+      var courseId = currentSelectedCourseDetail.course.courseId;
+      var secs = Array.isArray(currentSelectedCourseDetail.sections)
+        ? currentSelectedCourseDetail.sections
+        : [];
       var targetIdx = secIndex + directionDelta;
       if (targetIdx < 0 || targetIdx >= secs.length) {
         return Promise.resolve();
@@ -10489,28 +11008,47 @@
       var temp = secs[secIndex];
       secs[secIndex] = secs[targetIdx];
       secs[targetIdx] = temp;
+      for (var i = 0; i < secs.length; i++) {
+        if (secs[i]) secs[i].sortOrder = (i + 1) * 10;
+      }
 
       var orderedIds = secs.map(function (s) {
         return s.sectionId;
       });
 
-      return rpcCallEnvelope('admin.reorderSections', {
-        courseId: currentSelectedCourseDetail.course.courseId,
-        orderedSectionIds: orderedIds
-      })
-        .then(function (env) {
-          var d = env.data || {};
-          currentSelectedCourseDetail = d;
-          renderSelectedCourseSectionsAndCards(d);
-          setAdminCoursesAlert('success', 'Sections Reordered', d.savedMessage || '');
-        })
-        .catch(function (err) {
-          setAdminCoursesAlert(
-            'danger',
-            'Section Reorder Failed (' + (err.code || 'ERR') + ')',
-            err.message || ''
-          );
-        });
+      syncCourseCachesAfterMutation(currentSelectedCourseDetail);
+      populateCardEditorDropdowns(
+        secs,
+        currentSelectedCourseDetail.assessmentsLibrary || currentAdminAssessmentsList
+      );
+      renderSelectedCourseSectionsAndCards(currentSelectedCourseDetail);
+
+      return enqueueCourseMutation(courseId, 'Reorder Sections', function () {
+        return rpcCallEnvelope('admin.reorderSections', {
+          courseId: courseId,
+          orderedSectionIds: orderedIds
+        }, { suppressErrorBanner: true })
+          .then(function (env) {
+            var d = env.data || {};
+            if (pendingCourseMutationCountById[courseId] <= 1) {
+              currentSelectedCourseDetail = d;
+              renderSelectedCourseSectionsAndCards(d);
+            } else if (d.course && currentSelectedCourseDetail && currentSelectedCourseDetail.course) {
+              currentSelectedCourseDetail.course.version = d.course.version;
+            }
+            syncCourseCachesAfterMutation(d.course ? d : currentSelectedCourseDetail);
+            setAdminCoursesAlert('success', 'Sections Reordered', d.savedMessage || '');
+            return d;
+          })
+          .catch(function (err) {
+            setAdminCoursesAlert(
+              'danger',
+              'Section Reorder Failed (' + (err.code || 'ERR') + ')',
+              err.message || ''
+            );
+            return loadAdminCourseEditorDetailStep7(courseId);
+          });
+      });
     }
 
     function handleAdminSaveCardSubmit(evt) {
@@ -10554,29 +11092,102 @@
           : createDefaultEmptyRichTextDoc()
       };
 
-      return rpcCallEnvelope('admin.saveCard', payload)
-        .then(function (env) {
-          var d = env.data || {};
-          currentSelectedCourseDetail = d;
-          populateCardEditorForm(null, payload.sectionId, payload.cardType);
-          renderSelectedCourseSectionsAndCards(d);
-          setText('admin-card-editor-status', d.savedMessage || 'Card saved.');
-          setAdminCoursesAlert('success', 'Card Saved', d.savedMessage || '');
-          setCourseEditorDirtyState(false);
-          PBAdminActionModal.close();
-          renderDiagnosticResult('PASS: Card saved via admin.saveCard', d);
-        })
-        .catch(function (err) {
-          setText(
-            'admin-card-editor-status',
-            'Error (' + (err.code || 'ERR') + '): ' + (err.message || '')
-          );
-          setAdminCoursesAlert(
-            'danger',
-            'Card Save Failed (' + (err.code || 'ERR') + ')',
-            err.message || ''
-          );
-        });
+      if (!payload.sectionId || !payload.title) {
+        setText('admin-card-editor-status', 'Section and Card Title are required.');
+        var cardTitleInp = document.getElementById('input-card-editor-title');
+        if (cardTitleInp) cardTitleInp.focus();
+        return Promise.resolve();
+      }
+
+      var secsList = Array.isArray(currentSelectedCourseDetail.sections)
+        ? currentSelectedCourseDetail.sections
+        : [];
+      var existingCardCopy = null;
+      for (var si = 0; si < secsList.length; si++) {
+        var scCards = Array.isArray(secsList[si].cards) ? secsList[si].cards : [];
+        for (var ci = 0; ci < scCards.length; ci++) {
+          if (cardId && scCards[ci] && scCards[ci].cardId === cardId) {
+            payload.expectedVersion = Math.max(
+              payload.expectedVersion,
+              Number(scCards[ci].version || 1)
+            );
+            if (secsList[si].sectionId !== payload.sectionId) {
+              existingCardCopy = scCards.splice(ci, 1)[0];
+            } else {
+              existingCardCopy = scCards[ci];
+            }
+            break;
+          }
+        }
+      }
+      var tempCardObj = existingCardCopy || {
+        cardId: cardId || '__opt_card_' + String(Date.now()),
+        version: 1,
+        updatedAtBangkok: 'Saving...'
+      };
+      tempCardObj.sectionId = payload.sectionId;
+      tempCardObj.courseId = courseId;
+      tempCardObj.cardType = payload.cardType;
+      tempCardObj.title = payload.title;
+      tempCardObj.subtitle = payload.subtitle;
+      tempCardObj.status = payload.status;
+      tempCardObj.sortOrder = payload.sortOrder;
+      tempCardObj.assessmentId = payload.assessmentId;
+      tempCardObj.recordingUrl = payload.recordingUrl;
+      tempCardObj.recordingUploadedAtUtc = payload.recordingUploadedAtUtc;
+      tempCardObj.imageFileId = payload.imageFileId;
+      tempCardObj.imageCaption = payload.imageCaption;
+      tempCardObj.contentRichText = payload.contentRichText;
+
+      for (var ts = 0; ts < secsList.length; ts++) {
+        if (secsList[ts] && secsList[ts].sectionId === payload.sectionId) {
+          if (!Array.isArray(secsList[ts].cards)) secsList[ts].cards = [];
+          if (secsList[ts].cards.indexOf(tempCardObj) === -1) {
+            secsList[ts].cards.push(tempCardObj);
+          }
+          secsList[ts].cards.sort(function (a, b) {
+            return (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0);
+          });
+          break;
+        }
+      }
+
+      populateCardEditorForm(null, payload.sectionId, payload.cardType);
+      syncCourseCachesAfterMutation(currentSelectedCourseDetail);
+      renderSelectedCourseSectionsAndCards(currentSelectedCourseDetail);
+      setCourseEditorDirtyState(false);
+      PBAdminActionModal.close();
+
+      return enqueueCourseMutation(courseId, 'Card Save', function () {
+        return rpcCallEnvelope('admin.saveCard', payload, { suppressErrorBanner: true })
+          .then(function (env) {
+            var d = env.data || {};
+            if (pendingCourseMutationCountById[courseId] <= 1) {
+              currentSelectedCourseDetail = d;
+              renderSelectedCourseSectionsAndCards(d);
+            } else if (d.course && currentSelectedCourseDetail && currentSelectedCourseDetail.course) {
+              currentSelectedCourseDetail.course.version = d.course.version;
+            }
+            syncCourseCachesAfterMutation(d);
+            setText('admin-card-editor-status', d.savedMessage || 'Card saved.');
+            setAdminCoursesAlert('success', 'Card Saved', d.savedMessage || '');
+            setCourseEditorDirtyState(false);
+            renderDiagnosticResult('PASS: Card saved via admin.saveCard', d);
+            return d;
+          })
+          .catch(function (err) {
+            setText(
+              'admin-card-editor-status',
+              'Error (' + (err.code || 'ERR') + '): ' + (err.message || '')
+            );
+            setAdminCoursesAlert(
+              'danger',
+              'Card Save Failed (' + (err.code || 'ERR') + ')',
+              err.message || ''
+            );
+            return loadAdminCourseEditorDetailStep7(courseId);
+          });
+      });
     }
 
     function handleAdminTestCrossCourseGuard() {
@@ -10629,7 +11240,18 @@
       if (!currentSelectedCourseDetail || !currentSelectedCourseDetail.course) {
         return Promise.resolve();
       }
-      var cards = (secObj.cards || []).slice();
+      var courseId = currentSelectedCourseDetail.course.courseId;
+      var liveSecs = Array.isArray(currentSelectedCourseDetail.sections)
+        ? currentSelectedCourseDetail.sections
+        : [];
+      var targetSec = secObj;
+      for (var s = 0; s < liveSecs.length; s++) {
+        if (liveSecs[s] && secObj && liveSecs[s].sectionId === secObj.sectionId) {
+          targetSec = liveSecs[s];
+          break;
+        }
+      }
+      var cards = Array.isArray(targetSec && targetSec.cards) ? targetSec.cards : [];
       var targetIdx = cardIndex + directionDelta;
       if (targetIdx < 0 || targetIdx >= cards.length) {
         return Promise.resolve();
@@ -10637,29 +11259,44 @@
       var tmp = cards[cardIndex];
       cards[cardIndex] = cards[targetIdx];
       cards[targetIdx] = tmp;
+      for (var c = 0; c < cards.length; c++) {
+        if (cards[c]) cards[c].sortOrder = (c + 1) * 10;
+      }
 
-      var orderedCardIds = cards.map(function (c) {
-        return c.cardId;
+      var orderedCardIds = cards.map(function (cItem) {
+        return cItem.cardId;
       });
 
-      return rpcCallEnvelope('admin.reorderCards', {
-        courseId: currentSelectedCourseDetail.course.courseId,
-        sectionId: secObj.sectionId,
-        orderedCardIds: orderedCardIds
-      })
-        .then(function (env) {
-          var d = env.data || {};
-          currentSelectedCourseDetail = d;
-          renderSelectedCourseSectionsAndCards(d);
-          setAdminCoursesAlert('success', 'Cards Reordered', d.savedMessage || '');
-        })
-        .catch(function (err) {
-          setAdminCoursesAlert(
-            'danger',
-            'Card Reorder Failed (' + (err.code || 'ERR') + ')',
-            err.message || ''
-          );
-        });
+      syncCourseCachesAfterMutation(currentSelectedCourseDetail);
+      renderSelectedCourseSectionsAndCards(currentSelectedCourseDetail);
+
+      return enqueueCourseMutation(courseId, 'Reorder Cards', function () {
+        return rpcCallEnvelope('admin.reorderCards', {
+          courseId: courseId,
+          sectionId: targetSec.sectionId,
+          orderedCardIds: orderedCardIds
+        }, { suppressErrorBanner: true })
+          .then(function (env) {
+            var d = env.data || {};
+            if (pendingCourseMutationCountById[courseId] <= 1) {
+              currentSelectedCourseDetail = d;
+              renderSelectedCourseSectionsAndCards(d);
+            } else if (d.course && currentSelectedCourseDetail && currentSelectedCourseDetail.course) {
+              currentSelectedCourseDetail.course.version = d.course.version;
+            }
+            syncCourseCachesAfterMutation(d.course ? d : currentSelectedCourseDetail);
+            setAdminCoursesAlert('success', 'Cards Reordered', d.savedMessage || '');
+            return d;
+          })
+          .catch(function (err) {
+            setAdminCoursesAlert(
+              'danger',
+              'Card Reorder Failed (' + (err.code || 'ERR') + ')',
+              err.message || ''
+            );
+            return loadAdminCourseEditorDetailStep7(courseId);
+          });
+      });
     }
 
     function handleAdminSaveAssessmentSubmit(evt) {
@@ -13916,27 +14553,8 @@ var qrcode = (function() {
           clearChildren(imgBox);
           var img = document.createElement('img');
           img.src = entry.objectUrl;
-          img.alt =
-            'Full-size payment transfer receipt for ' +
-            paymentDto.paymentId +
-            ' (' +
-            (entry.originalFilename || paymentDto.receiptFileId) +
-            ')';
+          img.alt = 'Full-size payment transfer receipt for ' + paymentDto.paymentId;
           imgBox.appendChild(img);
-
-          var cap = document.createElement('div');
-          cap.style.marginTop = '8px';
-          cap.style.color = '#E8F5E9';
-          cap.style.fontSize = '0.82rem';
-          cap.textContent =
-            'Verified Private Blob: ' +
-            (entry.originalFilename || paymentDto.receiptFileId) +
-            ' (' +
-            entry.mimeType +
-            ', ' +
-            Math.round(((entry.sizeBytes || 0) / 1024) * 10) / 10 +
-            ' KB)';
-          imgBox.appendChild(cap);
         })
         .catch(function (err) {
           if (!imgBox) {
@@ -16520,7 +17138,8 @@ var qrcode = (function() {
         'student-course-cover-banner',
         course.coverFileId || '',
         course.courseId || '',
-        course.title || 'Course Cover'
+        course.title || 'Course Cover',
+        { variant: 'banner', showCaption: false }
       );
       renderRichTextDocumentToDom(
         document.getElementById('student-course-objectives-box'),
@@ -17143,7 +17762,8 @@ var qrcode = (function() {
             'student-course-cover-banner',
             course.coverFileId || '',
             course.courseId || '',
-            course.title || 'Course Cover'
+            course.title || 'Course Cover',
+            { variant: 'banner', showCaption: false }
           );
           renderRichTextDocumentToDom(
             document.getElementById('student-course-objectives-box'),
@@ -23326,7 +23946,6 @@ var qrcode = (function() {
               var subBox = document.createElement('div');
               subBox.id = subId;
               subBox.className = 'pb-qbank-image-thumb-stage';
-              subBox.style.height = '180px';
               multiGrid.appendChild(subBox);
               renderPrivateImagePreviewStep8(
                 subId,
@@ -27500,14 +28119,26 @@ var qrcode = (function() {
             }
             setText(
               'course-editor-cover-upload-status',
-              'Uploaded cover: ' + (uploaded.fileId || '')
+              'Cover image updated.'
             );
             renderPrivateImagePreviewStep8(
               'course-editor-cover-preview-box',
               uploaded.fileId || '',
               courseId,
-              uploaded.originalFilename || 'Course Cover'
+              'Course Cover'
             );
+            if (
+              courseId &&
+              currentSelectedCourseDetail &&
+              currentSelectedCourseDetail.course &&
+              currentSelectedCourseDetail.course.courseId === courseId
+            ) {
+              currentSelectedCourseDetail.course.coverFileId = uploaded.fileId || '';
+              if (d.linkedEntity && d.linkedEntity.newVersion) {
+                currentSelectedCourseDetail.course.version = Number(d.linkedEntity.newVersion);
+              }
+              syncCourseCachesAfterMutation(currentSelectedCourseDetail);
+            }
             renderDiagnosticResult('PASS: Course cover uploaded via admin.uploadFile', d);
           })
           .catch(function (err) {
@@ -27526,21 +28157,37 @@ var qrcode = (function() {
           renderPrivateImagePreviewStep8('course-editor-cover-preview-box', '', '', '');
           return Promise.resolve();
         }
+        setInputValue('input-course-editor-cover-file-id', '');
+        renderPrivateImagePreviewStep8('course-editor-cover-preview-box', '', '', '');
+        if (
+          currentSelectedCourseDetail &&
+          currentSelectedCourseDetail.course &&
+          currentSelectedCourseDetail.course.courseId === courseId
+        ) {
+          currentSelectedCourseDetail.course.coverFileId = '';
+          syncCourseCachesAfterMutation(currentSelectedCourseDetail);
+        }
         return rpcCallEnvelope('admin.removeFileReference', {
           targetEntityType: 'COURSE_COVER',
           targetEntityId: courseId,
           trashIfUnreferenced: true
         }).then(function (env) {
           var d = env.data || {};
-          setInputValue('input-course-editor-cover-file-id', '');
           if (d.updatedEntityVersion) {
             setInputValue(
               'input-course-editor-version',
               String(d.updatedEntityVersion)
             );
+            if (
+              currentSelectedCourseDetail &&
+              currentSelectedCourseDetail.course &&
+              currentSelectedCourseDetail.course.courseId === courseId
+            ) {
+              currentSelectedCourseDetail.course.version = Number(d.updatedEntityVersion);
+              syncCourseCachesAfterMutation(currentSelectedCourseDetail);
+            }
           }
           setText('course-editor-cover-upload-status', 'Removed cover reference.');
-          renderPrivateImagePreviewStep8('course-editor-cover-preview-box', '', '', '');
         });
       });
 
@@ -27934,20 +28581,26 @@ var qrcode = (function() {
       /* ====================================================================
        * STEP 11: STUDENT PAYMENT INTERFACE & CHECKOUT FLOW EVENT BINDINGS
        * ==================================================================== */
-      var adminBillingTabBtns = document.querySelectorAll('[data-admin-billing-subview]');
+      var adminBillingTabBtns = document.querySelectorAll('[data-admin-billing-tab], [data-admin-billing-subview]');
       for (var abIdx = 0; abIdx < adminBillingTabBtns.length; abIdx++) {
         (function (tabBtn) {
           tabBtn.addEventListener('click', function () {
-            switchAdminBillingSubView(tabBtn.getAttribute('data-admin-billing-subview'));
+            switchAdminBillingSubView(
+              tabBtn.getAttribute('data-admin-billing-tab') ||
+                tabBtn.getAttribute('data-admin-billing-subview')
+            );
           });
         })(adminBillingTabBtns[abIdx]);
       }
 
-      var studentPayTabBtns = document.querySelectorAll('[data-student-pay-subview]');
+      var studentPayTabBtns = document.querySelectorAll('[data-student-pay-tab], [data-student-pay-subview]');
       for (var spIdx = 0; spIdx < studentPayTabBtns.length; spIdx++) {
         (function (tabBtn) {
           tabBtn.addEventListener('click', function () {
-            switchStudentPaymentSubView(tabBtn.getAttribute('data-student-pay-subview'));
+            switchStudentPaymentSubView(
+              tabBtn.getAttribute('data-student-pay-tab') ||
+                tabBtn.getAttribute('data-student-pay-subview')
+            );
           });
         })(studentPayTabBtns[spIdx]);
       }
@@ -29453,16 +30106,11 @@ var qrcode = (function() {
             var stage = document.createElement('div');
             stage.className = 'pb-blur-up-stage is-uploading';
             var img = document.createElement('img');
-            img.className = 'pb-file-preview-thumb pb-blur-up-img is-uploading-blur';
-            img.alt = fObj.name || 'Selected Image Preview';
+            img.className = 'pb-blur-up-img is-uploading-blur';
+            img.alt = 'Selected Image Preview';
             var cap = document.createElement('div');
             cap.className = 'pb-blur-up-caption';
-            cap.textContent =
-              'Selected "' +
-              fObj.name +
-              '" (' +
-              Math.round((fObj.size / 1024) * 10) / 10 +
-              ' KB) — Click Upload to save to Google Drive';
+            cap.textContent = 'Image selected — Click Upload to save';
             stage.appendChild(img);
             stage.appendChild(cap);
             pBox.appendChild(stage);
