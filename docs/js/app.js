@@ -946,7 +946,25 @@
             className: 'pb-field-error',
             role: 'alert'
           });
-          inp.parentNode.appendChild(existing);
+          // Place inline error beneath outer icon/password wrapper so flex inputs and eye toggles stay aligned.
+          var anchorEl = inp;
+          var hostParent = inp.parentNode;
+          while (
+            hostParent &&
+            hostParent.nodeType === 1 &&
+            hostParent.parentNode &&
+            (hostParent.classList.contains('pb-input-icon-wrap') ||
+              hostParent.classList.contains('pb-password-input-wrap') ||
+              hostParent.classList.contains('pb-auth-ref-input-wrap'))
+          ) {
+            anchorEl = hostParent;
+            hostParent = hostParent.parentNode;
+          }
+          if (anchorEl !== inp && hostParent) {
+            hostParent.insertBefore(existing, anchorEl.nextSibling);
+          } else {
+            inp.parentNode.appendChild(existing);
+          }
         }
         if (existing) {
           clearChildren(existing);
@@ -5138,11 +5156,7 @@
             'Please enter your password.'
           );
         }
-        setLoginInlineAlert(
-          'danger',
-          'Missing Username or Password',
-          'Please enter both your username and password before signing in.'
-        );
+        setLoginInlineAlert('hidden');
         if (!username && usernameInput) {
           usernameInput.focus();
         } else if (!password && passwordInput) {
@@ -30241,16 +30255,29 @@ var qrcode = (function() {
           setLoginPasswordVisibilityPhase3(!currentlyShown);
         });
       }
+      function clearDismissibleLoginAlertOnEdit() {
+        var alertBox = document.getElementById('login-inline-alert');
+        var alertTitle = document.getElementById('login-inline-alert-title');
+        if (!alertBox || alertBox.classList.contains('hidden')) {
+          return;
+        }
+        var titleText = alertTitle ? String(alertTitle.textContent || '') : '';
+        if (titleText.toLowerCase().indexOf('locked') === -1) {
+          setLoginInlineAlert('hidden');
+        }
+      }
       var loginUsrInp = document.getElementById('input-login-username');
       if (loginUsrInp) {
         loginUsrInp.addEventListener('input', function () {
           PBNotify.clearFieldError('input-login-username');
+          clearDismissibleLoginAlertOnEdit();
         });
       }
       var loginPwdInp = document.getElementById('input-login-password');
       if (loginPwdInp) {
         loginPwdInp.addEventListener('input', function () {
           PBNotify.clearFieldError('input-login-password');
+          clearDismissibleLoginAlertOnEdit();
         });
       }
 
@@ -30270,6 +30297,7 @@ var qrcode = (function() {
           openBtn.addEventListener('click', function () {
             setMobileMenuOpen(false);
             setLoginModalSkeletonState(false);
+            PBNotify.clearAllFieldErrors('form-login');
             setLoginInlineAlert('hidden');
             var fallbackBox = document.getElementById(
               'forgot-password-fallback-box'
