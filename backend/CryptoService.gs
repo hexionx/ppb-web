@@ -1349,6 +1349,27 @@ function getAuthorizedClassCalendarEventsStep13_(authContext, payload) {
     }
   }
 
+  /* 2B. Merge web-created custom events and filter out web-deleted event IDs */
+  if (!Array.isArray(req._testEventSpecs) && req.requireLiveCalendar !== true) {
+    var customSpecs = readPortalCustomCalendarEventsStep13_();
+    for (var cSpecIdx = 0; cSpecIdx < customSpecs.length; cSpecIdx++) {
+      rawEvents.push(wrapRawEventSpecAsCalendarEventStep13_(customSpecs[cSpecIdx]));
+    }
+    var deletedIdsMap = readPortalDeletedCalendarEventIdsStep13_();
+    if (deletedIdsMap && Object.keys(deletedIdsMap).length > 0) {
+      var filteredRaw = [];
+      for (var rIdx = 0; rIdx < rawEvents.length; rIdx++) {
+        var rev = rawEvents[rIdx];
+        var revId = rev && typeof rev.getId === 'function' ? String(rev.getId() || '') : '';
+        var revTitle = rev && typeof rev.getTitle === 'function' ? String(rev.getTitle() || '').trim().toLowerCase() : '';
+        if (!deletedIdsMap[revId] && !(revTitle && deletedIdsMap['title:' + revTitle])) {
+          filteredRaw.push(rev);
+        }
+      }
+      rawEvents = filteredRaw;
+    }
+  }
+
   /* 3. Bound raw events inspected and filter strictly by marker & course enrollment */
   var maxRawInspected =
     PB_APP_CONSTANTS_.MAX_CALENDAR_RAW_EVENTS_INSPECTED || 500;

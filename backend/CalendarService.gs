@@ -1361,7 +1361,8 @@ function getAuthorizedClassCalendarEventsStep13_(authContext, payload) {
         for (var rIdx = 0; rIdx < rawEvents.length; rIdx++) {
           var rev = rawEvents[rIdx];
           var revId = rev && typeof rev.getId === 'function' ? String(rev.getId() || '') : '';
-          if (!deletedIdsMap[revId]) {
+          var revTitle = rev && typeof rev.getTitle === 'function' ? String(rev.getTitle() || '').trim().toLowerCase() : '';
+          if (!deletedIdsMap[revId] && !(revTitle && deletedIdsMap['title:' + revTitle])) {
             filteredRaw.push(rev);
           }
         }
@@ -1731,6 +1732,15 @@ function adminCreateCalendarEventStep13_(authContext, payload) {
     customList.push(spec);
     savePortalCustomCalendarEventsStep13_(customList);
 
+    var createTitleNorm = String(title || '').trim().toLowerCase();
+    if (createTitleNorm) {
+      var existingDeletedMap = readPortalDeletedCalendarEventIdsStep13_();
+      if (existingDeletedMap && existingDeletedMap['title:' + createTitleNorm]) {
+        delete existingDeletedMap['title:' + createTitleNorm];
+        savePortalDeletedCalendarEventIdsStep13_(existingDeletedMap);
+      }
+    }
+
     /* Also create in live Google Calendar if configured and writable */
     var calConfig = resolveConfiguredCalendarIdStep13_();
     if (
@@ -1816,17 +1826,26 @@ function adminDeleteCalendarEventStep13_(authContext, payload) {
   }
 
   return withScriptLock_(function () {
+    var reqTitleNorm = String(req.title || '').trim().toLowerCase();
     var customList = readPortalCustomCalendarEventsStep13_();
     var nextList = [];
     for (var i = 0; i < customList.length; i++) {
-      if (String(customList[i].eventId || '') !== eventId) {
-        nextList.push(customList[i]);
+      var cItem = customList[i] || {};
+      var cTitleNorm = String(cItem.title || '').trim().toLowerCase();
+      if (
+        String(cItem.eventId || '') !== eventId &&
+        !(reqTitleNorm && cTitleNorm === reqTitleNorm)
+      ) {
+        nextList.push(cItem);
       }
     }
     savePortalCustomCalendarEventsStep13_(nextList);
 
     var deletedMap = readPortalDeletedCalendarEventIdsStep13_();
     deletedMap[eventId] = true;
+    if (reqTitleNorm) {
+      deletedMap['title:' + reqTitleNorm] = true;
+    }
     savePortalDeletedCalendarEventIdsStep13_(deletedMap);
 
     /* Also attempt to delete from live Google Calendar if present */
@@ -1839,10 +1858,30 @@ function adminDeleteCalendarEventStep13_(authContext, payload) {
     ) {
       try {
         var calObj = CalendarApp.getCalendarById(calConfig.calendarId);
-        if (calObj && typeof calObj.getEventById === 'function') {
-          var liveEv = calObj.getEventById(eventId);
-          if (liveEv && typeof liveEv.deleteEvent === 'function') {
-            liveEv.deleteEvent();
+        if (calObj) {
+          var deletedLive = false;
+          if (typeof calObj.getEventById === 'function') {
+            var liveEv = calObj.getEventById(eventId);
+            if (liveEv && typeof liveEv.deleteEvent === 'function') {
+              liveEv.deleteEvent();
+              deletedLive = true;
+            }
+          }
+          if ((!deletedLive || reqTitleNorm) && typeof calObj.getEvents === 'function') {
+            var searchStart = new Date(Date.now() - 180 * 86400000);
+            var searchEnd = new Date(Date.now() + 365 * 86400000);
+            var allLiveEvs = calObj.getEvents(searchStart, searchEnd) || [];
+            for (var leIdx = 0; leIdx < allLiveEvs.length; leIdx++) {
+              var candEv = allLiveEvs[leIdx];
+              if (!candEv) continue;
+              var candId = typeof candEv.getId === 'function' ? String(candEv.getId() || '').trim() : '';
+              var candTitle = typeof candEv.getTitle === 'function' ? String(candEv.getTitle() || '').trim().toLowerCase() : '';
+              if (candId === eventId || (reqTitleNorm && candTitle === reqTitleNorm)) {
+                if (typeof candEv.deleteEvent === 'function') {
+                  candEv.deleteEvent();
+                }
+              }
+            }
           }
         }
       } catch (ignoreLiveDelErr) {}

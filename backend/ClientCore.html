@@ -627,9 +627,11 @@
     })();
 
     var PBNotify = (function () {
-      var MAX_VISIBLE_TOASTS = 3;
-      var DEFAULT_TOAST_DURATION_MS = 4500;
+      var MAX_VISIBLE_TOASTS = 4;
+      var DEFAULT_TOAST_DURATION_MS = 4800;
       var activeToasts = [];
+      var stackBarNode = null;
+      var stackCountLabelNode = null;
 
       function ensureToastRegion() {
         var reg = document.getElementById('pb-toast-region');
@@ -643,7 +645,42 @@
           });
           document.body.appendChild(reg);
         }
+        if (reg && !stackBarNode) {
+          stackBarNode = PBUI.el('div', {
+            className: 'pb-toast-stack-bar hidden'
+          });
+          stackCountLabelNode = PBUI.el('span', {
+            className: 'pb-toast-stack-count',
+            textContent: 'Notifications'
+          });
+          var clearAllBtn = PBUI.el('button', {
+            type: 'button',
+            className: 'pb-toast-clear-all-btn',
+            textContent: 'Clear all'
+          });
+          clearAllBtn.addEventListener('click', function () {
+            while (activeToasts.length > 0) {
+              dismissToastEntry(activeToasts[0]);
+            }
+          });
+          stackBarNode.appendChild(stackCountLabelNode);
+          stackBarNode.appendChild(clearAllBtn);
+          reg.appendChild(stackBarNode);
+        }
         return reg;
+      }
+
+      function syncStackControlBar() {
+        if (!stackBarNode) return;
+        if (activeToasts.length >= 2) {
+          stackBarNode.classList.remove('hidden');
+          if (stackCountLabelNode) {
+            stackCountLabelNode.textContent =
+              'Notifications (' + String(activeToasts.length) + ')';
+          }
+        } else {
+          stackBarNode.classList.add('hidden');
+        }
       }
 
       function dismissToastEntry(entry) {
@@ -653,13 +690,26 @@
           clearTimeout(entry.timerId);
           entry.timerId = null;
         }
-        if (entry.domNode && entry.domNode.parentNode) {
-          entry.domNode.parentNode.removeChild(entry.domNode);
-        }
         var idx = activeToasts.indexOf(entry);
         if (idx !== -1) {
           activeToasts.splice(idx, 1);
         }
+        syncStackControlBar();
+        if (entry.domNode) {
+          entry.domNode.classList.add('is-dismissing');
+          setTimeout(function () {
+            if (entry.domNode && entry.domNode.parentNode) {
+              entry.domNode.parentNode.removeChild(entry.domNode);
+            }
+          }, 190);
+        }
+      }
+
+      function getVariantCategoryLabel(variant) {
+        if (variant === 'success') return 'Completed';
+        if (variant === 'warning') return 'Attention';
+        if (variant === 'danger') return 'Alert';
+        return 'Update';
       }
 
       function toast(options, opt_title, opt_message) {
@@ -676,6 +726,9 @@
           opts = options || {};
         }
         var variant = opts.variant || 'info';
+        if (variant !== 'success' && variant !== 'warning' && variant !== 'danger' && variant !== 'info') {
+          variant = 'info';
+        }
         var iconName =
           variant === 'success'
             ? 'check'
@@ -692,6 +745,41 @@
         var reg = ensureToastRegion();
         if (!reg) return null;
 
+        var cleanTitle = String(opts.title || '').trim();
+        var cleanMsg = String(opts.message || '').trim();
+        var dedupKey = variant + '|' + cleanTitle.toLowerCase() + '|' + cleanMsg.toLowerCase();
+
+        for (var dIdx = 0; dIdx < activeToasts.length; dIdx++) {
+          var existing = activeToasts[dIdx];
+          if (existing && !existing.dismissed && existing.dedupKey === dedupKey) {
+            if (existing.timerId) {
+              clearTimeout(existing.timerId);
+              existing.timerId = null;
+            }
+            existing.remainingMs = duration;
+            existing.startedAtMs = Date.now();
+            if (existing.progressFillNode) {
+              existing.progressFillNode.style.transition = 'none';
+              existing.progressFillNode.style.transform = 'scaleX(1)';
+              void existing.progressFillNode.offsetWidth;
+              existing.progressFillNode.style.transition =
+                'transform ' + String(duration) + 'ms linear';
+              existing.progressFillNode.style.transform = 'scaleX(0)';
+            }
+            if (existing.domNode) {
+              existing.domNode.classList.remove('pb-toast-pulse');
+              void existing.domNode.offsetWidth;
+              existing.domNode.classList.add('pb-toast-pulse');
+            }
+            if (!existing.paused) {
+              existing.timerId = setTimeout(function () {
+                dismissToastEntry(existing);
+              }, existing.remainingMs);
+            }
+            return existing;
+          }
+        }
+
         while (activeToasts.length >= MAX_VISIBLE_TOASTS) {
           dismissToastEntry(activeToasts[0]);
         }
@@ -699,22 +787,48 @@
         var toastNode = PBUI.el('div', {
           className: 'pb-toast pb-toast-' + variant
         });
-        toastNode.appendChild(PBIcons.create(iconName));
+
+        var accentBar = PBUI.el('div', {
+          className: 'pb-toast-accent-bar',
+          'aria-hidden': 'true'
+        });
+        toastNode.appendChild(accentBar);
+
+        var iconBadge = PBUI.el('div', {
+          className: 'pb-toast-icon-badge',
+          'aria-hidden': 'true'
+        });
+        iconBadge.appendChild(PBIcons.create(iconName));
+        toastNode.appendChild(iconBadge);
 
         var body = PBUI.el('div', { className: 'pb-toast-body' });
-        if (opts.title) {
+
+        var headerRow = PBUI.el('div', { className: 'pb-toast-header-row' });
+        var catPill = PBUI.el('span', {
+          className: 'pb-toast-category-pill',
+          textContent: getVariantCategoryLabel(variant)
+        });
+        var timeSpan = PBUI.el('span', {
+          className: 'pb-toast-timestamp',
+          textContent: 'Just now'
+        });
+        headerRow.appendChild(catPill);
+        headerRow.appendChild(timeSpan);
+        body.appendChild(headerRow);
+
+        if (cleanTitle) {
           body.appendChild(
             PBUI.el('p', {
               className: 'pb-toast-title',
-              textContent: String(opts.title)
+              textContent: cleanTitle
             })
           );
         }
-        if (opts.message) {
+        if (cleanMsg) {
           body.appendChild(
             PBUI.el('p', {
               className: 'pb-toast-message',
-              textContent: String(opts.message)
+              textContent: cleanMsg
             })
           );
         }
@@ -723,13 +837,27 @@
         var closeBtn = PBUI.el('button', {
           type: 'button',
           className: 'pb-toast-close',
-          'aria-label': 'Dismiss notification'
+          'aria-label': 'Dismiss notification',
+          title: 'Dismiss'
         });
         closeBtn.appendChild(PBIcons.create('close-x', 'pb-icon-sm'));
         toastNode.appendChild(closeBtn);
 
+        var progressTrack = PBUI.el('div', {
+          className: 'pb-toast-progress-track',
+          'aria-hidden': 'true'
+        });
+        var progressFill = PBUI.el('div', {
+          className: 'pb-toast-progress-fill'
+        });
+        progressTrack.appendChild(progressFill);
+        toastNode.appendChild(progressTrack);
+
         var entry = {
           domNode: toastNode,
+          progressFillNode: progressFill,
+          dedupKey: dedupKey,
+          totalDurationMs: duration,
           remainingMs: duration,
           startedAtMs: Date.now(),
           timerId: null,
@@ -737,9 +865,27 @@
           dismissed: false
         };
 
+        function animateProgressBar(msRemaining) {
+          if (!progressFill) return;
+          var ratio = Math.max(0, Math.min(1, msRemaining / entry.totalDurationMs));
+          progressFill.style.transition = 'none';
+          progressFill.style.transform = 'scaleX(' + String(ratio) + ')';
+          void progressFill.offsetWidth;
+          progressFill.style.transition = 'transform ' + String(msRemaining) + 'ms linear';
+          progressFill.style.transform = 'scaleX(0)';
+        }
+
+        function freezeProgressBar() {
+          if (!progressFill) return;
+          var ratio = Math.max(0, Math.min(1, entry.remainingMs / entry.totalDurationMs));
+          progressFill.style.transition = 'none';
+          progressFill.style.transform = 'scaleX(' + String(ratio) + ')';
+        }
+
         function startTimer() {
           if (entry.dismissed || entry.paused) return;
           entry.startedAtMs = Date.now();
+          animateProgressBar(entry.remainingMs);
           entry.timerId = setTimeout(function () {
             dismissToastEntry(entry);
           }, entry.remainingMs);
@@ -753,7 +899,8 @@
             entry.timerId = null;
           }
           var elapsed = Date.now() - entry.startedAtMs;
-          entry.remainingMs = Math.max(800, entry.remainingMs - elapsed);
+          entry.remainingMs = Math.max(900, entry.remainingMs - elapsed);
+          freezeProgressBar();
         }
 
         function resumeTimer() {
@@ -772,7 +919,10 @@
 
         reg.appendChild(toastNode);
         activeToasts.push(entry);
-        startTimer();
+        syncStackControlBar();
+        setTimeout(function () {
+          startTimer();
+        }, 20);
         return entry;
       }
 
@@ -9116,10 +9266,10 @@
           var previewBtn = document.createElement('button');
           previewBtn.type = 'button';
           previewBtn.className = 'btn btn-outline btn-sm';
-          setBtnVectorIcon(previewBtn, 'preview', 'Preview', 'Preview course as student');
+          setBtnVectorIcon(previewBtn, 'preview', 'Preview', 'Preview assigned assessments & course in pop-up');
           previewBtn.addEventListener('click', function () {
             withButtonAndAreaLoading(previewBtn, tr, function () {
-              return openStudentCourseDetailView(c.courseId, true);
+              return openAdminAssignedAssessmentPreviewPopup(c.courseId, null, c);
             });
           });
           actWrap.appendChild(previewBtn);
@@ -9259,6 +9409,17 @@
           actWrap.style.display = 'flex';
           actWrap.style.gap = '6px';
           actWrap.style.flexWrap = 'wrap';
+
+          var prevAsmBtn = document.createElement('button');
+          prevAsmBtn.type = 'button';
+          prevAsmBtn.className = 'btn btn-outline btn-sm';
+          setBtnVectorIcon(prevAsmBtn, 'preview', 'Preview', 'Preview assigned assessment in pop-up');
+          prevAsmBtn.addEventListener('click', function () {
+            withButtonAndAreaLoading(prevAsmBtn, tr, function () {
+              return openAdminAssignedAssessmentPreviewPopup('', a, null);
+            });
+          });
+          actWrap.appendChild(prevAsmBtn);
 
           var editBtn = document.createElement('button');
           editBtn.type = 'button';
@@ -14272,7 +14433,8 @@ var qrcode = (function() {
     }
 
     var PBDeletedCalendarStore = (function () {
-      var STORAGE_KEY = 'pb_deleted_cal_events_v2';
+      var STORAGE_KEY = 'pb_deleted_cal_events_v3';
+      var LEGACY_KEY = 'pb_deleted_cal_events_v2';
       var memoryMap = {};
 
       function loadMap() {
@@ -14281,22 +14443,34 @@ var qrcode = (function() {
         for (k in memoryMap) {
           if (Object.prototype.hasOwnProperty.call(memoryMap, k)) combined[k] = true;
         }
+        var stores = [];
         try {
-          if (typeof window !== 'undefined' && window.localStorage) {
-            var raw = window.localStorage.getItem(STORAGE_KEY);
-            if (raw) {
-              var parsed = JSON.parse(raw);
-              if (parsed && typeof parsed === 'object') {
-                for (k in parsed) {
-                  if (Object.prototype.hasOwnProperty.call(parsed, k) && parsed[k]) {
-                    combined[k] = true;
-                    memoryMap[k] = true;
+          if (typeof window !== 'undefined' && window.localStorage) stores.push(window.localStorage);
+        } catch (ignoreLs) {}
+        try {
+          if (typeof window !== 'undefined' && window.sessionStorage) stores.push(window.sessionStorage);
+        } catch (ignoreSs) {}
+
+        for (var s = 0; s < stores.length; s++) {
+          var st = stores[s];
+          var keysToRead = [STORAGE_KEY, LEGACY_KEY];
+          for (var kr = 0; kr < keysToRead.length; kr++) {
+            try {
+              var raw = st.getItem(keysToRead[kr]);
+              if (raw) {
+                var parsed = JSON.parse(raw);
+                if (parsed && typeof parsed === 'object') {
+                  for (k in parsed) {
+                    if (Object.prototype.hasOwnProperty.call(parsed, k) && parsed[k]) {
+                      combined[k] = true;
+                      memoryMap[k] = true;
+                    }
                   }
                 }
               }
-            }
+            } catch (ignoreParse) {}
           }
-        } catch (ignoreErr) {}
+        }
         return combined;
       }
 
@@ -14306,11 +14480,17 @@ var qrcode = (function() {
             memoryMap[k] = true;
           }
         }
+        var serialized = JSON.stringify(memoryMap);
         try {
           if (typeof window !== 'undefined' && window.localStorage) {
-            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(memoryMap));
+            window.localStorage.setItem(STORAGE_KEY, serialized);
           }
         } catch (ignoreErr) {}
+        try {
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            window.sessionStorage.setItem(STORAGE_KEY, serialized);
+          }
+        } catch (ignoreSsErr) {}
       }
 
       function buildTitleDateKey(title, dateStr) {
@@ -14342,11 +14522,18 @@ var qrcode = (function() {
         delete m[tdKey];
         delete memoryMap[tKey];
         delete memoryMap[tdKey];
+        var serialized = JSON.stringify(memoryMap);
         try {
           if (typeof window !== 'undefined' && window.localStorage) {
-            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(memoryMap));
+            window.localStorage.setItem(STORAGE_KEY, serialized);
+            window.localStorage.setItem(LEGACY_KEY, serialized);
           }
         } catch (ignoreErr) {}
+        try {
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            window.sessionStorage.setItem(STORAGE_KEY, serialized);
+          }
+        } catch (ignoreSsErr) {}
       }
 
       function isEventDeleted(ev) {
@@ -14356,6 +14543,12 @@ var qrcode = (function() {
         var occId = String(ev.occurrenceId || '').trim();
         if (eid && m['id:' + eid]) return true;
         if (occId && m['id:' + occId]) return true;
+        if (Array.isArray(ev._mergedEventIds)) {
+          for (var mi = 0; mi < ev._mergedEventIds.length; mi++) {
+            var mid = String(ev._mergedEventIds[mi] || '').trim();
+            if (mid && m['id:' + mid]) return true;
+          }
+        }
         var tKey = 't:' + String(ev.title || '').trim().toLowerCase();
         if (ev.title && m[tKey]) return true;
         var tdKey = buildTitleDateKey(ev.title, ev.startDateBkk);
@@ -14365,8 +14558,15 @@ var qrcode = (function() {
 
       function filterAndDeduplicateBundle(bundle) {
         if (!bundle || typeof bundle !== 'object') return bundle;
-        var rawEvents = Array.isArray(bundle.events) ? bundle.events : [];
-        var seenEventKeys = {};
+        if (!Array.isArray(bundle._allRawEvents) && Array.isArray(bundle.events)) {
+          bundle._allRawEvents = bundle.events.slice();
+        }
+        var rawEvents = Array.isArray(bundle._allRawEvents)
+          ? bundle._allRawEvents
+          : Array.isArray(bundle.events)
+          ? bundle.events
+          : [];
+        var seenEventObjByKey = {};
         var cleanEvents = [];
         var courseCount = 0;
         var schoolCount = 0;
@@ -14374,6 +14574,9 @@ var qrcode = (function() {
         for (var i = 0; i < rawEvents.length; i++) {
           var ev = rawEvents[i];
           if (!ev || isEventDeleted(ev)) continue;
+          if (!Array.isArray(ev._mergedEventIds)) {
+            ev._mergedEventIds = ev.eventId ? [String(ev.eventId).trim()] : [];
+          }
           var dedupKey =
             String(ev.title || '').trim().toLowerCase() +
             '|' +
@@ -14382,8 +14585,14 @@ var qrcode = (function() {
             String(ev.timeLabelBkk || '') +
             '|' +
             String(ev.visibilityScope || '');
-          if (seenEventKeys[dedupKey]) continue;
-          seenEventKeys[dedupKey] = true;
+          if (seenEventObjByKey[dedupKey]) {
+            var primaryEv = seenEventObjByKey[dedupKey];
+            if (ev.eventId && primaryEv._mergedEventIds.indexOf(String(ev.eventId).trim()) === -1) {
+              primaryEv._mergedEventIds.push(String(ev.eventId).trim());
+            }
+            continue;
+          }
+          seenEventObjByKey[dedupKey] = ev;
           cleanEvents.push(ev);
           if (ev.visibilityScope === 'COURSE') courseCount++;
           else schoolCount++;
@@ -14395,19 +14604,28 @@ var qrcode = (function() {
           for (var d = 0; d < dKeys.length; d++) {
             var dk = dKeys[d];
             var dayArr = Array.isArray(bundle.eventsByDateBkk[dk]) ? bundle.eventsByDateBkk[dk] : [];
-            var seenDayKeys = {};
+            var seenDayObjByKey = {};
             var cleanDayArr = [];
             for (var j = 0; j < dayArr.length; j++) {
               var dev = dayArr[j];
               if (!dev || isEventDeleted(dev)) continue;
+              if (!Array.isArray(dev._mergedEventIds)) {
+                dev._mergedEventIds = dev.eventId ? [String(dev.eventId).trim()] : [];
+              }
               var dayDedup =
                 String(dev.title || '').trim().toLowerCase() +
                 '|' +
                 String(dev.dayTimeLabelBkk || '') +
                 '|' +
                 String(dev.visibilityScope || '');
-              if (seenDayKeys[dayDedup]) continue;
-              seenDayKeys[dayDedup] = true;
+              if (seenDayObjByKey[dayDedup]) {
+                var pDayEv = seenDayObjByKey[dayDedup];
+                if (dev.eventId && pDayEv._mergedEventIds.indexOf(String(dev.eventId).trim()) === -1) {
+                  pDayEv._mergedEventIds.push(String(dev.eventId).trim());
+                }
+                continue;
+              }
+              seenDayObjByKey[dayDedup] = dev;
               cleanDayArr.push(dev);
             }
             bundle.eventsByDateBkk[dk] = cleanDayArr;
@@ -14435,26 +14653,50 @@ var qrcode = (function() {
     function handleAdminDeleteCalendarEventStep13(eventId, titleText, btnEl, areaEl, opt_dateBkk) {
       if (!eventId && !titleText) return Promise.resolve();
 
-      /* Collect all matching eventIds in the current bundle (in case the event exists in both custom storage and live Google Calendar) */
+      /* Collect all matching eventIds across raw, deduplicated, and merged event records */
       var matchingIds = [];
-      if (eventId) matchingIds.push(String(eventId).trim());
+      function addCandidateId(idVal) {
+        var clean = String(idVal || '').trim();
+        if (clean && matchingIds.indexOf(clean) === -1) {
+          matchingIds.push(clean);
+        }
+      }
+      addCandidateId(eventId);
       var normTitle = String(titleText || '').trim().toLowerCase();
-      if (currentCalendarBundleStep13 && Array.isArray(currentCalendarBundleStep13.events)) {
-        for (var i = 0; i < currentCalendarBundleStep13.events.length; i++) {
-          var cev = currentCalendarBundleStep13.events[i];
+
+      function scanEventsArray(arr) {
+        if (!Array.isArray(arr)) return;
+        for (var i = 0; i < arr.length; i++) {
+          var cev = arr[i];
           if (!cev) continue;
-          if (
+          var isMatch =
             (eventId && cev.eventId === eventId) ||
-            (normTitle && String(cev.title || '').trim().toLowerCase() === normTitle)
-          ) {
-            if (cev.eventId && matchingIds.indexOf(cev.eventId) === -1) {
-              matchingIds.push(cev.eventId);
+            (eventId && Array.isArray(cev._mergedEventIds) && cev._mergedEventIds.indexOf(eventId) !== -1) ||
+            (normTitle && String(cev.title || '').trim().toLowerCase() === normTitle);
+          if (isMatch) {
+            addCandidateId(cev.eventId);
+            addCandidateId(cev.occurrenceId);
+            if (Array.isArray(cev._mergedEventIds)) {
+              for (var mIdx = 0; mIdx < cev._mergedEventIds.length; mIdx++) {
+                addCandidateId(cev._mergedEventIds[mIdx]);
+              }
             }
           }
         }
       }
 
-      /* 1. Immediately mark deleted on client and update UI optimistically */
+      if (currentCalendarBundleStep13) {
+        scanEventsArray(currentCalendarBundleStep13._allRawEvents);
+        scanEventsArray(currentCalendarBundleStep13.events);
+        if (currentCalendarBundleStep13.eventsByDateBkk && typeof currentCalendarBundleStep13.eventsByDateBkk === 'object') {
+          var dKeys = Object.keys(currentCalendarBundleStep13.eventsByDateBkk);
+          for (var dkIdx = 0; dkIdx < dKeys.length; dkIdx++) {
+            scanEventsArray(currentCalendarBundleStep13.eventsByDateBkk[dKeys[dkIdx]]);
+          }
+        }
+      }
+
+      /* 1. Immediately mark deleted on client (localStorage + sessionStorage + memory) and update UI optimistically */
       PBDeletedCalendarStore.markDeleted(eventId, titleText, opt_dateBkk || '', matchingIds);
 
       var inspPanel = document.getElementById('calendar-event-detail-inspector');
@@ -14487,7 +14729,7 @@ var qrcode = (function() {
         PBNotify.toast(
           'success',
           'Calendar Event Deleted',
-          'Removed "' + (titleText || eventId) + '" from the class schedule.'
+          'Removed "' + (titleText || eventId) + '" and saved changes to schedule.'
         );
       }
 
@@ -14498,6 +14740,15 @@ var qrcode = (function() {
           rpcCallEnvelope(
             'admin.deleteCalendarEvent',
             { eventId: matchingIds[m], title: titleText || '' },
+            { suppressErrorBanner: true }
+          ).catch(function () {})
+        );
+      }
+      if (deletePromises.length === 0 && titleText) {
+        deletePromises.push(
+          rpcCallEnvelope(
+            'admin.deleteCalendarEvent',
+            { eventId: 'title:' + normTitle, title: titleText },
             { suppressErrorBanner: true }
           ).catch(function () {})
         );
@@ -16236,6 +16487,479 @@ var qrcode = (function() {
           }
         })
         .catch(function () {});
+    }
+
+    var currentAdminPreviewPopupCourseId = '';
+    var currentAdminPreviewPopupAssessmentObj = null;
+
+    function closeAdminAssignedAssessmentPreviewPopup() {
+      closeModalDialog('modal-admin-assigned-assessment-preview');
+    }
+
+    function ensureAdminAssignedAssessmentPreviewPopupBindings() {
+      var modal = document.getElementById('modal-admin-assigned-assessment-preview');
+      if (!modal || modal.getAttribute('data-pb-bound') === '1') return;
+      modal.setAttribute('data-pb-bound', '1');
+
+      var closeTop = document.getElementById('btn-admin-preview-popup-close-top');
+      if (closeTop) {
+        closeTop.addEventListener('click', closeAdminAssignedAssessmentPreviewPopup);
+      }
+      var closeFooter = document.getElementById('btn-admin-preview-popup-close-footer');
+      if (closeFooter) {
+        closeFooter.addEventListener('click', closeAdminAssignedAssessmentPreviewPopup);
+      }
+      modal.addEventListener('click', function (evt) {
+        if (evt.target === modal) {
+          closeAdminAssignedAssessmentPreviewPopup();
+        }
+      });
+
+      var openFullBtn = document.getElementById('btn-admin-preview-popup-open-full-page');
+      if (openFullBtn) {
+        openFullBtn.addEventListener('click', function () {
+          var targetCourseId = currentAdminPreviewPopupCourseId;
+          var targetAsm = currentAdminPreviewPopupAssessmentObj;
+          closeAdminAssignedAssessmentPreviewPopup();
+          if (targetCourseId) {
+            openStudentCourseDetailView(targetCourseId, true);
+            return;
+          }
+          if (targetAsm && targetAsm.externalUrl && isSafeRichTextHref(targetAsm.externalUrl)) {
+            window.open(targetAsm.externalUrl.trim(), '_blank', 'noopener,noreferrer');
+            return;
+          }
+          if (Array.isArray(currentAdminCoursesList) && currentAdminCoursesList.length > 0) {
+            openStudentCourseDetailView(currentAdminCoursesList[0].courseId, true);
+          }
+        });
+      }
+    }
+
+    function openAdminAssignedAssessmentPreviewPopup(courseId, opt_assessmentObj, opt_courseSummary) {
+      ensureAdminAssignedAssessmentPreviewPopupBindings();
+      currentAdminPreviewPopupCourseId = String(courseId || '').trim();
+      currentAdminPreviewPopupAssessmentObj = opt_assessmentObj || null;
+
+      var asmListEl = document.getElementById('admin-preview-popup-assessments-list');
+      var secListEl = document.getElementById('admin-preview-popup-sections-list');
+      var secWrapEl = document.getElementById('admin-preview-popup-sections-wrap');
+      var openFullLbl = document.getElementById('label-admin-preview-popup-open-full');
+
+      if (!currentAdminPreviewPopupCourseId && opt_assessmentObj) {
+        /* Standalone Assessment Library item pop-up preview */
+        var a = opt_assessmentObj;
+        var matchedCourseId = '';
+        if (Array.isArray(currentAdminCoursesList) && currentAdminCoursesList.length > 0) {
+          if (Array.isArray(a.referencedCourseTitles) && a.referencedCourseTitles.length > 0) {
+            var refTitleLower = String(a.referencedCourseTitles[0] || '').trim().toLowerCase();
+            for (var ci = 0; ci < currentAdminCoursesList.length; ci++) {
+              var cCand = currentAdminCoursesList[ci];
+              if (
+                cCand &&
+                (String(cCand.title || '').trim().toLowerCase() === refTitleLower ||
+                  String(cCand.courseCode || '').trim().toLowerCase() === refTitleLower)
+              ) {
+                matchedCourseId = cCand.courseId;
+                break;
+              }
+            }
+          }
+          if (!matchedCourseId) {
+            matchedCourseId = currentAdminCoursesList[0].courseId || '';
+          }
+        }
+        currentAdminPreviewPopupCourseId = matchedCourseId;
+
+        setText('admin-preview-popup-type-badge', 'ASSIGNED ASSESSMENT PREVIEW');
+        setText('admin-preview-popup-code-badge', a.assessmentId || 'ASSESSMENT');
+        setText('admin-preview-popup-status-badge', a.status || 'ACTIVE');
+        setText('admin-preview-popup-title', a.title || 'Assigned Assessment');
+        setText(
+          'admin-preview-popup-subtitle',
+          'Previewing assigned assessment details. Click "Open Full Preview Page" below to open the course & assessment page directly.'
+        );
+        setText(
+          'admin-preview-popup-kpi-sections',
+          String(a.referencedCardCount || 0) + ' Linked Card(s)'
+        );
+        setText(
+          'admin-preview-popup-kpi-assessments',
+          a.externalUrl ? 'External Quiz Link' : a.pdfFileId ? 'PDF Handout' : 'Rich-Text Assessment'
+        );
+        setText(
+          'admin-preview-popup-kpi-students',
+          Array.isArray(a.referencedCourseTitles) && a.referencedCourseTitles.length > 0
+            ? a.referencedCourseTitles.join(', ')
+            : 'All Assigned Courses'
+        );
+        setText(
+          'admin-preview-popup-kpi-updated',
+          a.updatedAtBangkok || a.updatedAtUtc || '-'
+        );
+        setText('admin-preview-popup-assessments-badge', '1 Assessment');
+        if (openFullLbl) {
+          openFullLbl.textContent = matchedCourseId
+            ? 'Open Full Course & Assessment Preview Page'
+            : 'Open Full Preview Page';
+        }
+        if (secWrapEl) secWrapEl.classList.add('hidden');
+        if (asmListEl) {
+          clearChildren(asmListEl);
+          var card = document.createElement('div');
+          card.className = 'pb-admin-preview-popup-item-card';
+
+          var topRow = document.createElement('div');
+          topRow.className = 'pb-admin-preview-popup-item-top';
+          var ttl = document.createElement('strong');
+          ttl.style.color = 'var(--color-brand-deep)';
+          ttl.textContent = a.title || 'Assessment';
+          topRow.appendChild(ttl);
+
+          var stBadge = document.createElement('span');
+          stBadge.className = a.status === 'ACTIVE' ? 'badge badge-ok' : 'badge badge-incomplete';
+          stBadge.textContent = a.status || 'ACTIVE';
+          topRow.appendChild(stBadge);
+          card.appendChild(topRow);
+
+          var rtBox = document.createElement('div');
+          rtBox.className = 'pb-rt-rendered';
+          rtBox.style.marginTop = '8px';
+          renderRichTextDocumentToDom(rtBox, a.descriptionRichText, matchedCourseId);
+          card.appendChild(rtBox);
+
+          var actRow = document.createElement('div');
+          actRow.style.display = 'flex';
+          actRow.style.gap = '8px';
+          actRow.style.flexWrap = 'wrap';
+          actRow.style.marginTop = '10px';
+
+          if (a.externalUrl && isSafeRichTextHref(a.externalUrl)) {
+            var extBtn = document.createElement('a');
+            extBtn.className = 'btn btn-secondary btn-sm';
+            extBtn.href = a.externalUrl.trim();
+            extBtn.target = '_blank';
+            extBtn.rel = 'noopener noreferrer';
+            extBtn.textContent = 'Open External Assessment URL';
+            actRow.appendChild(extBtn);
+          }
+          if (matchedCourseId) {
+            var goPageBtn = document.createElement('button');
+            goPageBtn.type = 'button';
+            goPageBtn.className = 'btn btn-primary btn-sm';
+            setBtnVectorIcon(goPageBtn, 'preview', 'Open Full Preview Page', 'Open full course & assessment preview page');
+            goPageBtn.addEventListener('click', function () {
+              closeAdminAssignedAssessmentPreviewPopup();
+              openStudentCourseDetailView(matchedCourseId, true);
+            });
+            actRow.appendChild(goPageBtn);
+          }
+          card.appendChild(actRow);
+          asmListEl.appendChild(card);
+        }
+        openModalDialog(
+          'modal-admin-assigned-assessment-preview',
+          'btn-admin-preview-popup-open-full-page'
+        );
+        return Promise.resolve();
+      }
+
+      /* Course + Assigned Assessments pop-up preview */
+      var cSum = opt_courseSummary || {};
+      setText('admin-preview-popup-type-badge', 'ASSIGNED ASSESSMENT & COURSE PREVIEW');
+      setText('admin-preview-popup-code-badge', cSum.courseCode || currentAdminPreviewPopupCourseId || 'COURSE');
+      setText('admin-preview-popup-status-badge', cSum.status || 'PUBLISHED');
+      setText('admin-preview-popup-title', cSum.title || 'Loading Course & Assessment Preview...');
+      setText(
+        'admin-preview-popup-subtitle',
+        cSum.subtitle || 'Inspect assigned assessments, quizzes, and sections below, or click through to open the full preview page directly.'
+      );
+      setText(
+        'admin-preview-popup-kpi-sections',
+        cSum.sectionCount !== undefined ? String(cSum.sectionCount) + ' Sections' : '...'
+      );
+      setText('admin-preview-popup-kpi-assessments', 'Loading...');
+      setText(
+        'admin-preview-popup-kpi-students',
+        cSum.activeEnrollmentCount !== undefined ? String(cSum.activeEnrollmentCount) + ' Students' : '-'
+      );
+      setText('admin-preview-popup-kpi-updated', cSum.updatedAtBangkok || cSum.updatedAtUtc || '-');
+      if (openFullLbl) {
+        openFullLbl.textContent = 'Open Full Preview Page';
+      }
+      if (secWrapEl) secWrapEl.classList.remove('hidden');
+      if (asmListEl) renderModalSkeletonBlock(asmListEl, 1);
+      if (secListEl) renderModalSkeletonBlock(secListEl, 1);
+
+      openModalDialog(
+        'modal-admin-assigned-assessment-preview',
+        'btn-admin-preview-popup-open-full-page'
+      );
+
+      return Promise.all([
+        rpcCallEnvelope(
+          'student.getCourseDetail',
+          { courseId: currentAdminPreviewPopupCourseId, adminPreview: true },
+          { suppressErrorBanner: true }
+        ),
+        rpcCallEnvelope(
+          'exams.list',
+          {
+            courseId: currentAdminPreviewPopupCourseId,
+            search: '',
+            modeFilter: 'ALL',
+            availabilityFilter: 'ALL',
+            completionFilter: 'ALL',
+            adminPreview: true
+          },
+          { suppressErrorBanner: true }
+        ).catch(function () {
+          return { data: { exams: [] } };
+        })
+      ])
+        .then(function (results) {
+          var detailEnv = results[0] || {};
+          var examsEnv = results[1] || {};
+          var d = detailEnv.data || {};
+          var course = d.course || cSum || {};
+          if (currentAdminPreviewPopupCourseId && d.course) {
+            studentCourseDetailCacheById[currentAdminPreviewPopupCourseId] = d;
+          }
+
+          var secs = Array.isArray(d.sections) ? d.sections : [];
+          var nativeExams =
+            examsEnv.data && Array.isArray(examsEnv.data.exams)
+              ? examsEnv.data.exams
+              : d.nativeExamCatalog && Array.isArray(d.nativeExamCatalog.exams)
+              ? d.nativeExamCatalog.exams
+              : [];
+
+          var linkedAsmCards = [];
+          var totalCardsCount = 0;
+          for (var s = 0; s < secs.length; s++) {
+            var scards = Array.isArray(secs[s].cards) ? secs[s].cards : [];
+            totalCardsCount += scards.length;
+            for (var k = 0; k < scards.length; k++) {
+              if (scards[k].cardType === 'ASSESSMENT_LINK_CARD' || secs[s].sectionType === 'ASSESSMENT') {
+                linkedAsmCards.push({
+                  sectionTitle: secs[s].title,
+                  card: scards[k]
+                });
+              }
+            }
+          }
+
+          setText('admin-preview-popup-code-badge', course.courseCode || course.courseId || 'COURSE');
+          setText('admin-preview-popup-status-badge', course.status || 'PUBLISHED');
+          setText('admin-preview-popup-title', course.title || 'Course Preview');
+          setText(
+            'admin-preview-popup-subtitle',
+            course.subtitle ||
+              'Click any assessment or section below, or click "Open Full Preview Page" to open the full student preview page directly.'
+          );
+          setText('admin-preview-popup-kpi-sections', String(secs.length) + ' Sections');
+          var totalAsmItems = nativeExams.length + linkedAsmCards.length;
+          setText(
+            'admin-preview-popup-kpi-assessments',
+            String(totalAsmItems) + (totalAsmItems === 1 ? ' Assessment' : ' Assessments')
+          );
+          setText(
+            'admin-preview-popup-kpi-updated',
+            course.updatedAtBangkok || course.updatedAtUtc || '-'
+          );
+          setText('admin-preview-popup-assessments-badge', String(totalAsmItems) + ' Assigned');
+          setText('admin-preview-popup-cards-badge', String(totalCardsCount) + ' Cards');
+
+          if (asmListEl) {
+            clearChildren(asmListEl);
+            if (totalAsmItems === 0) {
+              var emptyAsm = document.createElement('div');
+              emptyAsm.className = 'pb-admin-preview-popup-empty';
+              emptyAsm.textContent =
+                'No assigned assessments or practice quizzes in this course yet. Click "Open Full Preview Page" below to view the course page.';
+              asmListEl.appendChild(emptyAsm);
+            } else {
+              for (var ne = 0; ne < nativeExams.length; ne++) {
+                (function (ex) {
+                  var row = document.createElement('div');
+                  row.className = 'pb-admin-preview-popup-item-card';
+
+                  var top = document.createElement('div');
+                  top.className = 'pb-admin-preview-popup-item-top';
+
+                  var left = document.createElement('div');
+                  var modeBadge = document.createElement('span');
+                  modeBadge.className = 'badge badge-ok';
+                  modeBadge.style.marginRight = '6px';
+                  modeBadge.textContent =
+                    ex.examMode === 'PRACTICE'
+                      ? 'Practice Quiz'
+                      : ex.examMode === 'MOCK_EXAM'
+                      ? 'Timed Mock Exam'
+                      : 'Assigned Assessment';
+                  left.appendChild(modeBadge);
+
+                  var titleStrong = document.createElement('strong');
+                  titleStrong.style.color = 'var(--color-brand-deep)';
+                  titleStrong.textContent = (ex.examCode ? '[' + ex.examCode + '] ' : '') + (ex.title || 'Assessment');
+                  left.appendChild(titleStrong);
+                  top.appendChild(left);
+
+                  var rightActions = document.createElement('div');
+                  rightActions.style.display = 'flex';
+                  rightActions.style.gap = '6px';
+                  rightActions.style.flexWrap = 'wrap';
+
+                  var prevExamBtn = document.createElement('button');
+                  prevExamBtn.type = 'button';
+                  prevExamBtn.className = 'btn btn-secondary btn-sm';
+                  setBtnVectorIcon(prevExamBtn, 'preview', 'Preview Exam', 'Open exam instructions & question preview');
+                  prevExamBtn.addEventListener('click', function () {
+                    closeAdminAssignedAssessmentPreviewPopup();
+                    openStudentExamInstructionsModalPhase3(ex.examSetId, true);
+                  });
+                  rightActions.appendChild(prevExamBtn);
+
+                  var openPageBtn = document.createElement('button');
+                  openPageBtn.type = 'button';
+                  openPageBtn.className = 'btn btn-primary btn-sm';
+                  setBtnVectorIcon(openPageBtn, 'play', 'Open Page', 'Open full course preview page');
+                  openPageBtn.addEventListener('click', function () {
+                    closeAdminAssignedAssessmentPreviewPopup();
+                    openStudentCourseDetailView(currentAdminPreviewPopupCourseId, true);
+                  });
+                  rightActions.appendChild(openPageBtn);
+
+                  top.appendChild(rightActions);
+                  row.appendChild(top);
+
+                  var meta = document.createElement('div');
+                  meta.style.fontSize = '0.82rem';
+                  meta.style.color = 'var(--color-text-secondary)';
+                  meta.style.marginTop = '6px';
+                  meta.textContent =
+                    (ex.durationDisplay || 'Untimed') +
+                    ' • ' +
+                    String(ex.totalQuestionsDisplay || 0) +
+                    ' questions • ' +
+                    (ex.maxPointsDisplay || '0 pts');
+                  row.appendChild(meta);
+
+                  asmListEl.appendChild(row);
+                })(nativeExams[ne]);
+              }
+
+              for (var la = 0; la < linkedAsmCards.length; la++) {
+                (function (item) {
+                  var crd = item.card || {};
+                  var linked = crd.linkedAssessment || {};
+                  var row = document.createElement('div');
+                  row.className = 'pb-admin-preview-popup-item-card';
+
+                  var top = document.createElement('div');
+                  top.className = 'pb-admin-preview-popup-item-top';
+
+                  var left = document.createElement('div');
+                  var bdg = document.createElement('span');
+                  bdg.className = 'badge badge-ok';
+                  bdg.style.marginRight = '6px';
+                  bdg.textContent = 'Course Assessment Card';
+                  left.appendChild(bdg);
+
+                  var ttl = document.createElement('strong');
+                  ttl.style.color = 'var(--color-brand-deep)';
+                  ttl.textContent = crd.title || linked.title || 'Assigned Assessment';
+                  left.appendChild(ttl);
+                  top.appendChild(left);
+
+                  var openBtn = document.createElement('button');
+                  openBtn.type = 'button';
+                  openBtn.className = 'btn btn-primary btn-sm';
+                  setBtnVectorIcon(openBtn, 'play', 'Open on Preview Page', 'Open full preview page directly');
+                  openBtn.addEventListener('click', function () {
+                    closeAdminAssignedAssessmentPreviewPopup();
+                    openStudentCourseDetailView(currentAdminPreviewPopupCourseId, true);
+                  });
+                  top.appendChild(openBtn);
+                  row.appendChild(top);
+
+                  if (crd.subtitle || linked.title) {
+                    var sub = document.createElement('div');
+                    sub.style.fontSize = '0.82rem';
+                    sub.style.color = 'var(--color-text-secondary)';
+                    sub.style.marginTop = '4px';
+                    sub.textContent =
+                      (crd.subtitle ? crd.subtitle + ' • ' : '') +
+                      (linked.title ? 'Linked Assessment: ' + linked.title : 'Section: ' + item.sectionTitle);
+                    row.appendChild(sub);
+                  }
+
+                  asmListEl.appendChild(row);
+                })(linkedAsmCards[la]);
+              }
+            }
+          }
+
+          if (secListEl) {
+            clearChildren(secListEl);
+            for (var sIdx = 0; sIdx < secs.length; sIdx++) {
+              (function (secObj, idx) {
+                var secRow = document.createElement('div');
+                secRow.className = 'pb-admin-preview-popup-item-card pb-admin-preview-popup-clickable';
+                secRow.setAttribute('role', 'button');
+                secRow.setAttribute('tabindex', '0');
+
+                var top = document.createElement('div');
+                top.className = 'pb-admin-preview-popup-item-top';
+
+                var left = document.createElement('div');
+                var sBadge = document.createElement('span');
+                sBadge.className = 'badge badge-ok';
+                sBadge.style.marginRight = '6px';
+                sBadge.textContent = secObj.sectionType || 'SECTION';
+                left.appendChild(sBadge);
+
+                var sTitle = document.createElement('strong');
+                sTitle.style.color = 'var(--color-brand-deep)';
+                sTitle.textContent = (idx + 1) + '. ' + (secObj.title || 'Section');
+                left.appendChild(sTitle);
+                top.appendChild(left);
+
+                var cardArr = Array.isArray(secObj.cards) ? secObj.cards : [];
+                var countSpan = document.createElement('span');
+                countSpan.style.fontSize = '0.82rem';
+                countSpan.style.fontWeight = '700';
+                countSpan.style.color = 'var(--color-brand-primary)';
+                countSpan.textContent = String(cardArr.length) + ' card(s) → Open Page';
+                top.appendChild(countSpan);
+
+                secRow.appendChild(top);
+                secRow.addEventListener('click', function () {
+                  closeAdminAssignedAssessmentPreviewPopup();
+                  openStudentCourseDetailView(currentAdminPreviewPopupCourseId, true);
+                });
+                secRow.addEventListener('keydown', function (evt) {
+                  if (evt.key === 'Enter' || evt.key === ' ') {
+                    evt.preventDefault();
+                    closeAdminAssignedAssessmentPreviewPopup();
+                    openStudentCourseDetailView(currentAdminPreviewPopupCourseId, true);
+                  }
+                });
+                secListEl.appendChild(secRow);
+              })(secs[sIdx], sIdx);
+            }
+          }
+        })
+        .catch(function (err) {
+          if (asmListEl) {
+            clearChildren(asmListEl);
+            var errBox = document.createElement('div');
+            errBox.className = 'banner banner-danger';
+            errBox.textContent =
+              'Could not load preview details: ' + ((err && err.message) || 'Unknown error');
+            asmListEl.appendChild(errBox);
+          }
+        });
     }
 
     function openStudentCourseDetailView(courseId, opt_fromAdminPreview) {
@@ -19445,10 +20169,15 @@ var qrcode = (function() {
           startBtn.classList.remove('is-btn-loading');
           if (isAdminPrev) {
             startBtn.disabled = false;
-            startBtn.textContent = 'Launch Interactive Question Preview';
+            setBtnVectorIcon(
+              startBtn,
+              'play',
+              'Open Full Preview Page',
+              'Open the interactive examination preview page directly'
+            );
             setText(
               'exam-inst-status-message',
-              'Admin Preview Mode: Click "Launch Interactive Question Preview" to step through the live exam workspace and test questions.'
+              'Admin Pop-up Preview: Review the assessment summary above, or click "Open Full Preview Page" to open the interactive question workspace directly.'
             );
           } else if (ex.canResumeAttempt) {
             startBtn.disabled = false;
@@ -25953,7 +26682,12 @@ var qrcode = (function() {
       if (previewStudentBtn) {
         previewStudentBtn.addEventListener('click', function () {
           if (currentSelectedCourseDetail && currentSelectedCourseDetail.course) {
-            openStudentCourseDetailView(currentSelectedCourseDetail.course.courseId, true);
+            PBAdminActionModal.close();
+            openAdminAssignedAssessmentPreviewPopup(
+              currentSelectedCourseDetail.course.courseId,
+              null,
+              currentSelectedCourseDetail.course
+            );
           }
         });
       }

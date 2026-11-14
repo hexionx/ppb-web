@@ -10334,6 +10334,96 @@
   </div>
 </div>
 
+<!-- Admin Assigned Assessment & Course Preview Pop-up Modal (Click-through opens full preview page) -->
+<div
+  id="modal-admin-assigned-assessment-preview"
+  class="pb-modal-backdrop hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="admin-preview-popup-title"
+>
+  <div class="pb-modal-dialog pb-admin-preview-popup-dialog" style="max-width: 780px; width: 95%;">
+    <div class="pb-modal-header pb-admin-preview-popup-header">
+      <div>
+        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px;">
+          <span class="badge badge-ok" id="admin-preview-popup-type-badge">ADMIN PREVIEW POP-UP</span>
+          <span class="badge badge-ok" id="admin-preview-popup-code-badge">BIO-COURSE</span>
+          <span class="badge" id="admin-preview-popup-status-badge">PUBLISHED</span>
+        </div>
+        <h2 id="admin-preview-popup-title" style="margin: 0; font-size: 1.28rem; color: var(--color-brand-deep);">
+          Assigned Assessment &amp; Course Preview
+        </h2>
+        <p id="admin-preview-popup-subtitle" style="margin: 4px 0 0 0; font-size: 0.88rem; color: var(--color-text-secondary);">
+          Quick pop-up overview. Click "Open Full Preview Page" below to open the interactive student preview page directly.
+        </p>
+      </div>
+      <button type="button" class="btn btn-outline btn-sm" id="btn-admin-preview-popup-close-top" aria-label="Close preview pop-up">
+        <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        <span>Close</span>
+      </button>
+    </div>
+
+    <div class="pb-modal-body" id="admin-preview-popup-body" style="max-height: 68vh; overflow-y: auto; padding-right: 4px;">
+      <!-- Summary KPI Strip -->
+      <div class="pb-admin-preview-popup-kpi-grid" id="admin-preview-popup-kpi-strip">
+        <div class="pb-admin-preview-popup-kpi">
+          <span class="pb-admin-preview-popup-kpi-label">Sections &amp; Modules</span>
+          <strong class="pb-admin-preview-popup-kpi-val" id="admin-preview-popup-kpi-sections">-</strong>
+        </div>
+        <div class="pb-admin-preview-popup-kpi">
+          <span class="pb-admin-preview-popup-kpi-label">Assigned Assessments &amp; Quizzes</span>
+          <strong class="pb-admin-preview-popup-kpi-val" id="admin-preview-popup-kpi-assessments">-</strong>
+        </div>
+        <div class="pb-admin-preview-popup-kpi">
+          <span class="pb-admin-preview-popup-kpi-label">Enrolled Students</span>
+          <strong class="pb-admin-preview-popup-kpi-val" id="admin-preview-popup-kpi-students">-</strong>
+        </div>
+        <div class="pb-admin-preview-popup-kpi">
+          <span class="pb-admin-preview-popup-kpi-label">Last Updated (BKK)</span>
+          <strong class="pb-admin-preview-popup-kpi-val" id="admin-preview-popup-kpi-updated">-</strong>
+        </div>
+      </div>
+
+      <!-- Assigned Assessments & Practice Quizzes Section -->
+      <div class="pb-admin-preview-popup-section" id="admin-preview-popup-assessments-section">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+          <strong style="font-size: 0.95rem; color: var(--color-brand-deep);">
+            Assigned Assessments, Timed Exams &amp; Practice Quizzes
+          </strong>
+          <span class="badge badge-ok" id="admin-preview-popup-assessments-badge">0 Items</span>
+        </div>
+        <div id="admin-preview-popup-assessments-list" class="pb-admin-preview-popup-list"></div>
+      </div>
+
+      <!-- Course Sections & Cards Preview -->
+      <div class="pb-admin-preview-popup-section" id="admin-preview-popup-sections-wrap">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+          <strong style="font-size: 0.95rem; color: var(--color-brand-deep);">
+            Course Sections &amp; Lesson Materials Overview
+          </strong>
+          <span class="badge" id="admin-preview-popup-cards-badge">0 Cards</span>
+        </div>
+        <div id="admin-preview-popup-sections-list" class="pb-admin-preview-popup-list"></div>
+      </div>
+    </div>
+
+    <div class="pb-modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--color-brand-border);">
+      <span style="font-size: 0.82rem; color: var(--color-text-secondary);">
+        Click through to open the full interactive preview page directly.
+      </span>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-outline btn-sm" id="btn-admin-preview-popup-close-footer">
+          Close Pop-up
+        </button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-admin-preview-popup-open-full-page">
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+          <span id="label-admin-preview-popup-open-full">Open Full Preview Page</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Top-Level Pre-Examination Instructions & Result Modals (Accessible from both Student Course View & Admin Exam Preview) -->
 <div
   id="modal-student-exam-result"
