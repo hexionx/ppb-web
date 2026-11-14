@@ -1479,7 +1479,7 @@
         Timed Mock Exams
       </button>
       <button type="button" class="pb-exam-mode-tab" data-exam-quick-mode="ASSIGNED_ASSESSMENT" role="tab" aria-selected="false">
-        Course Assessments
+        Assigned Assessments
       </button>
     </div>
 
@@ -1499,7 +1499,7 @@
           <option value="ALL">All Formats</option>
           <option value="PRACTICE">Practice Quiz</option>
           <option value="MOCK_EXAM">Timed Mock Exam</option>
-          <option value="ASSIGNED_ASSESSMENT">Course Assessment</option>
+          <option value="ASSIGNED_ASSESSMENT">Assigned Assessment</option>
         </select>
       </div>
       <div class="form-group pb-exam-filter-select-col">
@@ -6755,12 +6755,12 @@
     <div class="card" id="admin-assessment-library-card">
       <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
         <div>
-          <span class="badge badge-ok">Reusable Assessment Library (Assessments Sheet)</span>
+          <span class="badge badge-ok">Assigned Assessment Library</span>
           <h2 style="margin: 8px 0 4px 0; font-size: 1.32rem; color: var(--color-brand-deep);">
-            Assessment Library — Create, Edit, Archive &amp; Link Into Course Sections
+            Assigned Assessments — Create, Preview, Edit &amp; Link to Courses
           </h2>
           <p style="margin: 0; font-size: 0.92rem; color: var(--color-text-secondary);">
-            Create and manage reusable biology assessments, PDF handouts, and external quiz links.
+            Create and manage reusable biology assessments, PDF worksheets, and external quiz links assigned to course sections.
           </p>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -6827,17 +6827,17 @@
 
           <div class="form-group">
             <label class="form-label" for="select-assessment-editor-status">
-              Assessment Status (<code>ACTIVE</code> / <code>ARCHIVED</code>) *
+              Assessment Status *
             </label>
             <select class="form-input" id="select-assessment-editor-status">
-              <option value="ACTIVE">ACTIVE (Selectable in Course Sections)</option>
-              <option value="ARCHIVED">ARCHIVED (Existing Course References Preserved with Badge)</option>
+              <option value="ACTIVE">Active (Available in Course Sections)</option>
+              <option value="ARCHIVED">Archived (Hidden from New Course Selections)</option>
             </select>
           </div>
 
           <div class="form-group">
             <label class="form-label" for="input-assessment-editor-external-url">
-              Optional External Assessment URL (<code>https://</code>)
+              Optional External Assessment Link (https://)
             </label>
             <input
               type="url"
@@ -6850,7 +6850,7 @@
 
           <div class="form-group">
             <label class="form-label" for="input-assessment-editor-pdf-file-id">
-              Optional Assessment PDF Attachment (<code>pdf_file_id</code> — PDF &le; 200 MB)
+              Optional Assessment PDF Handout (up to 200 MB)
             </label>
             <div style="display: flex; gap: 6px; flex-wrap: wrap;">
               <input
@@ -10367,19 +10367,19 @@
       <!-- Summary KPI Strip -->
       <div class="pb-admin-preview-popup-kpi-grid" id="admin-preview-popup-kpi-strip">
         <div class="pb-admin-preview-popup-kpi">
-          <span class="pb-admin-preview-popup-kpi-label">Sections &amp; Modules</span>
+          <span class="pb-admin-preview-popup-kpi-label" id="admin-preview-popup-kpi-label-1">Sections &amp; Modules</span>
           <strong class="pb-admin-preview-popup-kpi-val" id="admin-preview-popup-kpi-sections">-</strong>
         </div>
         <div class="pb-admin-preview-popup-kpi">
-          <span class="pb-admin-preview-popup-kpi-label">Assigned Assessments &amp; Quizzes</span>
+          <span class="pb-admin-preview-popup-kpi-label" id="admin-preview-popup-kpi-label-2">Assigned Assessments &amp; Quizzes</span>
           <strong class="pb-admin-preview-popup-kpi-val" id="admin-preview-popup-kpi-assessments">-</strong>
         </div>
         <div class="pb-admin-preview-popup-kpi">
-          <span class="pb-admin-preview-popup-kpi-label">Enrolled Students</span>
+          <span class="pb-admin-preview-popup-kpi-label" id="admin-preview-popup-kpi-label-3">Enrolled Students</span>
           <strong class="pb-admin-preview-popup-kpi-val" id="admin-preview-popup-kpi-students">-</strong>
         </div>
         <div class="pb-admin-preview-popup-kpi">
-          <span class="pb-admin-preview-popup-kpi-label">Last Updated (BKK)</span>
+          <span class="pb-admin-preview-popup-kpi-label" id="admin-preview-popup-kpi-label-4">Last Updated (BKK)</span>
           <strong class="pb-admin-preview-popup-kpi-val" id="admin-preview-popup-kpi-updated">-</strong>
         </div>
       </div>
@@ -10494,18 +10494,18 @@
   aria-modal="true"
   aria-labelledby="exam-inst-title"
 >
-  <div class="pb-modal-dialog" style="max-width: 780px; width: 95%;">
-    <div class="pb-modal-header" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
+  <div class="pb-modal-dialog pb-exam-inst-popup-dialog" style="max-width: 800px; width: 95%;">
+    <div class="pb-modal-header pb-exam-inst-popup-header">
       <div>
-        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px;">
-          <span class="badge badge-ok" id="exam-inst-mode-badge">Examination</span>
-          <span class="badge" id="exam-inst-code-badge">EXAM-CODE</span>
-          <span class="badge" id="exam-inst-availability-badge">AVAILABLE</span>
+        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;">
+          <span class="badge badge-ok" id="exam-inst-mode-badge">Assigned Assessment</span>
+          <span class="badge pb-inst-code-pill" id="exam-inst-code-badge">EXAM-CODE</span>
+          <span class="badge pb-inst-status-pill" id="exam-inst-availability-badge">OPEN NOW</span>
         </div>
-        <h2 id="exam-inst-title" style="margin: 0; font-size: 1.28rem; color: var(--color-brand-deep);">
-          Examination Instructions &amp; Rules
+        <h2 id="exam-inst-title" style="margin: 0; font-size: 1.32rem; font-weight: 800; color: var(--color-brand-deep); line-height: 1.3;">
+          Assessment Overview &amp; Instructions
         </h2>
-        <p id="exam-inst-course-label" style="margin: 4px 0 0 0; font-size: 0.85rem; color: var(--color-text-secondary);"></p>
+        <p id="exam-inst-course-label" style="margin: 4px 0 0 0; font-size: 0.88rem; font-weight: 600; color: var(--color-text-secondary);"></p>
       </div>
       <button
         type="button"
@@ -10513,51 +10513,52 @@
         id="btn-exam-inst-header-close"
         aria-label="Close examination instructions"
       >
-        Close
+        <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        <span>Close</span>
       </button>
     </div>
 
-    <div class="pb-modal-body" style="max-height: 72vh; overflow-y: auto; padding-right: 4px;">
-      <div class="pb-exam-summary-kpi-grid" style="margin-bottom: 14px;">
-        <div class="status-item">
-          <div class="status-label">Questions &amp; Sections</div>
-          <div class="status-value" id="exam-inst-question-count">-</div>
+    <div class="pb-modal-body" style="max-height: 70vh; overflow-y: auto; padding-right: 4px;">
+      <div class="pb-exam-summary-kpi-grid pb-inst-kpi-grid" style="margin-bottom: 16px;">
+        <div class="pb-inst-kpi-card">
+          <div class="pb-inst-kpi-label">Questions &amp; Sections</div>
+          <div class="pb-inst-kpi-val" id="exam-inst-question-count">-</div>
         </div>
-        <div class="status-item">
-          <div class="status-label">Maximum Score</div>
-          <div class="status-value" id="exam-inst-max-points">-</div>
+        <div class="pb-inst-kpi-card">
+          <div class="pb-inst-kpi-label">Maximum Score</div>
+          <div class="pb-inst-kpi-val" id="exam-inst-max-points">-</div>
         </div>
-        <div class="status-item">
-          <div class="status-label">Time Limit</div>
-          <div class="status-value" id="exam-inst-duration">-</div>
+        <div class="pb-inst-kpi-card">
+          <div class="pb-inst-kpi-label">Time Limit</div>
+          <div class="pb-inst-kpi-val" id="exam-inst-duration">-</div>
         </div>
-        <div class="status-item">
-          <div class="status-label">Allowed Attempts</div>
-          <div class="status-value" id="exam-inst-attempts">-</div>
+        <div class="pb-inst-kpi-card">
+          <div class="pb-inst-kpi-label">Allowed Attempts</div>
+          <div class="pb-inst-kpi-val" id="exam-inst-attempts">-</div>
         </div>
-        <div class="status-item">
-          <div class="status-label">Availability Window (Bangkok)</div>
-          <div class="status-value" id="exam-inst-window" style="font-size: 0.82rem;">-</div>
+        <div class="pb-inst-kpi-card">
+          <div class="pb-inst-kpi-label">Schedule (Bangkok)</div>
+          <div class="pb-inst-kpi-val" id="exam-inst-window" style="font-size: 0.84rem;">-</div>
         </div>
-        <div class="status-item">
-          <div class="status-label">Score &amp; Explanation Release</div>
-          <div class="status-value" id="exam-inst-release-policy" style="font-size: 0.82rem;">-</div>
+        <div class="pb-inst-kpi-card">
+          <div class="pb-inst-kpi-label">Score &amp; Key Release</div>
+          <div class="pb-inst-kpi-val" id="exam-inst-release-policy" style="font-size: 0.84rem;">-</div>
         </div>
       </div>
 
-      <div class="status-item" style="margin-bottom: 12px;">
-        <div class="status-label">Examination Instructions</div>
-        <div id="exam-inst-richtext-body" class="pb-rt-rendered" style="margin-top: 6px;"></div>
+      <div class="pb-inst-section-card" style="margin-bottom: 12px;">
+        <div class="pb-inst-section-heading">Assessment Instructions</div>
+        <div id="exam-inst-richtext-body" class="pb-rt-rendered pb-inst-richtext-surface" style="margin-top: 6px;"></div>
       </div>
 
-      <div class="status-item" style="margin-bottom: 12px;">
-        <div class="status-label">Section Breakdown</div>
+      <div class="pb-inst-section-card" style="margin-bottom: 12px;">
+        <div class="pb-inst-section-heading">Section Breakdown</div>
         <div class="pb-scores-table-wrap" style="margin-top: 8px;">
           <table class="pb-scores-table" aria-label="Examination sections breakdown">
             <thead>
               <tr>
                 <th scope="col">Section</th>
-                <th scope="col">Selection Mode</th>
+                <th scope="col">Format</th>
                 <th scope="col">Questions</th>
                 <th scope="col">Max Score</th>
               </tr>
@@ -10567,53 +10568,53 @@
         </div>
       </div>
 
-      <div class="status-item" style="margin-bottom: 12px;">
-        <div class="status-label">Examination Rules &amp; Integrity Notice</div>
+      <div class="pb-inst-section-card" style="margin-bottom: 12px;">
+        <div class="pb-inst-section-heading">Assessment Guidelines</div>
         <ul id="exam-inst-rules-list" style="margin: 8px 0 0 18px; padding: 0; font-size: 0.88rem; color: var(--color-text-secondary); line-height: 1.55;"></ul>
       </div>
 
-      <div id="exam-inst-integrity-policy-box" class="status-item pb-exam-integrity-policy-box" style="margin-bottom: 12px;">
+      <div id="exam-inst-integrity-policy-box" class="pb-inst-section-card pb-exam-integrity-policy-box" style="margin-bottom: 12px;">
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
-          <span class="status-label" style="margin: 0;">Copy-Restriction &amp; Examination-Integrity Policy</span>
+          <span class="pb-inst-section-heading" style="margin: 0;">Copy-Restriction &amp; Academic Integrity Policy</span>
           <span class="badge badge-warning" id="exam-inst-integrity-badge">Academic Integrity Policy</span>
         </div>
-        <p id="exam-inst-integrity-primary-text" style="margin: 6px 0; font-size: 0.88rem; color: var(--color-text-primary); line-height: 1.5;">
-          Copying question content is restricted during this examination. Each detected copy attempt temporarily pauses access to the examination for 5 seconds. A sixth detected attempt invalidates this examination attempt. Four non-overturned examination invalidations under this policy will lock your account pending administrator review.
+        <p id="exam-inst-integrity-primary-text" style="margin: 6px 0; font-size: 0.86rem; color: var(--color-text-primary); line-height: 1.5;">
+          Copying question content is restricted during this examination. Each detected copy attempt pauses the screen for 5 seconds, and a sixth attempt invalidates the attempt.
         </p>
-        <p id="exam-inst-integrity-timer-text" style="margin: 6px 0; font-size: 0.85rem; font-weight: 700; color: var(--color-brand-deep);">
+        <p id="exam-inst-integrity-timer-text" style="margin: 4px 0; font-size: 0.83rem; font-weight: 700; color: var(--color-brand-deep);">
           The examination timer continues during these temporary pauses.
         </p>
-        <p id="exam-inst-integrity-support-text" style="margin: 6px 0; font-size: 0.81rem; color: var(--color-text-secondary); line-height: 1.45;">
-          This policy operates as a deterrent and an examination rule enforced on detected/reported copy events within protected question areas. Copying your own typed responses, attempt references, or support contact details (<span id="exam-integrity-support-contact" class="pb-exam-allow-copy">biology@pattanabhumi.ac.th</span>) is always permitted. If you use assistive technology or require an accessibility accommodation, please contact Pattanabhumi Biology Support before starting.
+        <p id="exam-inst-integrity-support-text" style="margin: 4px 0; font-size: 0.8rem; color: var(--color-text-secondary); line-height: 1.45;">
+          Copying your own typed responses or support contact details (<span id="exam-integrity-support-contact" class="pb-exam-allow-copy">biology@pattanabhumi.ac.th</span>) is always permitted.
         </p>
         <div id="exam-inst-integrity-ack-wrap" style="margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--color-border);">
           <label for="chk-exam-inst-integrity-ack" style="display: flex; align-items: flex-start; gap: 8px; font-size: 0.86rem; font-weight: 600; color: var(--color-brand-deep); cursor: pointer;">
             <input type="checkbox" id="chk-exam-inst-integrity-ack" style="margin-top: 3px;" />
             <span id="lbl-exam-inst-integrity-ack">
-              I have read and acknowledge the Copy-Restriction and Examination-Integrity Policy, including that the examination timer continues during 5-second pauses.
+              I have read and acknowledge the Copy-Restriction and Academic Integrity Policy.
             </span>
           </label>
         </div>
       </div>
 
       <div id="exam-inst-status-notice" class="banner banner-info" style="margin-top: 10px;">
-        <strong id="exam-inst-status-title">Pre-Examination Readiness Check</strong>
+        <strong id="exam-inst-status-title">Readiness Check</strong>
         <p id="exam-inst-status-message" style="margin: 4px 0 0 0; font-size: 0.86rem;">
-          Viewing these instructions does not start your timer or consume an attempt.
+          Viewing these instructions does not start your timer or use an attempt.
         </p>
       </div>
     </div>
 
-    <div class="pb-modal-footer" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--color-border);">
+    <div class="pb-modal-footer">
       <span style="font-size: 0.8rem; color: var(--color-text-muted);" id="exam-inst-footer-note">
-        Server clock is authoritative for all timed attempts.
+        Your timer only begins once you start an attempt.
       </span>
       <div style="display: flex; gap: 8px; flex-wrap: wrap;">
         <button type="button" class="btn btn-outline btn-sm" id="btn-exam-inst-close">
           Close
         </button>
         <button type="button" class="btn btn-primary btn-sm" id="btn-exam-inst-start-attempt">
-          Start Authorized Attempt
+          Start Assessment
         </button>
       </div>
     </div>

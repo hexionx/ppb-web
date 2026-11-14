@@ -9361,10 +9361,27 @@
           var tr = document.createElement('tr');
 
           var tdTitle = document.createElement('td');
+          var titleTop = document.createElement('div');
+          titleTop.style.display = 'flex';
+          titleTop.style.alignItems = 'center';
+          titleTop.style.gap = '6px';
+          titleTop.style.flexWrap = 'wrap';
+
+          var typeBadge = document.createElement('span');
+          typeBadge.className = 'badge pb-asm-type-pill';
+          typeBadge.textContent = a.externalUrl
+            ? 'External Quiz Link'
+            : a.pdfFileId
+            ? 'PDF Worksheet'
+            : 'Assigned Assessment';
+          titleTop.appendChild(typeBadge);
+
           var st = document.createElement('strong');
           st.style.color = 'var(--color-brand-deep)';
           st.textContent = a.title;
-          tdTitle.appendChild(st);
+          titleTop.appendChild(st);
+          tdTitle.appendChild(titleTop);
+
           if (a.externalUrl && isSafeRichTextHref(a.externalUrl)) {
             var urlDiv = document.createElement('div');
             urlDiv.style.marginTop = '4px';
@@ -9373,7 +9390,7 @@
             linkEl.target = '_blank';
             linkEl.rel = 'noopener noreferrer';
             linkEl.className = 'pb-rt-link';
-            linkEl.style.fontSize = '0.82rem';
+            linkEl.style.fontSize = '0.8rem';
             linkEl.textContent = a.externalUrl;
             urlDiv.appendChild(linkEl);
             tdTitle.appendChild(urlDiv);
@@ -9382,16 +9399,35 @@
           var tdStatus = document.createElement('td');
           var badge = document.createElement('span');
           badge.className = a.status === 'ACTIVE' ? 'badge badge-ok' : 'badge badge-incomplete';
-          badge.textContent = a.status;
+          badge.textContent = a.status === 'ACTIVE' ? 'Active' : 'Archived';
           tdStatus.appendChild(badge);
 
           var tdRefs = document.createElement('td');
-          tdRefs.textContent =
-            String(a.referencedCardCount || 0) +
-            ' course card(s)' +
-            (a.referencedCourseTitles && a.referencedCourseTitles.length > 0
-              ? ' (' + a.referencedCourseTitles.join(', ') + ')'
-              : '');
+          var refWrap = document.createElement('div');
+          refWrap.style.display = 'flex';
+          refWrap.style.flexDirection = 'column';
+          refWrap.style.gap = '4px';
+          var refCountSpan = document.createElement('span');
+          refCountSpan.style.fontWeight = '700';
+          refCountSpan.style.fontSize = '0.84rem';
+          refCountSpan.style.color = 'var(--color-brand-deep)';
+          var cCnt = Number(a.referencedCardCount || 0);
+          refCountSpan.textContent = cCnt + (cCnt === 1 ? ' Linked Card' : ' Linked Cards');
+          refWrap.appendChild(refCountSpan);
+          if (a.referencedCourseTitles && a.referencedCourseTitles.length > 0) {
+            var coursePillsRow = document.createElement('div');
+            coursePillsRow.style.display = 'flex';
+            coursePillsRow.style.flexWrap = 'wrap';
+            coursePillsRow.style.gap = '4px';
+            for (var rc = 0; rc < a.referencedCourseTitles.length; rc++) {
+              var cPill = document.createElement('span');
+              cPill.className = 'badge pb-asm-course-ref-pill';
+              cPill.textContent = a.referencedCourseTitles[rc];
+              coursePillsRow.appendChild(cPill);
+            }
+            refWrap.appendChild(coursePillsRow);
+          }
+          tdRefs.appendChild(refWrap);
 
           var tdUpd = document.createElement('td');
           tdUpd.textContent =
@@ -9939,22 +9975,32 @@
 
                 var cardInfo = document.createElement('div');
                 var cTypeBadge = document.createElement('span');
-                cTypeBadge.className = 'badge badge-ok';
-                cTypeBadge.textContent = crd.cardType;
+                cTypeBadge.className =
+                  crd.cardType === 'ASSESSMENT_LINK_CARD'
+                    ? 'badge pb-exam-badge-assigned'
+                    : 'badge badge-ok';
+                cTypeBadge.textContent =
+                  crd.cardType === 'ASSESSMENT_LINK_CARD'
+                    ? 'Assigned Assessment'
+                    : crd.cardType === 'RECORDING_CARD'
+                    ? 'Class Recording'
+                    : crd.cardType === 'READING_CARD'
+                    ? 'Reading Material'
+                    : crd.cardType;
                 cardInfo.appendChild(cTypeBadge);
 
                 var cStatusBadge = document.createElement('span');
                 cStatusBadge.className =
                   crd.status === 'PUBLISHED' ? 'badge badge-ok' : 'badge badge-incomplete';
                 cStatusBadge.style.marginLeft = '6px';
-                cStatusBadge.textContent = crd.status;
+                cStatusBadge.textContent = crd.status === 'PUBLISHED' ? 'Published' : crd.status;
                 cardInfo.appendChild(cStatusBadge);
 
                 if (crd.assessmentArchivedWarning) {
                   var archBadge = document.createElement('span');
                   archBadge.className = 'badge badge-danger';
                   archBadge.style.marginLeft = '6px';
-                  archBadge.textContent = 'Linked Assessment Archived in Library';
+                  archBadge.textContent = 'Linked Assessment Archived';
                   cardInfo.appendChild(archBadge);
                 }
 
@@ -9977,6 +10023,15 @@
                 cardControls.style.display = 'flex';
                 cardControls.style.flexWrap = 'wrap';
                 cardControls.style.gap = '6px';
+
+                var cPrevBtn = document.createElement('button');
+                cPrevBtn.type = 'button';
+                cPrevBtn.className = 'btn btn-outline btn-sm';
+                setBtnVectorIcon(cPrevBtn, 'preview', 'Preview', 'Preview card & assigned assessments in pop-up');
+                cPrevBtn.addEventListener('click', function () {
+                  openAdminAssignedAssessmentPreviewPopup(course.courseId, null, course);
+                });
+                cardControls.appendChild(cPrevBtn);
 
                 var cUpBtn = document.createElement('button');
                 cUpBtn.type = 'button';
@@ -10872,15 +10927,18 @@
 
         var secTitleWrap = document.createElement('div');
         var secBadge = document.createElement('span');
-        secBadge.className = 'badge badge-ok';
+        secBadge.className =
+          sec.sectionType === 'ASSESSMENT'
+            ? 'badge pb-exam-badge-assigned'
+            : 'badge badge-ok';
         secBadge.textContent =
           sec.sectionType === 'ASSESSMENT'
-            ? 'ASSESSMENT VIEW'
+            ? 'Assigned Assessments'
             : sec.sectionType === 'READING'
-            ? 'READING MATERIAL VIEW'
+            ? 'Reading Materials'
             : sec.sectionType === 'RECORDING'
-            ? 'CLASS RECORDINGS VIEW'
-            : 'CUSTOM SECTION VIEW';
+            ? 'Class Recordings'
+            : 'Course Module';
 
         var secH2 = document.createElement('h2');
         secH2.style.margin = '6px 0 0 0';
@@ -10892,7 +10950,7 @@
         secTitleWrap.appendChild(secH2);
 
         var secUpd = document.createElement('div');
-        secUpd.style.fontSize = '0.85rem';
+        secUpd.style.fontSize = '0.82rem';
         secUpd.style.fontWeight = '600';
         secUpd.style.color = 'var(--color-text-secondary)';
         var effectiveLastUpdated =
@@ -10901,7 +10959,7 @@
             : sec.sectionType === 'READING'
             ? course.readingUpdatedAtBangkok || sec.updatedAtBangkok || sec.updatedAtUtc || '-'
             : sec.updatedAtBangkok || sec.updatedAtUtc || '-';
-        secUpd.textContent = 'Last Updated (Asia/Bangkok): ' + effectiveLastUpdated;
+        secUpd.textContent = 'Updated (BKK): ' + effectiveLastUpdated;
 
         secTop.appendChild(secTitleWrap);
         secTop.appendChild(secUpd);
@@ -10910,11 +10968,11 @@
         /* In Assessment View, also show inline Course Objectives & Outcomes summary if filtered */
         if (sec.sectionType === 'ASSESSMENT') {
           var asmIntroP = document.createElement('p');
-          asmIntroP.style.margin = '0 0 10px 0';
+          asmIntroP.style.margin = '0 0 12px 0';
           asmIntroP.style.fontSize = '0.9rem';
           asmIntroP.style.color = 'var(--color-text-secondary)';
           asmIntroP.textContent =
-            'Selected Assessment-Library entries for this course appear below alongside the Course Objectives and Learning Outcomes.';
+            'Review and complete your assigned assessments, topic checkpoints, and downloadable worksheets below.';
           secCard.appendChild(asmIntroP);
         } else if (sec.sectionType === 'RECORDING') {
           var recIntroP = document.createElement('p');
@@ -11103,40 +11161,59 @@
                 itemBox.appendChild(resLinkBar);
               }
 
-              /* Assessment View: Selected Assessment-Library Entry */
+              /* Assessment View: Redesigned Assigned Assessment Card */
               if (crd.cardType === 'ASSESSMENT_LINK_CARD' && crd.linkedAssessment) {
                 var asmBox = document.createElement('div');
-                asmBox.style.marginTop = '10px';
-                asmBox.style.padding = '12px 14px';
-                asmBox.style.backgroundColor = '#F4FAF6';
-                asmBox.style.borderRadius = '6px';
-                asmBox.style.border = '1px solid var(--color-brand-border)';
+                asmBox.className = 'pb-assigned-assessment-card';
 
                 var asmTop = document.createElement('div');
-                asmTop.style.display = 'flex';
-                asmTop.style.alignItems = 'center';
-                asmTop.style.justifyContent = 'space-between';
-                asmTop.style.flexWrap = 'wrap';
-                asmTop.style.gap = '8px';
+                asmTop.className = 'pb-assigned-assessment-header';
+
+                var asmLeftGroup = document.createElement('div');
+                asmLeftGroup.className = 'pb-assigned-assessment-title-group';
+
+                var asmBadgeRow = document.createElement('div');
+                asmBadgeRow.style.display = 'flex';
+                asmBadgeRow.style.alignItems = 'center';
+                asmBadgeRow.style.gap = '6px';
+                asmBadgeRow.style.flexWrap = 'wrap';
+                asmBadgeRow.style.marginBottom = '4px';
+
+                var asmFormatPill = document.createElement('span');
+                asmFormatPill.className = 'badge pb-exam-badge-assigned';
+                asmFormatPill.textContent = 'Assigned Assessment';
+                asmBadgeRow.appendChild(asmFormatPill);
+
+                var asmResourcePill = document.createElement('span');
+                asmResourcePill.className = 'badge pb-asm-type-pill';
+                asmResourcePill.textContent = crd.linkedAssessment.externalUrl
+                  ? 'External Quiz / Form'
+                  : crd.linkedAssessment.pdfFileId
+                  ? 'PDF Worksheet'
+                  : 'Course Checkpoint';
+                asmBadgeRow.appendChild(asmResourcePill);
+
+                asmLeftGroup.appendChild(asmBadgeRow);
 
                 var asmTitle = document.createElement('strong');
-                asmTitle.style.color = 'var(--color-brand-deep)';
-                asmTitle.textContent =
-                  'Selected Assessment-Library Entry: ' + crd.linkedAssessment.title;
-                asmTop.appendChild(asmTitle);
+                asmTitle.className = 'pb-assigned-assessment-title';
+                asmTitle.textContent = crd.linkedAssessment.title || crd.title || 'Assigned Assessment';
+                asmLeftGroup.appendChild(asmTitle);
+                asmTop.appendChild(asmLeftGroup);
 
                 var asmStatusBadge = document.createElement('span');
                 asmStatusBadge.className = crd.linkedAssessment.isArchived
                   ? 'badge badge-incomplete'
                   : 'badge badge-ok';
-                asmStatusBadge.textContent = crd.linkedAssessment.archiveStatusNote;
+                asmStatusBadge.textContent = crd.linkedAssessment.isArchived
+                  ? 'Archived'
+                  : 'Ready to Complete';
                 asmTop.appendChild(asmStatusBadge);
 
                 asmBox.appendChild(asmTop);
 
                 var asmDescDiv = document.createElement('div');
-                asmDescDiv.className = 'pb-rt-rendered';
-                asmDescDiv.style.marginTop = '8px';
+                asmDescDiv.className = 'pb-rt-rendered pb-assigned-assessment-desc';
                 renderRichTextDocumentToDom(
                   asmDescDiv,
                   crd.linkedAssessment.descriptionRichText,
@@ -11145,11 +11222,7 @@
                 asmBox.appendChild(asmDescDiv);
 
                 var asmActionsRow = document.createElement('div');
-                asmActionsRow.style.display = 'flex';
-                asmActionsRow.style.gap = '8px';
-                asmActionsRow.style.flexWrap = 'wrap';
-                asmActionsRow.style.alignItems = 'center';
-                asmActionsRow.style.marginTop = '10px';
+                asmActionsRow.className = 'pb-assigned-assessment-actions';
 
                 if (
                   crd.linkedAssessment.externalUrl &&
@@ -11160,15 +11233,8 @@
                   extLink.href = crd.linkedAssessment.externalUrl.trim();
                   extLink.target = '_blank';
                   extLink.rel = 'noopener noreferrer';
-                  extLink.textContent = 'Open External Assessment Link';
+                  setBtnVectorIcon(extLink, 'play', 'Open Assigned Assessment', 'Open external assessment in a new tab');
                   asmActionsRow.appendChild(extLink);
-                } else {
-                  var noUrlSpan = document.createElement('span');
-                  noUrlSpan.style.fontSize = '0.84rem';
-                  noUrlSpan.style.color = 'var(--color-text-muted)';
-                  noUrlSpan.textContent =
-                    'No external assessment URL configured for this entry.';
-                  asmActionsRow.appendChild(noUrlSpan);
                 }
 
                 if (
@@ -11178,10 +11244,10 @@
                   var pdfDlBtn = document.createElement('button');
                   pdfDlBtn.type = 'button';
                   pdfDlBtn.className = 'btn btn-secondary btn-sm';
-                  pdfDlBtn.textContent = 'Download Assessment PDF Handout';
+                  setBtnVectorIcon(pdfDlBtn, 'download', 'Download PDF Worksheet', 'Download assessment PDF handout');
                   pdfDlBtn.addEventListener('click', function () {
                     pdfDlBtn.disabled = true;
-                    pdfDlBtn.textContent = 'Authorizing PDF...';
+                    pdfDlBtn.textContent = 'Preparing PDF...';
                     PBObjectUrlManager.triggerAuthorizedDownload(
                       crd.linkedAssessment.pdfFileId,
                       course.courseId,
@@ -11189,16 +11255,28 @@
                     )
                       .then(function () {
                         pdfDlBtn.disabled = false;
-                        pdfDlBtn.textContent = 'Download Assessment PDF Handout';
+                        setBtnVectorIcon(pdfDlBtn, 'download', 'Download PDF Worksheet', 'Download assessment PDF handout');
                       })
                       .catch(function (err) {
                         pdfDlBtn.disabled = false;
-                        pdfDlBtn.textContent = 'Download Assessment PDF Handout';
+                        setBtnVectorIcon(pdfDlBtn, 'download', 'Download PDF Worksheet', 'Download assessment PDF handout');
                         showUiErrorBanner(err);
                       });
                   });
                   asmActionsRow.appendChild(pdfDlBtn);
                 }
+
+                var jumpNativeExamsBtn = document.createElement('button');
+                jumpNativeExamsBtn.type = 'button';
+                jumpNativeExamsBtn.className = 'btn btn-outline btn-sm';
+                setBtnVectorIcon(jumpNativeExamsBtn, 'preview', 'View Online Quizzes & Exams', 'Jump to online quizzes and exams for this course');
+                jumpNativeExamsBtn.addEventListener('click', function () {
+                  var nativeCard = document.getElementById('student-course-native-exams-card');
+                  if (nativeCard && typeof nativeCard.scrollIntoView === 'function') {
+                    nativeCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                });
+                asmActionsRow.appendChild(jumpNativeExamsBtn);
 
                 asmBox.appendChild(asmActionsRow);
 
@@ -16573,31 +16651,36 @@ var qrcode = (function() {
 
         setText('admin-preview-popup-type-badge', 'ASSIGNED ASSESSMENT PREVIEW');
         setText('admin-preview-popup-code-badge', a.assessmentId || 'ASSESSMENT');
-        setText('admin-preview-popup-status-badge', a.status || 'ACTIVE');
+        setText('admin-preview-popup-status-badge', a.status === 'ACTIVE' ? 'ACTIVE' : 'ARCHIVED');
         setText('admin-preview-popup-title', a.title || 'Assigned Assessment');
         setText(
           'admin-preview-popup-subtitle',
-          'Previewing assigned assessment details. Click "Open Full Preview Page" below to open the course & assessment page directly.'
+          'Previewing assigned assessment details and linked course materials. Click "Open Full Preview Page" below to open the course & assessment page directly.'
         );
+        setText('admin-preview-popup-kpi-label-1', 'Assessment Format');
+        setText('admin-preview-popup-kpi-label-2', 'Linked Course Cards');
+        setText('admin-preview-popup-kpi-label-3', 'Assigned Courses');
+        setText('admin-preview-popup-kpi-label-4', 'Last Updated (BKK)');
         setText(
           'admin-preview-popup-kpi-sections',
-          String(a.referencedCardCount || 0) + ' Linked Card(s)'
+          a.externalUrl ? 'External Quiz / Form' : a.pdfFileId ? 'PDF Worksheet' : 'Course Checkpoint'
         );
+        var refCardCnt = Number(a.referencedCardCount || 0);
         setText(
           'admin-preview-popup-kpi-assessments',
-          a.externalUrl ? 'External Quiz Link' : a.pdfFileId ? 'PDF Handout' : 'Rich-Text Assessment'
+          refCardCnt + (refCardCnt === 1 ? ' Linked Card' : ' Linked Cards')
         );
         setText(
           'admin-preview-popup-kpi-students',
           Array.isArray(a.referencedCourseTitles) && a.referencedCourseTitles.length > 0
             ? a.referencedCourseTitles.join(', ')
-            : 'All Assigned Courses'
+            : 'Ready to Link'
         );
         setText(
           'admin-preview-popup-kpi-updated',
           a.updatedAtBangkok || a.updatedAtUtc || '-'
         );
-        setText('admin-preview-popup-assessments-badge', '1 Assessment');
+        setText('admin-preview-popup-assessments-badge', '1 Assigned Assessment');
         if (openFullLbl) {
           openFullLbl.textContent = matchedCourseId
             ? 'Open Full Course & Assessment Preview Page'
@@ -16611,14 +16694,31 @@ var qrcode = (function() {
 
           var topRow = document.createElement('div');
           topRow.className = 'pb-admin-preview-popup-item-top';
+
+          var leftInfo = document.createElement('div');
+          leftInfo.style.display = 'flex';
+          leftInfo.style.alignItems = 'center';
+          leftInfo.style.gap = '6px';
+          leftInfo.style.flexWrap = 'wrap';
+
+          var fmtBadge = document.createElement('span');
+          fmtBadge.className = 'badge pb-exam-badge-assigned';
+          fmtBadge.textContent = a.externalUrl
+            ? 'External Quiz Link'
+            : a.pdfFileId
+            ? 'PDF Worksheet'
+            : 'Assigned Assessment';
+          leftInfo.appendChild(fmtBadge);
+
           var ttl = document.createElement('strong');
           ttl.style.color = 'var(--color-brand-deep)';
           ttl.textContent = a.title || 'Assessment';
-          topRow.appendChild(ttl);
+          leftInfo.appendChild(ttl);
+          topRow.appendChild(leftInfo);
 
           var stBadge = document.createElement('span');
           stBadge.className = a.status === 'ACTIVE' ? 'badge badge-ok' : 'badge badge-incomplete';
-          stBadge.textContent = a.status || 'ACTIVE';
+          stBadge.textContent = a.status === 'ACTIVE' ? 'Active' : 'Archived';
           topRow.appendChild(stBadge);
           card.appendChild(topRow);
 
@@ -16632,7 +16732,7 @@ var qrcode = (function() {
           actRow.style.display = 'flex';
           actRow.style.gap = '8px';
           actRow.style.flexWrap = 'wrap';
-          actRow.style.marginTop = '10px';
+          actRow.style.marginTop = '12px';
 
           if (a.externalUrl && isSafeRichTextHref(a.externalUrl)) {
             var extBtn = document.createElement('a');
@@ -16640,9 +16740,30 @@ var qrcode = (function() {
             extBtn.href = a.externalUrl.trim();
             extBtn.target = '_blank';
             extBtn.rel = 'noopener noreferrer';
-            extBtn.textContent = 'Open External Assessment URL';
+            setBtnVectorIcon(extBtn, 'play', 'Open External Assessment', 'Open external assessment URL in new tab');
             actRow.appendChild(extBtn);
           }
+          if (a.pdfFileId && /^fil_[a-z0-9_-]{4,64}$/i.test(a.pdfFileId)) {
+            var pdfBtn = document.createElement('button');
+            pdfBtn.type = 'button';
+            pdfBtn.className = 'btn btn-secondary btn-sm';
+            setBtnVectorIcon(pdfBtn, 'download', 'Download PDF Handout', 'Download attached assessment PDF');
+            pdfBtn.addEventListener('click', function () {
+              PBObjectUrlManager.triggerAuthorizedDownload(a.pdfFileId, matchedCourseId || '', false);
+            });
+            actRow.appendChild(pdfBtn);
+          }
+          var editAsmDirectBtn = document.createElement('button');
+          editAsmDirectBtn.type = 'button';
+          editAsmDirectBtn.className = 'btn btn-outline btn-sm';
+          setBtnVectorIcon(editAsmDirectBtn, 'edit', 'Edit Assessment', 'Edit this assessment in the editor');
+          editAsmDirectBtn.addEventListener('click', function () {
+            closeAdminAssignedAssessmentPreviewPopup();
+            populateAssessmentEditorForm(a);
+            PBAdminActionModal.open('admin-assessment-editor-card', 'Edit Assessment: ' + (a.title || 'Assessment'));
+          });
+          actRow.appendChild(editAsmDirectBtn);
+
           if (matchedCourseId) {
             var goPageBtn = document.createElement('button');
             goPageBtn.type = 'button';
@@ -16674,6 +16795,10 @@ var qrcode = (function() {
         'admin-preview-popup-subtitle',
         cSum.subtitle || 'Inspect assigned assessments, quizzes, and sections below, or click through to open the full preview page directly.'
       );
+      setText('admin-preview-popup-kpi-label-1', 'Sections & Modules');
+      setText('admin-preview-popup-kpi-label-2', 'Assigned Assessments');
+      setText('admin-preview-popup-kpi-label-3', 'Enrolled Students');
+      setText('admin-preview-popup-kpi-label-4', 'Last Updated (BKK)');
       setText(
         'admin-preview-popup-kpi-sections',
         cSum.sectionCount !== undefined ? String(cSum.sectionCount) + ' Sections' : '...'
@@ -19759,7 +19884,7 @@ var qrcode = (function() {
             ? 'Practice Quiz'
             : isMock
             ? 'Timed Mock Exam'
-            : exam.examModeLabel || 'Course Assessment';
+            : 'Assigned Assessment';
           leftBadges.appendChild(modeBadge);
 
           var rightBadges = document.createElement('div');
@@ -19801,7 +19926,7 @@ var qrcode = (function() {
               ? ' • Self-Paced Practice & Answer Key'
               : isMock
               ? ' • Timed Mock Examination'
-              : ' • Official Course Assessment');
+              : ' • Assigned Course Assessment');
           headerWrap.appendChild(codeLabel);
 
           var titleH3 = document.createElement('h3');
@@ -20093,46 +20218,96 @@ var qrcode = (function() {
       renderModalSkeletonBlock('exam-inst-richtext-body', 1);
       renderTableSkeletonRows('exam-inst-sections-tbody', 4, 2);
 
+      function formatFriendlyPolicyLabel(raw) {
+        var s = String(raw || '').trim().toUpperCase();
+        var map = {
+          IMMEDIATE_AUTO: 'Instant Auto-Release',
+          MANUAL_ADMIN: 'Instructor Review',
+          AFTER_CLOSE: 'After Closing Deadline',
+          SCHEDULED: 'Scheduled Release',
+          WITH_SCORE: 'Included with Score',
+          NEVER: 'Score Only',
+          BEST_PUBLISHED: 'Highest Score',
+          LATEST_PUBLISHED: 'Latest Attempt',
+          FIRST_PUBLISHED: 'First Attempt',
+          FIXED_ITEMS: 'All Questions in Order',
+          QUESTION_POOL: 'Random Question Pool',
+          PRACTICE: 'Practice Quiz',
+          MOCK_EXAM: 'Timed Mock Examination',
+          ASSIGNED_ASSESSMENT: 'Assigned Assessment'
+        };
+        return map[s] || String(raw || '-').replace(/_/g, ' ');
+      }
+
+      function humanizeRuleLine(line) {
+        return String(line || '')
+          .replace(/\bIMMEDIATE_AUTO\b/g, 'Instant Auto-Release')
+          .replace(/\bMANUAL_ADMIN\b/g, 'Instructor Review')
+          .replace(/\bAFTER_CLOSE\b/g, 'After Closing Deadline')
+          .replace(/\bWITH_SCORE\b/g, 'Included with Score')
+          .replace(/\bBEST_PUBLISHED\b/g, 'Highest Score')
+          .replace(/\bLATEST_PUBLISHED\b/g, 'Latest Attempt')
+          .replace(/\bFIRST_PUBLISHED\b/g, 'First Attempt');
+      }
+
       function applyInstructionsBundleToModal(data) {
         var ex = (data && data.exam) || {};
         ex._isAdminPreview = isAdminPrev;
         currentSelectedInstructionExamPhase3 = ex;
 
-        setText('exam-inst-mode-badge', ex.examModeLabel || ex.examMode || 'Examination');
-        setText('exam-inst-code-badge', ex.examCode || '');
+        setText(
+          'exam-inst-mode-badge',
+          ex.examModeLabel ? formatFriendlyPolicyLabel(ex.examModeLabel) : formatFriendlyPolicyLabel(ex.examMode || 'Assigned Assessment')
+        );
+        setText('exam-inst-code-badge', ex.examCode || 'ASSESSMENT');
         setText(
           'exam-inst-availability-badge',
           isAdminPrev ? 'ADMIN PREVIEW' : formatFriendlyExamBadgeText(ex.availabilityState || 'AVAILABLE')
         );
-        setText('exam-inst-title', ex.title || 'Examination Instructions');
+        setText('exam-inst-title', ex.title || 'Assessment Overview & Instructions');
         setText(
           'exam-inst-course-label',
-          ex.courseCode ? ex.courseCode + ' — ' + ex.courseTitle : 'Assigned Biology Examination'
+          ex.courseCode ? ex.courseCode + ' — ' + ex.courseTitle : 'Assigned Biology Assessment'
         );
 
+        var qCnt = Number(ex.questionCount || 0);
+        var sCnt = Number(ex.sectionCount || 1);
         setText(
           'exam-inst-question-count',
-          String(ex.questionCount || 0) + ' Questions (' + String(ex.sectionCount || 1) + ' Section(s))'
+          qCnt + (qCnt === 1 ? ' Question' : ' Questions') + ' • ' + sCnt + (sCnt === 1 ? ' Section' : ' Sections')
         );
         setText('exam-inst-max-points', ex.maxPointsDisplay || '0 pts');
         setText(
           'exam-inst-duration',
-          (ex.durationLabel || 'Untimed') +
+          (ex.durationLabel || 'Untimed (Self-Paced)') +
             (ex.hasTimeAccommodation ? ' (+' + ex.extraTimeMinutes + 'm Accommodation)' : '')
         );
         setText(
           'exam-inst-attempts',
-          String(ex.attemptsUsed || 0) + ' used of ' + (ex.allowedAttemptsDisplay || '1')
+          isAdminPrev
+            ? 'Unlimited in Preview (' + (ex.allowedAttemptsDisplay || '1') + ' for Students)'
+            : String(ex.attemptsUsed || 0) + ' used of ' + (ex.allowedAttemptsDisplay || '1')
         );
-        setText('exam-inst-window', (ex.openAtBangkok || 'Immediate') + ' to ' + (ex.closeAtBangkok || 'No Deadline'));
+        var openTxt =
+          !ex.openAtBangkok || ex.openAtBangkok === 'Immediate' || ex.openAtBangkok === 'Immediately Available'
+            ? 'Open Anytime'
+            : 'Opens ' + ex.openAtBangkok;
+        var closeTxt =
+          !ex.closeAtBangkok || ex.closeAtBangkok === 'No Deadline' || ex.closeAtBangkok === 'No Closing Deadline'
+            ? 'No Deadline'
+            : 'Closes ' + ex.closeAtBangkok;
+        setText('exam-inst-window', openTxt + ' • ' + closeTxt);
         setText(
           'exam-inst-release-policy',
-          'Score: ' + (ex.scoreReleasePolicy || '-') + ' • Key: ' + (ex.explanationReleasePolicy || '-')
+          'Score: ' +
+            formatFriendlyPolicyLabel(ex.scoreReleasePolicy || 'IMMEDIATE_AUTO') +
+            ' • Key: ' +
+            formatFriendlyPolicyLabel(ex.explanationReleasePolicy || 'WITH_SCORE')
         );
 
         renderRichTextDocumentToDom(
           document.getElementById('exam-inst-richtext-body'),
-          ex.instructionsRichText || ex.descriptionRichText || 'Complete all questions before submitting.',
+          ex.instructionsRichText || ex.descriptionRichText || 'Complete all questions carefully before submitting your responses.',
           ex.courseId
         );
 
@@ -20147,7 +20322,7 @@ var qrcode = (function() {
             tr.appendChild(td1);
 
             var td2 = document.createElement('td');
-            td2.textContent = secs[s].selectionModeLabel || secs[s].selectionMode;
+            td2.textContent = formatFriendlyPolicyLabel(secs[s].selectionModeLabel || secs[s].selectionMode);
             tr.appendChild(td2);
 
             var td3 = document.createElement('td');
@@ -20168,7 +20343,7 @@ var qrcode = (function() {
           var rules = Array.isArray(data.rulesChecklist) ? data.rulesChecklist : [];
           for (var r = 0; r < rules.length; r++) {
             var li = document.createElement('li');
-            li.textContent = rules[r];
+            li.textContent = humanizeRuleLine(rules[r]);
             rulesUl.appendChild(li);
           }
         }
@@ -20177,6 +20352,10 @@ var qrcode = (function() {
           populatePreExamIntegrityDisclosurePhaseC(ex, data.integrityPolicy || ex.integrityPolicy || null);
         }
 
+        var ackWrap = document.getElementById('exam-inst-integrity-ack-wrap');
+        if (ackWrap) {
+          ackWrap.classList.toggle('hidden', isAdminPrev);
+        }
         var ackChk = document.getElementById('chk-exam-inst-integrity-ack');
         if (isAdminPrev && ackChk) {
           ackChk.checked = true;

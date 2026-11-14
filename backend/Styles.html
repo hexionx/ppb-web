@@ -14402,4 +14402,156 @@
     display: block !important;
   }
 
+  /* ========================================================================
+   * ASSIGNED ASSESSMENT CARDS & ASSESSMENT INSTRUCTIONS POP-UP REDESIGN
+   * ======================================================================== */
+  .pb-assigned-assessment-card {
+    margin-top: 12px;
+    padding: 16px 18px;
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(240, 253, 250, 0.7) 0%, #FFFFFF 100%);
+    border: 1.5px solid #99F6E4;
+    box-shadow: 0 8px 20px -8px rgba(15, 118, 110, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .pb-assigned-assessment-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .pb-assigned-assessment-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .pb-assigned-assessment-title {
+    font-size: 1.04rem;
+    font-weight: 800;
+    color: #0F172A;
+    line-height: 1.3;
+  }
+
+  .pb-assigned-assessment-desc {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    font-size: 0.88rem;
+    color: #334155;
+  }
+
+  .pb-assigned-assessment-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 4px;
+  }
+
+  .pb-asm-type-pill {
+    background: #E0F2FE !important;
+    color: #0369A1 !important;
+    border: 1px solid #BAE6FD !important;
+    font-weight: 700 !important;
+    font-size: 0.7rem !important;
+  }
+
+  .pb-asm-course-ref-pill {
+    background: #F0FDFA !important;
+    color: #0F766E !important;
+    border: 1px solid #99F6E4 !important;
+    font-weight: 600 !important;
+    font-size: 0.7rem !important;
+  }
+
+  .pb-inst-code-pill {
+    background: #F1F5F9 !important;
+    color: #0F172A !important;
+    border: 1px solid #CBD5E1 !important;
+    font-weight: 700 !important;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  }
+
+  .pb-inst-status-pill {
+    background: #ECFEFF !important;
+    color: #0E7490 !important;
+    border: 1px solid #A5F3FC !important;
+    font-weight: 800 !important;
+  }
+
+  .pb-inst-kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .pb-inst-kpi-card {
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #F8FAFC 0%, #F0FDFA 100%);
+    border: 1px solid #CCFBF1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+  }
+
+  .pb-inst-kpi-label {
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #0F766E;
+  }
+
+  .pb-inst-kpi-val {
+    font-size: 0.94rem;
+    font-weight: 800;
+    color: #0F172A;
+    line-height: 1.3;
+  }
+
+  .pb-inst-section-card {
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+  }
+
+  .pb-inst-section-heading {
+    font-size: 0.76rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #0F766E;
+    margin-bottom: 6px;
+  }
+
+  .pb-inst-richtext-surface {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+  }
+
+  @media (max-width: 720px) {
+    .pb-inst-kpi-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+  }
+
+  @media (max-width: 460px) {
+    .pb-inst-kpi-grid {
+      grid-template-columns: 1fr !important;
+    }
+  }
+
 </style>
