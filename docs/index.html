@@ -2544,6 +2544,16 @@
         <div class="pb-pay-studio-actions">
           <button
             type="button"
+            class="btn btn-outline btn-sm"
+            id="btn-admin-billing-back-to-dashboard"
+            data-nav-view="admin"
+            title="Return to Admin Dashboard"
+          >
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            <span>Admin Dashboard</span>
+          </button>
+          <button
+            type="button"
             class="btn btn-primary btn-sm"
             id="btn-admin-run-step10-suite"
             style="display: none !important;"
@@ -3564,6 +3574,12 @@
               <span>Continue to Payment</span>
               <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
             </button>
+            <span
+              id="payment-checkout-action-hint"
+              style="font-size: 0.86rem; color: var(--color-text-secondary);"
+            >
+              Select at least 1 unpaid installment above to continue.
+            </span>
             <span
               id="payment-create-reservation-status"
               role="status"
@@ -5058,7 +5074,7 @@
         aria-controls="admin-panel-invoices"
         data-admin-tab="invoices"
       >
-        Billing &amp; Payments
+        Billing &amp; Payments &#8599;
       </button>
       <button
         type="button"
@@ -6268,8 +6284,8 @@
           </label>
           <select class="form-input" id="select-users-role-filter">
             <option value="ALL">All Roles</option>
-            <option value="STUDENT">STUDENT Only</option>
-            <option value="ADMIN">ADMIN Only</option>
+            <option value="STUDENT">Students Only</option>
+            <option value="ADMIN">Administrators Only</option>
           </select>
         </div>
 
@@ -6279,9 +6295,9 @@
           </label>
           <select class="form-input" id="select-users-status-filter">
             <option value="ALL">All Statuses</option>
-            <option value="ACTIVE">ACTIVE</option>
-            <option value="SUSPENDED">SUSPENDED (Inactive)</option>
-            <option value="ARCHIVED">ARCHIVED</option>
+            <option value="ACTIVE">Active</option>
+            <option value="SUSPENDED">Suspended (Inactive)</option>
+            <option value="ARCHIVED">Archived</option>
           </select>
         </div>
 
@@ -6376,7 +6392,7 @@
           </div>
           <button
             type="button"
-            class="btn btn-outline btn-sm"
+            class="btn btn-outline btn-sm hidden"
             id="btn-admin-user-editor-reset-mode"
           >
             Switch to Create New
@@ -6440,17 +6456,17 @@
             <div class="form-group">
               <label class="form-label" for="select-user-editor-role">Role *</label>
               <select class="form-input" id="select-user-editor-role">
-                <option value="STUDENT">STUDENT</option>
-                <option value="ADMIN">ADMIN (Administrator)</option>
+                <option value="STUDENT">Student</option>
+                <option value="ADMIN">Administrator</option>
               </select>
             </div>
 
             <div class="form-group">
               <label class="form-label" for="select-user-editor-status">Account Status *</label>
               <select class="form-input" id="select-user-editor-status">
-                <option value="ACTIVE">ACTIVE (Can Sign In)</option>
-                <option value="SUSPENDED">SUSPENDED (Inactive — Revokes Sessions)</option>
-                <option value="ARCHIVED">ARCHIVED (Historical — Revokes Sessions)</option>
+                <option value="ACTIVE">Active (Can Sign In)</option>
+                <option value="SUSPENDED">Suspended (Inactive — Signs Out Sessions)</option>
+                <option value="ARCHIVED">Archived (Historical — Signs Out Sessions)</option>
               </select>
             </div>
           </div>
@@ -6752,7 +6768,7 @@
           </button>
           <button
             type="button"
-            class="btn btn-outline btn-sm"
+            class="btn btn-outline btn-sm hidden"
             id="btn-course-editor-reset-new"
           >
             Reset to + New Course
@@ -7833,19 +7849,19 @@
           <label for="select-admin-attempts-status-filter" class="form-label" style="font-size: 0.78rem;">Attempt Status</label>
           <select id="select-admin-attempts-status-filter" class="form-input">
             <option value="ALL">All Attempt States</option>
-            <option value="IN_PROGRESS">IN_PROGRESS</option>
-            <option value="SUBMITTED">SUBMITTED</option>
-            <option value="EXPIRED_SUBMITTED">EXPIRED_SUBMITTED</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="SUBMITTED">Submitted</option>
+            <option value="EXPIRED_SUBMITTED">Auto-Submitted (Time Expired)</option>
           </select>
         </div>
         <div class="form-group" style="margin: 0; min-width: 190px;">
           <label for="select-admin-attempts-grading-filter" class="form-label" style="font-size: 0.78rem;">Grading Status</label>
           <select id="select-admin-attempts-grading-filter" class="form-input">
             <option value="ALL">All Grading States</option>
-            <option value="AUTO_GRADED_PENDING_MANUAL">AUTO_GRADED_PENDING_MANUAL</option>
-            <option value="GRADED">GRADED</option>
-            <option value="REGRADED">REGRADED</option>
-            <option value="NOT_GRADED">NOT_GRADED</option>
+            <option value="AUTO_GRADED_PENDING_MANUAL">Needs Manual Grading</option>
+            <option value="GRADED">Graded</option>
+            <option value="REGRADED">Regraded</option>
+            <option value="NOT_GRADED">Not Yet Graded</option>
           </select>
         </div>
         <div style="display: flex; align-items: flex-end;">
@@ -8366,19 +8382,19 @@
           <label for="select-admin-exams-mode-filter" class="form-label" style="font-size: 0.78rem;">Mode</label>
           <select id="select-admin-exams-mode-filter" class="form-input">
             <option value="ALL">All Modes</option>
-            <option value="PRACTICE">PRACTICE</option>
-            <option value="MOCK_EXAM">MOCK_EXAM</option>
-            <option value="ASSIGNED_ASSESSMENT">ASSIGNED_ASSESSMENT</option>
+            <option value="PRACTICE">Practice Quiz</option>
+            <option value="MOCK_EXAM">Mock Examination</option>
+            <option value="ASSIGNED_ASSESSMENT">Assigned Assessment</option>
           </select>
         </div>
         <div class="form-group" style="margin: 0; min-width: 140px;">
           <label for="select-admin-exams-status-filter" class="form-label" style="font-size: 0.78rem;">Status</label>
           <select id="select-admin-exams-status-filter" class="form-input">
             <option value="ALL">All Statuses</option>
-            <option value="DRAFT">DRAFT</option>
-            <option value="PUBLISHED">PUBLISHED</option>
-            <option value="CLOSED">CLOSED</option>
-            <option value="ARCHIVED">ARCHIVED</option>
+            <option value="DRAFT">Draft</option>
+            <option value="PUBLISHED">Published</option>
+            <option value="CLOSED">Closed</option>
+            <option value="ARCHIVED">Archived</option>
           </select>
         </div>
         <div style="display: flex; align-items: flex-end; gap: 6px;">
@@ -8452,9 +8468,9 @@
           <div class="form-group">
             <label for="select-exam-editor-mode" class="form-label">Examination Mode</label>
             <select id="select-exam-editor-mode" class="form-input">
-              <option value="PRACTICE">PRACTICE (Optional Timer, Retakes, Immediate Feedback Allowed)</option>
-              <option value="MOCK_EXAM">MOCK_EXAM (Timed, Persistent Server Deadline, No Mid-Attempt Feedback)</option>
-              <option value="ASSIGNED_ASSESSMENT">ASSIGNED_ASSESSMENT (Course/Student Window, Admin Publication)</option>
+              <option value="PRACTICE">Practice Quiz — Optional Timer, Retakes, Instant Feedback Allowed</option>
+              <option value="MOCK_EXAM">Mock Exam — Timed, Fixed Deadline, No Mid-Attempt Feedback</option>
+              <option value="ASSIGNED_ASSESSMENT">Assigned Assessment — Scheduled Window, Instructor Score Release</option>
             </select>
           </div>
         </div>
@@ -8492,19 +8508,19 @@
           <div class="form-group">
             <label for="select-exam-editor-score-policy" class="form-label">Score Release Policy</label>
             <select id="select-exam-editor-score-policy" class="form-input">
-              <option value="IMMEDIATE_AUTO">IMMEDIATE_AUTO (Release immediately if all items auto-graded)</option>
-              <option value="MANUAL_ADMIN">MANUAL_ADMIN (Hold until instructor publishes)</option>
-              <option value="AFTER_CLOSE">AFTER_CLOSE (Release automatically after closing deadline)</option>
-              <option value="SCHEDULED">SCHEDULED (Release at scheduled timestamp)</option>
+              <option value="IMMEDIATE_AUTO">Instant Auto-Release (When all items auto-grade)</option>
+              <option value="MANUAL_ADMIN">Instructor Review (Hold until published manually)</option>
+              <option value="AFTER_CLOSE">After Deadline (Release once exam closes)</option>
+              <option value="SCHEDULED">Scheduled Release (Release at chosen date &amp; time)</option>
             </select>
           </div>
           <div class="form-group">
             <label for="select-exam-editor-explanation-policy" class="form-label">Explanation &amp; Key Release Policy</label>
             <select id="select-exam-editor-explanation-policy" class="form-input">
-              <option value="WITH_SCORE">WITH_SCORE (Release explanations together with published score)</option>
-              <option value="MANUAL_ADMIN">MANUAL_ADMIN (Hold explanations until released separately)</option>
-              <option value="AFTER_CLOSE">AFTER_CLOSE (Release after exam closing deadline)</option>
-              <option value="NEVER">NEVER (Show score only; never release explanations)</option>
+              <option value="WITH_SCORE">Include with Published Score</option>
+              <option value="MANUAL_ADMIN">Hold Until Released Separately</option>
+              <option value="AFTER_CLOSE">Release After Closing Deadline</option>
+              <option value="NEVER">Score Only (Never release explanations)</option>
             </select>
           </div>
         </div>
@@ -8513,9 +8529,9 @@
           <div class="form-group">
             <label for="select-exam-editor-aggregation" class="form-label">Multi-Attempt Score Aggregation Rule</label>
             <select id="select-exam-editor-aggregation" class="form-input">
-              <option value="BEST_PUBLISHED">BEST_PUBLISHED (Highest published attempt score)</option>
-              <option value="LATEST_PUBLISHED">LATEST_PUBLISHED (Most recent published attempt)</option>
-              <option value="FIRST_PUBLISHED">FIRST_PUBLISHED (First submitted attempt)</option>
+              <option value="BEST_PUBLISHED">Highest Published Score</option>
+              <option value="LATEST_PUBLISHED">Most Recent Attempt</option>
+              <option value="FIRST_PUBLISHED">First Submitted Attempt</option>
             </select>
           </div>
           <div class="form-group">
@@ -8565,13 +8581,13 @@
             <div class="form-group">
               <label for="select-exam-sec1-mode" class="form-label">Selection Mode</label>
               <select id="select-exam-sec1-mode" class="form-input">
-                <option value="FIXED_ITEMS">FIXED_ITEMS (Include all selected questions below)</option>
-                <option value="QUESTION_POOL">QUESTION_POOL (Randomly draw N questions from selected pool)</option>
+                <option value="FIXED_ITEMS">All Selected Questions (Fixed Order)</option>
+                <option value="QUESTION_POOL">Random Pool (Draw N questions from selected pool)</option>
               </select>
             </div>
           </div>
           <div class="form-group" style="max-width: 240px;">
-            <label for="input-exam-sec1-pool-draw" class="form-label">Pool Draw Count (if QUESTION_POOL)</label>
+            <label for="input-exam-sec1-pool-draw" class="form-label">Pool Draw Count (for Random Pool)</label>
             <input type="number" id="input-exam-sec1-pool-draw" class="form-input" min="1" max="50" value="2" />
           </div>
           <div style="font-size: 0.82rem; font-weight: 600; margin-bottom: 6px; color: var(--color-brand-deep);">
@@ -8624,15 +8640,15 @@
           <div class="form-group">
             <label for="select-exam-assign-target-type" class="form-label">Assignment Target Type</label>
             <select id="select-exam-assign-target-type" class="form-input">
-              <option value="STUDENT">STUDENT (Individual Student Assignment / Accommodation)</option>
-              <option value="COURSE">COURSE (Entire Enrolled Course Cohort)</option>
+              <option value="STUDENT">Individual Student (Assignment / Accommodation)</option>
+              <option value="COURSE">Entire Course Cohort (All Enrolled Students)</option>
             </select>
           </div>
           <div class="form-group">
             <label for="select-exam-assign-status" class="form-label">Assignment Status</label>
             <select id="select-exam-assign-status" class="form-input">
-              <option value="ASSIGNED">ASSIGNED (Authorized)</option>
-              <option value="REVOKED">REVOKED (Access Removed)</option>
+              <option value="ASSIGNED">Assigned (Authorized)</option>
+              <option value="REVOKED">Revoked (Access Removed)</option>
             </select>
           </div>
         </div>
@@ -8667,13 +8683,13 @@
           <div class="form-group">
             <label for="select-exam-assign-copy-accommodation" class="form-label">Copy-Policy / Assistive-Technology Accommodation</label>
             <select id="select-exam-assign-copy-accommodation" class="form-input">
-              <option value="STANDARD">STANDARD (Default Exam Copy-Restriction Policy)</option>
-              <option value="EXEMPT_ASSISTIVE_TECH">EXEMPT_ASSISTIVE_TECH (Assistive Technology Exemption)</option>
-              <option value="EXTENDED_WARNINGS">EXTENDED_WARNINGS (Custom Warning Allowance)</option>
+              <option value="STANDARD">Standard Policy (Default Exam Copy-Restriction Rules)</option>
+              <option value="EXEMPT_ASSISTIVE_TECH">Assistive-Tech Exemption (Disable copy warnings for student)</option>
+              <option value="EXTENDED_WARNINGS">Extended Warnings (Custom warning limit)</option>
             </select>
           </div>
           <div class="form-group">
-            <label for="input-exam-assign-custom-warnings" class="form-label">Custom Max Copy Warnings (for EXTENDED_WARNINGS)</label>
+            <label for="input-exam-assign-custom-warnings" class="form-label">Custom Max Copy Warnings (for Extended Warnings)</label>
             <input type="number" id="input-exam-assign-custom-warnings" class="form-input" min="0" max="50" value="0" />
           </div>
         </div>
@@ -9118,9 +9134,9 @@
             <div class="form-group">
               <label class="form-label" for="select-qbank-num-tol-type">Tolerance Type</label>
               <select class="form-input" id="select-qbank-num-tol-type">
-                <option value="ABSOLUTE">ABSOLUTE (+/- value)</option>
-                <option value="RELATIVE_PERCENT">RELATIVE_PERCENT (+/- %)</option>
-                <option value="NONE">NONE (Exact)</option>
+                <option value="ABSOLUTE">Absolute (&plusmn; Value)</option>
+                <option value="RELATIVE_PERCENT">Relative Percentage (&plusmn; %)</option>
+                <option value="NONE">Exact Match (No Tolerance)</option>
               </select>
             </div>
             <div class="form-group">
@@ -9148,9 +9164,9 @@
             <div class="form-group">
               <label class="form-label" for="select-qbank-sa-grading-mode">Short-Answer Grading Mode</label>
               <select class="form-input" id="select-qbank-sa-grading-mode">
-                <option value="MANUAL">MANUAL (Instructor Review by Default)</option>
-                <option value="AUTO_WITH_MANUAL_REVIEW">AUTO_WITH_MANUAL_REVIEW (Normalized Exact Match + Review)</option>
-                <option value="AUTO">AUTO (Normalized Exact Match Only)</option>
+                <option value="MANUAL">Instructor Review (Manual Grading)</option>
+                <option value="AUTO_WITH_MANUAL_REVIEW">Exact Match + Instructor Review</option>
+                <option value="AUTO">Auto-Grade (Exact Normalized Match)</option>
               </select>
             </div>
             <div class="form-group">
@@ -9376,11 +9392,11 @@
           <div class="form-group">
             <label for="select-admin-integrity-action" class="form-label">Review / Override Action</label>
             <select id="select-admin-integrity-action" class="form-input">
-              <option value="OVERTURN_INVALIDATION">OVERTURN_INVALIDATION (Overturn Copy-Policy Invalidation)</option>
-              <option value="MARK_EVENT_ERRONEOUS">MARK_EVENT_ERRONEOUS (Mark Single Detection as Erroneous)</option>
-              <option value="CONFIRM_INCIDENT">CONFIRM_INCIDENT (Confirm Reviewed Incident)</option>
-              <option value="GRANT_REPLACEMENT_ATTEMPT">GRANT_REPLACEMENT_ATTEMPT (Grant +1 Replacement Attempt)</option>
-              <option value="UNLOCK_ACCOUNT_SET_BASELINE">UNLOCK_ACCOUNT_SET_BASELINE (Unlock Account &amp; Set Strike Baseline)</option>
+              <option value="OVERTURN_INVALIDATION">Overturn Exam Invalidation (Restore Attempt)</option>
+              <option value="MARK_EVENT_ERRONEOUS">Mark Detection Event as False Positive</option>
+              <option value="CONFIRM_INCIDENT">Confirm Reviewed Incident</option>
+              <option value="GRANT_REPLACEMENT_ATTEMPT">Grant +1 Replacement Attempt</option>
+              <option value="UNLOCK_ACCOUNT_SET_BASELINE">Unlock Account &amp; Reset Warning Baseline</option>
             </select>
           </div>
           <div class="form-group">
@@ -9465,7 +9481,7 @@
         id="admin-logo-diagnostic-message"
         style="margin: 0 0 12px 0; font-size: 0.92rem; color: var(--color-text-secondary);"
       >
-        Inspecting configured school logo via Google Drive blob &amp; binary magic-byte signature...
+        Checking your configured school logo and file details...
       </p>
       <div class="status-grid">
         <div class="status-item">
@@ -9473,11 +9489,11 @@
           <div class="status-value" id="admin-logo-source-type">-</div>
         </div>
         <div class="status-item">
-          <div class="status-label">Effective Drive File ID</div>
+          <div class="status-label">Drive File Reference</div>
           <div class="status-value" id="admin-logo-drive-id">12EKzWLkKL9XEdZVrJBzGNERdAd7BFi--</div>
         </div>
         <div class="status-item">
-          <div class="status-label">Verified Format &amp; Byte Size</div>
+          <div class="status-label">Image Format &amp; Size</div>
           <div class="status-value" id="admin-logo-format-size">-</div>
         </div>
         <div class="status-item">
@@ -9487,21 +9503,21 @@
       </div>
     </div>
 
-    <!-- Step 8 Private File Storage, Quota Policy & Conservative Orphan Cleanup Card -->
+    <!-- Private File Storage & Unused File Cleanup Card -->
     <div class="card" id="admin-step8-file-storage-card">
       <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
         <div>
-          <span class="badge badge-ok">Private Google Drive File Storage</span>
+          <span class="badge badge-ok">Private File Storage</span>
           <h2 style="margin: 6px 0 4px 0; font-size: 1.22rem; color: var(--color-brand-deep);">
-            Private Google Drive File Storage, Sandbox Download Policy &amp; Orphan Cleanup
+            Private File Storage &amp; Unused File Cleanup
           </h2>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button type="button" class="btn btn-secondary btn-sm" id="btn-admin-orphan-dry-run">
-            Scan Orphan Files (Dry Run — 24h Grace)
+            Scan Unused Files (Preview)
           </button>
           <button type="button" class="btn btn-outline btn-sm" id="btn-admin-orphan-execute">
-            Clean Eligible Orphans (Execute)
+            Remove Unused Files
           </button>
           <button type="button" class="btn btn-primary btn-sm" id="btn-admin-run-step8-security-tests" style="display: none !important;" aria-hidden="true">
             Run Step 8 File Security &amp; Rollback Suite
@@ -9639,13 +9655,13 @@
             </label>
             <select class="form-input" id="select-admin-unavail-filter-status">
               <option value="ALL">All Email Statuses</option>
-              <option value="SENT">SENT (Delivered to MailApp)</option>
-              <option value="FAILED_ANY">All Failed (FAILED / QUOTA_EXCEEDED / RECIPIENT_NOT_CONFIGURED)</option>
-              <option value="FAILED">FAILED (Transport Exception)</option>
-              <option value="QUOTA_EXCEEDED">QUOTA_EXCEEDED (Daily Quota Exhausted)</option>
-              <option value="RECIPIENT_NOT_CONFIGURED">RECIPIENT_NOT_CONFIGURED</option>
-              <option value="UNCERTAIN_POST_SEND_UPDATE_FAILED">UNCERTAIN_POST_SEND_UPDATE_FAILED (Sent, Post-Send DB Write Failed)</option>
-              <option value="PENDING_ATTEMPT">PENDING_ATTEMPT (Recorded Before Send)</option>
+              <option value="SENT">Sent (Delivered)</option>
+              <option value="FAILED_ANY">All Failed Deliveries</option>
+              <option value="FAILED">Failed (Delivery Error)</option>
+              <option value="QUOTA_EXCEEDED">Failed (Daily Email Quota Reached)</option>
+              <option value="RECIPIENT_NOT_CONFIGURED">Not Configured (No Recipient Email)</option>
+              <option value="UNCERTAIN_POST_SEND_UPDATE_FAILED">Sent (Status Log Update Failed)</option>
+              <option value="PENDING_ATTEMPT">Pending Send</option>
             </select>
           </div>
 

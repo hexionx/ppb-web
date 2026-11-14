@@ -2996,15 +2996,67 @@
             }
           ];
         } else if (viewKey === 'payments') {
-          var activeStep = resolveActivePaymentStepTargetAndLabel();
-          dynamicBadge = activeStep.shortBadge || 'Tuition Payments';
-          dynamicTitle = 'Tuition Payments (' + activeStep.label + ')';
-          items = [
-            { label: '5-Step Checkout Progress', targetId: 'student-payment-stepper' },
-            { label: activeStep.label + ' (Active)', targetId: activeStep.id, isCurrent: true },
-            { label: 'Payment Session History', targetId: 'student-payment-history-card' },
-            { label: 'All Assigned Installments', targetId: 'student-all-invoices-card' }
-          ];
+          var adminStudioEl = document.getElementById('admin-panel-invoices');
+          var isAdminBillingStudio = Boolean(
+            isAdminUser && adminStudioEl && !adminStudioEl.classList.contains('hidden')
+          );
+          if (isAdminBillingStudio) {
+            var bMode =
+              typeof currentAdminBillingSubView === 'string' && currentAdminBillingSubView
+                ? currentAdminBillingSubView
+                : 'queue';
+            var ADMIN_BILLING_BADGES = {
+              queue: 'Billing: Queue',
+              invoices: 'Billing: Invoices',
+              analytics: 'Billing: Analytics',
+              all: 'Billing: All Views'
+            };
+            var ADMIN_BILLING_TITLES = {
+              queue: 'Admin Billing: Receipt Verification Queue',
+              invoices: 'Admin Billing: Student Tuition Invoices',
+              analytics: 'Admin Billing: Income & Revenue Analytics',
+              all: 'Admin Billing: All-in-One Studio'
+            };
+            dynamicBadge = ADMIN_BILLING_BADGES[bMode] || 'Admin Billing';
+            dynamicTitle = ADMIN_BILLING_TITLES[bMode] || 'Admin Billing & Verification Studio';
+            items = [
+              { label: 'Overview & Financial KPIs', targetId: 'admin-panel-invoices' },
+              {
+                label: '1. Receipt Verification Queue',
+                billingSubView: 'queue',
+                targetId: 'admin-payment-verification-card',
+                isCurrent: bMode === 'queue'
+              },
+              {
+                label: '2. Student Tuition Invoices',
+                billingSubView: 'invoices',
+                targetId: 'admin-invoices-management-card',
+                isCurrent: bMode === 'invoices'
+              },
+              {
+                label: '3. Income & Analytics Dashboard',
+                billingSubView: 'analytics',
+                targetId: 'admin-financial-dashboard-card',
+                isCurrent: bMode === 'analytics'
+              },
+              {
+                label: '+ Assign Unpaid Invoice (Modal)',
+                modalId: 'form-admin-create-invoice',
+                modalTitle: 'Create Unpaid Student Invoice'
+              },
+              { label: 'Back to Admin Dashboard', navView: 'admin' }
+            ];
+          } else {
+            var activeStep = resolveActivePaymentStepTargetAndLabel();
+            dynamicBadge = activeStep.shortBadge || 'Tuition Payments';
+            dynamicTitle = 'Tuition Payments (' + activeStep.label + ')';
+            items = [
+              { label: '5-Step Checkout Progress', targetId: 'student-payment-stepper' },
+              { label: activeStep.label + ' (Active)', targetId: activeStep.id, isCurrent: true },
+              { label: 'Payment Session History', targetId: 'student-payment-history-card' },
+              { label: 'All Assigned Installments', targetId: 'student-all-invoices-card' }
+            ];
+          }
         } else if (viewKey === 'admin') {
           dynamicBadge = ADMIN_TAB_LABELS[activeTabKey] || 'Admin Dashboard';
           dynamicTitle = 'Admin: ' + (ADMIN_TAB_LABELS[activeTabKey] || 'Dashboard');
@@ -3013,9 +3065,17 @@
         if (badgeEl) badgeEl.textContent = dynamicBadge;
         if (titleEl) titleEl.textContent = dynamicTitle;
         if (overlineEl) {
+          var isAdminStudioForOverline = Boolean(
+            viewKey === 'payments' &&
+              isAdminUser &&
+              document.getElementById('admin-panel-invoices') &&
+              !document.getElementById('admin-panel-invoices').classList.contains('hidden')
+          );
           overlineEl.textContent =
             viewKey === 'admin'
               ? 'ADMIN WORKSPACE NAVIGATION'
+              : isAdminStudioForOverline
+              ? 'ADMIN BILLING NAVIGATION'
               : 'CURRENT PAGE CONTENTS';
         }
         if (!listEl) return;
@@ -3043,18 +3103,22 @@
             btn.appendChild(lblSpan);
 
             btn.addEventListener('click', function () {
+              setOpen(false);
               if (item.navView) {
-                setOpen(false);
                 handleNavigateToView(item.navView);
                 return;
+              }
+              if (item.billingSubView && typeof switchAdminBillingSubView === 'function') {
+                switchAdminBillingSubView(item.billingSubView);
               }
               if (item.adminTab) {
                 switchAdminSubTab(item.adminTab, false, true);
               }
-              if (item.targetId) {
+              if (item.modalId && typeof PBAdminActionModal === 'object' && PBAdminActionModal) {
+                PBAdminActionModal.open(item.modalId, item.modalTitle || item.label);
+              } else if (item.targetId) {
                 jumpToTargetElement(item.targetId);
               }
-              setOpen(false);
             });
 
             li.appendChild(btn);
@@ -3266,7 +3330,11 @@
       toggleHidden('btn-mobile-open-login', isSignedIn);
       var pubSecLinks = document.querySelectorAll('[data-public-section-nav="true"]');
       for (var psIdx = 0; psIdx < pubSecLinks.length; psIdx++) {
-        pubSecLinks[psIdx].classList.toggle('hidden', Boolean(isSignedIn));
+        var pubLinkEl = pubSecLinks[psIdx];
+        pubLinkEl.classList.toggle('hidden', Boolean(isSignedIn));
+        if (pubLinkEl.parentElement && pubLinkEl.parentElement.tagName === 'LI') {
+          pubLinkEl.parentElement.classList.toggle('hidden', Boolean(isSignedIn));
+        }
       }
 
       /* Authenticated controls (Students & Admins) */
@@ -5088,11 +5156,7 @@
         'Step 1 of 3',
         1
       );
-      setLoginInlineAlert(
-        'warning',
-        'Verifying Credentials...',
-        'Checking your account credentials securely...'
-      );
+      setLoginInlineAlert('hidden');
 
       return rpcCallEnvelope(
         'auth.login',
@@ -5642,6 +5706,9 @@
         switchAdminBillingSubView(currentAdminBillingSubView);
       } else {
         switchStudentPaymentSubView(currentStudentPaymentSubView);
+        if (typeof PBFloatingToc === 'object' && PBFloatingToc && currentActiveViewName === 'payments') {
+          PBFloatingToc.syncForActiveView('payments');
+        }
       }
     }
 
@@ -7018,6 +7085,7 @@
       var heading = document.getElementById('admin-user-editor-heading');
       var pwGroup = document.getElementById('group-user-editor-initial-password');
       var submitBtn = document.getElementById('btn-user-editor-submit');
+      var resetModeBtn = document.getElementById('btn-admin-user-editor-reset-mode');
       var staleBtn = document.getElementById('btn-user-editor-test-stale');
       var delBtn = document.getElementById('btn-user-editor-delete-test');
       var prvBox = document.getElementById('user-editor-privacy-readonly-box');
@@ -7051,6 +7119,9 @@
         }
         if (submitBtn) {
           submitBtn.textContent = 'Create User Account';
+        }
+        if (resetModeBtn) {
+          resetModeBtn.classList.add('hidden');
         }
         if (staleBtn) {
           staleBtn.classList.add('hidden');
@@ -7111,6 +7182,9 @@
         submitBtn.textContent =
           'Save Profile & Enrollments (v' + String(userObj.version || 1) + ')';
       }
+      if (resetModeBtn) {
+        resetModeBtn.classList.remove('hidden');
+      }
       if (staleBtn) {
         staleBtn.classList.remove('hidden');
       }
@@ -7119,15 +7193,17 @@
       }
       if (prvBox) {
         prvBox.classList.remove('hidden');
+        var privHistCount = Number(userObj.privacyHistoryCount || 0);
         setText(
           'user-editor-privacy-readonly-text',
           'Notice Acknowledged: ' +
             (userObj.privacyAckVersion || 'Not yet acknowledged') +
             ' (' +
-            String(userObj.privacyHistoryCount || 0) +
-            ' history rows in PrivacyChoices) | Marketing Email Opt-In: ' +
-            (userObj.marketingOptIn ? 'TRUE (Opted In)' : 'FALSE (Unchecked)') +
-            ' - Preserved automatically during admin edits.'
+            String(privHistCount) +
+            (privHistCount === 1 ? ' consent record' : ' consent records') +
+            ') | Marketing Email Opt-In: ' +
+            (userObj.marketingOptIn ? 'Yes (Opted In)' : 'No (Unchecked)') +
+            ' — Preserved automatically during admin edits.'
         );
       }
 
@@ -7533,9 +7609,10 @@
             'admin-summary-sessions-count',
             String(d.activeSessionsCount || 1)
           );
+          var pChoicesCnt = Number(d.privacyChoicesCount || 0);
           setText(
             'admin-summary-privacy-count',
-            String(d.privacyChoicesCount || 0) + ' records in PrivacyChoices'
+            String(pChoicesCnt) + (pChoicesCnt === 1 ? ' consent record' : ' consent records')
           );
           setText(
             'admin-summary-privacy-version',
@@ -10737,6 +10814,7 @@
       var objEditor = richTextEditorsRegistry['richtext-editor-course-objectives'];
       var outEditor = richTextEditorsRegistry['richtext-editor-course-outcomes'];
       var previewBtn = document.getElementById('btn-course-editor-preview-student');
+      var resetCourseBtn = document.getElementById('btn-course-editor-reset-new');
 
       if (!courseObj || !courseObj.courseId) {
         setInputValue('input-course-editor-id', '');
@@ -10763,6 +10841,9 @@
         setText('course-editor-version-badge', 'Version: New (v1 on save)');
         if (previewBtn) {
           previewBtn.classList.add('hidden');
+        }
+        if (resetCourseBtn) {
+          resetCourseBtn.classList.add('hidden');
         }
         var delCourseEditorBtn = document.getElementById('btn-delete-course-editor');
         if (delCourseEditorBtn) {
@@ -10817,6 +10898,9 @@
       );
       if (previewBtn) {
         previewBtn.classList.remove('hidden');
+      }
+      if (resetCourseBtn) {
+        resetCourseBtn.classList.remove('hidden');
       }
       var delCourseEditorBtnShow = document.getElementById('btn-delete-course-editor');
       if (delCourseEditorBtnShow) {
@@ -15052,11 +15136,24 @@ var qrcode = (function() {
       }
 
       var createBtn = document.getElementById('btn-payment-create-reservation');
+      var hintEl = document.getElementById('payment-checkout-action-hint');
+      var hasActiveRes = Boolean(
+        activePaymentSessionDto && activePaymentSessionDto.canResume
+      );
       if (createBtn) {
-        var hasActiveRes = Boolean(
-          activePaymentSessionDto && activePaymentSessionDto.canResume
-        );
         createBtn.disabled = selectedCount === 0 || hasActiveRes;
+      }
+      if (hintEl) {
+        if (hasActiveRes) {
+          hintEl.textContent = 'Complete or cancel your active payment session above first.';
+          hintEl.classList.remove('hidden');
+        } else if (selectedCount === 0) {
+          hintEl.textContent = 'Select at least 1 unpaid installment above to continue.';
+          hintEl.classList.remove('hidden');
+        } else {
+          hintEl.textContent = '';
+          hintEl.classList.add('hidden');
+        }
       }
 
       return {
@@ -20228,6 +20325,22 @@ var qrcode = (function() {
       host.appendChild(wrap);
     }
 
+    function forceRestoreLoadingButton(btnOrId) {
+      var btnEl =
+        typeof btnOrId === 'string'
+          ? document.getElementById(btnOrId)
+          : btnOrId;
+      if (!btnEl) return;
+      if (typeof btnEl._pbLoadingRestore === 'function') {
+        btnEl._pbLoadingRestore();
+        return;
+      }
+      if (btnEl.dataset) delete btnEl.dataset.pbBusy;
+      btnEl.disabled = false;
+      btnEl.classList.remove('is-btn-loading');
+      btnEl.removeAttribute('aria-busy');
+    }
+
     function runButtonWithLoadingState(btnEl, busyLabel, promiseFactory) {
       if (!btnEl) {
         return Promise.resolve().then(promiseFactory);
@@ -20235,7 +20348,10 @@ var qrcode = (function() {
       if (btnEl.dataset && btnEl.dataset.pbBusy === '1') {
         return Promise.resolve();
       }
-      var origText = btnEl.textContent;
+      var savedFragment = document.createDocumentFragment();
+      for (var cIdx = 0; cIdx < btnEl.childNodes.length; cIdx++) {
+        savedFragment.appendChild(btnEl.childNodes[cIdx].cloneNode(true));
+      }
       var origDisabled = Boolean(btnEl.disabled);
       if (btnEl.dataset) btnEl.dataset.pbBusy = '1';
       btnEl.disabled = true;
@@ -20244,15 +20360,23 @@ var qrcode = (function() {
       if (busyLabel) {
         btnEl.textContent = busyLabel;
       }
+      var restored = false;
       function restore() {
+        if (restored) return;
+        restored = true;
+        if (btnEl._pbLoadingRestore === restore) {
+          delete btnEl._pbLoadingRestore;
+        }
         if (btnEl.dataset) delete btnEl.dataset.pbBusy;
         btnEl.disabled = origDisabled;
         btnEl.classList.remove('is-btn-loading');
         btnEl.removeAttribute('aria-busy');
         if (busyLabel) {
-          btnEl.textContent = origText;
+          while (btnEl.firstChild) btnEl.removeChild(btnEl.firstChild);
+          btnEl.appendChild(savedFragment.cloneNode(true));
         }
       }
+      btnEl._pbLoadingRestore = restore;
       var p;
       try {
         p = Promise.resolve().then(promiseFactory);
@@ -21258,7 +21382,7 @@ var qrcode = (function() {
         emptyTd.style.padding = '20px';
         emptyTd.style.color = 'var(--color-text-secondary)';
         emptyTd.textContent =
-          'No questions match the current filters. Click "Seed 6 Sample Biology Questions" or "+ New Question" to add items.';
+          'No questions match the current filters. Click "Load Sample Questions" or "+ New Question" to add items.';
         emptyTr.appendChild(emptyTd);
         tbody.appendChild(emptyTr);
       } else {
@@ -23350,9 +23474,12 @@ var qrcode = (function() {
       };
     }
 
+    var activeExamInstructionsReqToken = 0;
+
     function openStudentExamInstructionsModalPhase3(examSetId, opt_isAdminPreview) {
       var modal = document.getElementById('modal-student-exam-instructions');
       if (!modal) return Promise.resolve(null);
+      var reqToken = ++activeExamInstructionsReqToken;
       openModalDialog('modal-student-exam-instructions', 'btn-exam-inst-header-close');
       if (!modal.dataset.boundBackdropClick) {
         modal.dataset.boundBackdropClick = '1';
@@ -23685,9 +23812,11 @@ var qrcode = (function() {
         { suppressErrorBanner: isAdminPrev }
       )
         .then(function (env) {
+          if (reqToken !== activeExamInstructionsReqToken) return;
           applyInstructionsBundleToModal(env.data || {});
         })
         .catch(function (err) {
+          if (reqToken !== activeExamInstructionsReqToken) return;
           if (isAdminPrev && isCurrentSessionAdminUser()) {
             var fallback = buildFallbackAdminPreviewInstructionsBundle(examSetId);
             if (fallback) {
@@ -23708,11 +23837,18 @@ var qrcode = (function() {
         });
     }
 
+    function restoreFormsPreviewButtonsState() {
+      forceRestoreLoadingButton('btn-forms-preview-exam');
+      forceRestoreLoadingButton('btn-forms-preview-exam-bottom');
+    }
+
     function closeStudentExamInstructionsModalPhase3() {
+      activeExamInstructionsReqToken++;
       var loadOverlay = document.getElementById('exam-inst-loading-overlay');
       if (loadOverlay) loadOverlay.classList.add('hidden');
       currentSelectedInstructionExamPhase3 = null;
       closeModalDialog('modal-student-exam-instructions');
+      restoreFormsPreviewButtonsState();
     }
 
 
@@ -25604,6 +25740,7 @@ var qrcode = (function() {
     }
 
     function openFormsExamBuilderForNewExam() {
+      restoreFormsPreviewButtonsState();
       populateAdminExamBuilderCourseAndStudentDropdownsPhase3();
       var catalogCard = document.getElementById('admin-exam-builder-catalog-card');
       var workspace = document.getElementById('pb-forms-builder-workspace');
@@ -25673,6 +25810,7 @@ var qrcode = (function() {
         openFormsExamBuilderForNewExam();
         return;
       }
+      restoreFormsPreviewButtonsState();
       populateAdminExamBuilderCourseAndStudentDropdownsPhase3();
       var catalogCard = document.getElementById('admin-exam-builder-catalog-card');
       var workspace = document.getElementById('pb-forms-builder-workspace');
@@ -25801,6 +25939,7 @@ var qrcode = (function() {
     }
 
     function closeFormsExamBuilderToCatalog() {
+      restoreFormsPreviewButtonsState();
       var catalogCard = document.getElementById('admin-exam-builder-catalog-card');
       var workspace = document.getElementById('pb-forms-builder-workspace');
       if (workspace) workspace.classList.add('hidden');
