@@ -17474,4 +17474,286 @@
     }
   }
 
+  /* ==========================================================================
+   * COMPACT TABLE IDENTITY CELLS, COLLAPSIBLE DESCRIPTIONS & ACTION GRIDS
+   * Prevents narrow primary columns, long wall-of-text wrapping, and vertical
+   * action button towers across Admin Catalog, Exam Studio & Student tables.
+   * ========================================================================== */
+  .data-table th.pb-th-primary,
+  .pb-scores-table th.pb-th-primary,
+  .data-table td.pb-table-primary-col,
+  .pb-scores-table td.pb-table-primary-col {
+    min-width: 245px;
+    max-width: 420px;
+  }
+
+  .pb-scores-table th.pb-th-primary,
+  .pb-scores-table td.pb-table-primary-col {
+    min-width: 215px;
+    max-width: 340px;
+  }
+
+  .data-table .badge,
+  .pb-scores-table .badge {
+    white-space: nowrap !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+  }
+
+  #admin-exams-table-tbody th,
+  #admin-exams-table-tbody td,
+  table[aria-label="Native examination sets"] th,
+  table[aria-label="Native examination sets"] td {
+    padding: 9px 8px;
+  }
+
+  table[aria-label="Native examination sets"] th.pb-th-primary,
+  table[aria-label="Native examination sets"] td.pb-table-primary-col {
+    min-width: 195px;
+    max-width: 300px;
+  }
+
+  table[aria-label="Native examination sets"] .badge {
+    font-size: 0.7rem;
+    padding: 2px 7px;
+  }
+
+  table[aria-label="Native examination sets"] .pb-table-stat-chip {
+    font-size: 0.74rem;
+    padding: 2px 7px;
+  }
+
+  table[aria-label="Native examination sets"] .pb-table-actions-grid {
+    min-width: 152px;
+    max-width: 184px;
+    gap: 4px;
+  }
+
+  table[aria-label="Native examination sets"] .pb-table-actions-grid .btn,
+  table[aria-label="Native examination sets"] .pb-table-actions-grid .btn-sm {
+    padding: 4px 6px !important;
+    font-size: 0.72rem !important;
+    gap: 4px !important;
+  }
+
+  .pb-table-item-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .pb-table-code-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    max-width: 100%;
+  }
+
+  .pb-table-code-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-family: var(--pb-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+    font-size: 0.73rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: #0F766E;
+    background: #ECFEFF;
+    border: 1px solid #99F6E4;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .pb-table-item-title {
+    margin: 0;
+    font-size: 0.93rem;
+    font-weight: 800;
+    color: #0F172A;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  .pb-collapsible-desc {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .pb-collapsible-desc-text {
+    margin: 0;
+    font-size: 0.81rem;
+    font-weight: 500;
+    color: #475569;
+    line-height: 1.46;
+    overflow-wrap: anywhere;
+  }
+
+  .pb-collapsible-desc.is-hero .pb-collapsible-desc-text {
+    font-size: 0.96rem;
+    line-height: 1.54;
+    color: #475569;
+  }
+
+  .pb-collapsible-desc-text.is-collapsed {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .pb-desc-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px;
+    min-height: 24px;
+    border-radius: 999px;
+    border: 1px solid #CBD5E1;
+    background: #F8FAFC;
+    color: #0F766E;
+    font-size: 0.73rem;
+    font-weight: 700;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+
+  .pb-desc-toggle-btn:hover,
+  .pb-desc-toggle-btn:focus-visible {
+    background: #ECFEFF;
+    border-color: #5EEAD4;
+    color: #0D9488;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.18);
+  }
+
+  .pb-table-stat-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .pb-table-stat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #334155;
+    background: #F1F5F9;
+    border: 1px solid #E2E8F0;
+    white-space: nowrap;
+  }
+
+  .pb-table-ver-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 7px;
+    border-radius: 6px;
+    font-family: var(--pb-font-mono, monospace);
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #0E7490;
+    background: #ECFEFF;
+    border: 1px solid #A5F3FC;
+    white-space: nowrap;
+  }
+
+  .pb-table-meta-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    white-space: nowrap;
+  }
+
+  .pb-table-meta-date {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #1E293B;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .pb-table-meta-sub {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #64748B;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .pb-table-link-clamp {
+    display: inline-block;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+  }
+
+  .pb-table-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+    min-width: 168px;
+    max-width: 214px;
+  }
+
+  .pb-table-actions-grid .btn,
+  .pb-table-actions-grid .btn-sm {
+    min-height: 31px !important;
+    padding: 4px 8px !important;
+    font-size: 0.76rem !important;
+    border-radius: 10px !important;
+    width: 100%;
+    justify-content: center !important;
+    white-space: nowrap !important;
+    gap: 5px !important;
+  }
+
+  .pb-table-actions-grid .pb-action-full {
+    grid-column: 1 / -1;
+  }
+
+  @media (max-width: 767px) {
+    .data-table th.pb-th-primary,
+    .pb-scores-table th.pb-th-primary,
+    .data-table td.pb-table-primary-col,
+    .pb-scores-table td.pb-table-primary-col {
+      min-width: 245px;
+    }
+
+    .data-table .badge,
+    .pb-scores-table .badge,
+    .pb-table-code-pill {
+      white-space: nowrap !important;
+      word-break: normal !important;
+      overflow-wrap: normal !important;
+    }
+
+    .pb-table-item-title,
+    .pb-collapsible-desc-text {
+      word-break: normal !important;
+      overflow-wrap: break-word !important;
+    }
+
+    .pb-table-actions-grid {
+      min-width: 158px;
+    }
+  }
+
 </style>

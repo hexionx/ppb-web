@@ -112,6 +112,193 @@
       }
     }
 
+    /**
+     * Normalizes accidental leading lowercase ASCII letters and excess whitespace
+     * for cleaner scannable display inside tables, cards, and headers.
+     */
+    function formatDisplaySentenceText(rawText) {
+      var s = String(rawText || '').replace(/\s+/g, ' ').trim();
+      if (!s) {
+        return '';
+      }
+      if (/^[a-z]/.test(s)) {
+        return s.charAt(0).toUpperCase() + s.slice(1);
+      }
+      return s;
+    }
+
+    /**
+     * Parses a Bangkok/UTC timestamp string (e.g. "2026-11-14 19:56:05 ICT (UTC+07:00)")
+     * into a compact two-line display model while keeping the full string for tooltips.
+     */
+    function formatCompactBkkTimestamp(rawTimestamp) {
+      var full = String(rawTimestamp || '').trim();
+      if (!full || full === '-') {
+        return { datePart: '-', timePart: '', fullText: '-' };
+      }
+      var m = full.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})(?::\d{2})?\s*(.*)$/);
+      if (m) {
+        var tz = m[3] ? m[3].replace(/\s*\(UTC[+-]\d{2}:\d{2}\)\s*/i, '').trim() : '';
+        return {
+          datePart: m[1],
+          timePart: m[2] + (tz ? ' ' + tz : ''),
+          fullText: full
+        };
+      }
+      return { datePart: full, timePart: '', fullText: full };
+    }
+
+    /**
+     * Builds a compact date + ICT time + version pill cell for catalog tables.
+     */
+    function createCompactUpdatedVersionCell(updatedAtBkk, updatedAtUtc, versionNo) {
+      var parsed = formatCompactBkkTimestamp(updatedAtBkk || updatedAtUtc || '-');
+      var wrap = document.createElement('div');
+      wrap.className = 'pb-table-meta-stack';
+      if (parsed.fullText && parsed.fullText !== '-') {
+        wrap.title = parsed.fullText + ' (v' + String(versionNo || 1) + ')';
+      }
+
+      var dateDiv = document.createElement('div');
+      dateDiv.className = 'pb-table-meta-date';
+      dateDiv.textContent = parsed.datePart;
+      wrap.appendChild(dateDiv);
+
+      var subDiv = document.createElement('div');
+      subDiv.className = 'pb-table-meta-sub';
+      if (parsed.timePart) {
+        var tSpan = document.createElement('span');
+        tSpan.textContent = parsed.timePart;
+        subDiv.appendChild(tSpan);
+      }
+      var verChip = document.createElement('span');
+      verChip.className = 'pb-table-ver-chip';
+      verChip.textContent = 'v' + String(versionNo || 1);
+      subDiv.appendChild(verChip);
+      wrap.appendChild(subDiv);
+
+      return wrap;
+    }
+
+    /**
+     * Renders a description/subtitle inside a 2-line clamp with an accessible
+     * Show more / Show less toggle whenever content exceeds clampThreshold chars.
+     */
+    function createCollapsibleDescriptionDom(rawText, opt_options) {
+      var opts = opt_options || {};
+      var normalized = formatDisplaySentenceText(rawText);
+      if (!normalized) {
+        return null;
+      }
+      var threshold = Number(opts.clampThreshold || 88);
+      var needsClamp = normalized.length > threshold;
+
+      var wrap = document.createElement('div');
+      wrap.className = 'pb-collapsible-desc' + (opts.heroMode ? ' is-hero' : '');
+
+      var p = document.createElement('p');
+      p.className = 'pb-collapsible-desc-text' + (needsClamp ? ' is-collapsed' : '');
+      p.textContent = normalized;
+      if (needsClamp) {
+        p.title = normalized;
+      }
+      wrap.appendChild(p);
+
+      if (needsClamp) {
+        var moreLbl = opts.moreLabel || 'Show more';
+        var lessLbl = opts.lessLabel || 'Show less';
+        var toggleBtn = document.createElement('button');
+        toggleBtn.type = 'button';
+        toggleBtn.className = 'pb-desc-toggle-btn';
+        toggleBtn.setAttribute('aria-expanded', 'false');
+        toggleBtn.textContent = moreLbl + ' ▾';
+        toggleBtn.addEventListener('click', function (evt) {
+          if (opts.stopPropagation && evt) {
+            evt.stopPropagation();
+          }
+          var collapsed = p.classList.toggle('is-collapsed');
+          toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+          toggleBtn.textContent = collapsed ? moreLbl + ' ▾' : lessLbl + ' ▴';
+        });
+        wrap.appendChild(toggleBtn);
+      }
+
+      return wrap;
+    }
+
+    /**
+     * Builds a structured identity cell (code pill badge, title, optional extra badges,
+     * and collapsible description) shared by Courses, Exam Sets, and Question Bank tables.
+     */
+    function createTablePrimaryIdentityDom(spec) {
+      var cfg = spec || {};
+      var stack = document.createElement('div');
+      stack.className = 'pb-table-item-stack';
+
+      var hasExtras = Array.isArray(cfg.extraBadges) && cfg.extraBadges.length > 0;
+      if (cfg.code || hasExtras) {
+        var codeRow = document.createElement('div');
+        codeRow.className = 'pb-table-code-row';
+        if (cfg.code) {
+          var codePill = document.createElement('span');
+          codePill.className = 'pb-table-code-pill';
+          codePill.textContent = cfg.code;
+          codePill.title = cfg.code;
+          codeRow.appendChild(codePill);
+        }
+        if (hasExtras) {
+          for (var i = 0; i < cfg.extraBadges.length; i++) {
+            var eb = cfg.extraBadges[i];
+            var badge = document.createElement('span');
+            badge.className = eb.className || 'badge badge-ok';
+            badge.style.fontSize = '0.68rem';
+            badge.textContent = eb.label || '';
+            codeRow.appendChild(badge);
+          }
+        }
+        stack.appendChild(codeRow);
+      }
+
+      if (cfg.title) {
+        var titleEl = document.createElement('div');
+        titleEl.className = 'pb-table-item-title';
+        titleEl.textContent = cfg.title;
+        stack.appendChild(titleEl);
+      }
+
+      if (cfg.description) {
+        var descDom = createCollapsibleDescriptionDom(cfg.description, cfg.descOptions || {});
+        if (descDom) {
+          stack.appendChild(descDom);
+        }
+      }
+
+      return stack;
+    }
+
+    function renderStudentCourseHeroSubtitle(subText) {
+      var host = document.getElementById('student-course-subtitle');
+      if (!host) {
+        return;
+      }
+      clearChildren(host);
+      var cleaned = formatDisplaySentenceText(subText || '');
+      if (!cleaned) {
+        host.classList.add('hidden');
+        return;
+      }
+      host.classList.remove('hidden');
+      var descDom = createCollapsibleDescriptionDom(cleaned, {
+        clampThreshold: 115,
+        heroMode: true,
+        moreLabel: 'Read full overview',
+        lessLabel: 'Show less'
+      });
+      if (descDom) {
+        host.appendChild(descDom);
+      }
+    }
+
     /* ========================================================================
      * PHASE 2 SHARED DESIGN SYSTEM MODULES:
      * 1. PBIcons — Unified DOM-Safe Stroke SVG Icon Factory (Zero Emoji Icons)
@@ -3761,9 +3948,13 @@
           bodyDiv.appendChild(titleEl);
 
           if (c.subtitle) {
+            var formattedSub = formatDisplaySentenceText(c.subtitle);
             var subEl = document.createElement('p');
             subEl.className = 'student-course-subtitle';
-            subEl.textContent = c.subtitle;
+            subEl.textContent = formattedSub;
+            if (formattedSub.length > 80) {
+              subEl.title = formattedSub;
+            }
             bodyDiv.appendChild(subEl);
           }
 
@@ -6740,20 +6931,26 @@
 
           /* Col 5: Feedback & Updated */
           var tdMeta = document.createElement('td');
+          tdMeta.className = 'pb-table-primary-col';
           if (sc.feedbackText) {
-            var fbP = document.createElement('div');
-            fbP.style.fontSize = '0.84rem';
-            fbP.style.marginBottom = '4px';
-            fbP.textContent = sc.feedbackText;
-            tdMeta.appendChild(fbP);
+            var fbDom = createCollapsibleDescriptionDom(sc.feedbackText, {
+              clampThreshold: 88
+            });
+            if (fbDom) {
+              fbDom.style.marginBottom = '4px';
+              tdMeta.appendChild(fbDom);
+            }
           }
+          var parsedScTs = formatCompactBkkTimestamp(
+            sc.publishedAtBangkok || sc.updatedAtBangkok || sc.updatedAtUtc || '-'
+          );
           var timeSub = document.createElement('div');
-          timeSub.style.fontSize = '0.76rem';
-          timeSub.style.color = 'var(--pb-text-muted)';
+          timeSub.className = 'pb-table-meta-sub';
+          timeSub.title = parsedScTs.fullText;
           timeSub.textContent =
-            (sc.publishedAtBangkok
-              ? 'Published: ' + sc.publishedAtBangkok
-              : 'Updated: ' + (sc.updatedAtBangkok || sc.updatedAtUtc || '-')) +
+            (sc.publishedAtBangkok ? 'Published: ' : 'Updated: ') +
+            parsedScTs.datePart +
+            (parsedScTs.timePart ? ' ' + parsedScTs.timePart : '') +
             ' (v' +
             String(sc.version || 1) +
             ')';
@@ -6763,9 +6960,7 @@
           /* Col 6: Actions */
           var tdAct = document.createElement('td');
           var actWrap = document.createElement('div');
-          actWrap.style.display = 'flex';
-          actWrap.style.gap = '6px';
-          actWrap.style.flexWrap = 'wrap';
+          actWrap.className = 'pb-table-actions-grid';
 
           var editBtn = document.createElement('button');
           editBtn.type = 'button';
@@ -7077,8 +7272,10 @@
         cb.checked = Boolean(selectedMap[c.courseId]);
 
         var span = document.createElement('span');
-        span.textContent =
-          '[' + c.courseCode + '] ' + c.title + (c.subtitle ? ' - ' + c.subtitle : '');
+        span.textContent = '[' + c.courseCode + '] ' + c.title;
+        if (c.subtitle) {
+          lbl.title = formatDisplaySentenceText(c.subtitle);
+        }
 
         lbl.appendChild(cb);
         lbl.appendChild(span);
@@ -10400,17 +10597,15 @@
           var tr = document.createElement('tr');
 
           var tdTitle = document.createElement('td');
-          var codeStrong = document.createElement('strong');
-          codeStrong.style.color = 'var(--color-brand-deep)';
-          codeStrong.textContent = '[' + c.courseCode + '] ' + c.title;
-          tdTitle.appendChild(codeStrong);
-          if (c.subtitle) {
-            var subDiv = document.createElement('div');
-            subDiv.style.fontSize = '0.8rem';
-            subDiv.style.color = 'var(--color-text-secondary)';
-            subDiv.textContent = c.subtitle;
-            tdTitle.appendChild(subDiv);
-          }
+          tdTitle.className = 'pb-table-primary-col';
+          tdTitle.appendChild(
+            createTablePrimaryIdentityDom({
+              code: c.courseCode || c.courseId,
+              title: c.title,
+              description: c.subtitle,
+              descOptions: { clampThreshold: 84 }
+            })
+          );
 
           var tdStatus = document.createElement('td');
           var stBadge = document.createElement('span');
@@ -10424,31 +10619,39 @@
           tdStatus.appendChild(stBadge);
 
           var tdCounts = document.createElement('td');
-          tdCounts.textContent =
-            String(c.sectionCount || 0) +
-            ' sections / ' +
-            String(c.cardCount || 0) +
-            ' cards';
+          var countsWrap = document.createElement('div');
+          countsWrap.className = 'pb-table-stat-group';
+          var secChip = document.createElement('span');
+          secChip.className = 'pb-table-stat-chip';
+          secChip.textContent = String(c.sectionCount || 0) + ' sec';
+          secChip.title = String(c.sectionCount || 0) + ' sections';
+          var cardChip = document.createElement('span');
+          cardChip.className = 'pb-table-stat-chip';
+          cardChip.textContent = String(c.cardCount || 0) + ' cards';
+          countsWrap.appendChild(secChip);
+          countsWrap.appendChild(cardChip);
+          tdCounts.appendChild(countsWrap);
 
           var tdEnr = document.createElement('td');
-          tdEnr.textContent = String(c.activeEnrollmentCount || 0) + ' active student(s)';
+          var stuChip = document.createElement('span');
+          stuChip.className = 'pb-table-stat-chip';
+          var enrCount = Number(c.activeEnrollmentCount || 0);
+          stuChip.textContent = String(enrCount) + ' active';
+          stuChip.title = String(enrCount) + ' active student(s)';
+          tdEnr.appendChild(stuChip);
 
           var tdUpd = document.createElement('td');
-          tdUpd.textContent =
-            (c.updatedAtBangkok || c.updatedAtUtc || '-') +
-            ' (v' +
-            String(c.version || 1) +
-            ')';
+          tdUpd.appendChild(
+            createCompactUpdatedVersionCell(c.updatedAtBangkok, c.updatedAtUtc, c.version)
+          );
 
           var tdActions = document.createElement('td');
           var actWrap = document.createElement('div');
-          actWrap.style.display = 'flex';
-          actWrap.style.flexWrap = 'wrap';
-          actWrap.style.gap = '6px';
+          actWrap.className = 'pb-table-actions-grid';
 
           var editMetaBtn = document.createElement('button');
           editMetaBtn.type = 'button';
-          editMetaBtn.className = 'btn btn-primary btn-sm';
+          editMetaBtn.className = 'btn btn-primary btn-sm pb-action-full';
           setBtnVectorIcon(editMetaBtn, 'edit', 'Edit', 'Edit course details');
           editMetaBtn.addEventListener('click', function () {
             if (!confirmDiscardUnsavedChangesIfNeeded('editing course ' + c.courseCode)) {
@@ -10651,11 +10854,11 @@
           var tr = document.createElement('tr');
 
           var tdTitle = document.createElement('td');
-          var titleTop = document.createElement('div');
-          titleTop.style.display = 'flex';
-          titleTop.style.alignItems = 'center';
-          titleTop.style.gap = '6px';
-          titleTop.style.flexWrap = 'wrap';
+          tdTitle.className = 'pb-table-primary-col';
+          var titleStack = document.createElement('div');
+          titleStack.className = 'pb-table-item-stack';
+          var typeRow = document.createElement('div');
+          typeRow.className = 'pb-table-code-row';
 
           var typeBadge = document.createElement('span');
           typeBadge.className = 'badge pb-asm-type-pill';
@@ -10664,27 +10867,28 @@
             : a.pdfFileId
             ? 'PDF Worksheet'
             : 'Assigned Assessment';
-          titleTop.appendChild(typeBadge);
+          typeRow.appendChild(typeBadge);
+          titleStack.appendChild(typeRow);
 
-          var st = document.createElement('strong');
-          st.style.color = 'var(--color-brand-deep)';
+          var st = document.createElement('div');
+          st.className = 'pb-table-item-title';
           st.textContent = a.title;
-          titleTop.appendChild(st);
-          tdTitle.appendChild(titleTop);
+          titleStack.appendChild(st);
 
           if (a.externalUrl && isSafeRichTextHref(a.externalUrl)) {
             var urlDiv = document.createElement('div');
-            urlDiv.style.marginTop = '4px';
             var linkEl = document.createElement('a');
             linkEl.href = a.externalUrl;
             linkEl.target = '_blank';
             linkEl.rel = 'noopener noreferrer';
-            linkEl.className = 'pb-rt-link';
+            linkEl.className = 'pb-rt-link pb-table-link-clamp';
             linkEl.style.fontSize = '0.8rem';
             linkEl.textContent = a.externalUrl;
+            linkEl.title = a.externalUrl;
             urlDiv.appendChild(linkEl);
-            tdTitle.appendChild(urlDiv);
+            titleStack.appendChild(urlDiv);
           }
+          tdTitle.appendChild(titleStack);
 
           var tdStatus = document.createElement('td');
           var badge = document.createElement('span');
@@ -10720,17 +10924,23 @@
           tdRefs.appendChild(refWrap);
 
           var tdUpd = document.createElement('td');
-          tdUpd.textContent =
-            (a.updatedAtBangkok || a.updatedAtUtc || '-') +
-            ' (v' +
-            String(a.version || 1) +
-            ')';
+          tdUpd.appendChild(
+            createCompactUpdatedVersionCell(a.updatedAtBangkok, a.updatedAtUtc, a.version)
+          );
 
           var tdActions = document.createElement('td');
           var actWrap = document.createElement('div');
-          actWrap.style.display = 'flex';
-          actWrap.style.gap = '6px';
-          actWrap.style.flexWrap = 'wrap';
+          actWrap.className = 'pb-table-actions-grid';
+
+          var editBtn = document.createElement('button');
+          editBtn.type = 'button';
+          editBtn.className = 'btn btn-secondary btn-sm pb-action-full';
+          setBtnVectorIcon(editBtn, 'edit', 'Edit', 'Edit assessment');
+          editBtn.addEventListener('click', function () {
+            populateAssessmentEditorForm(a);
+            PBAdminActionModal.open('admin-assessment-editor-card', 'Edit Assessment: ' + a.title);
+          });
+          actWrap.appendChild(editBtn);
 
           var prevAsmBtn = document.createElement('button');
           prevAsmBtn.type = 'button';
@@ -10742,16 +10952,6 @@
             });
           });
           actWrap.appendChild(prevAsmBtn);
-
-          var editBtn = document.createElement('button');
-          editBtn.type = 'button';
-          editBtn.className = 'btn btn-secondary btn-sm';
-          setBtnVectorIcon(editBtn, 'edit', 'Edit', 'Edit assessment');
-          editBtn.addEventListener('click', function () {
-            populateAssessmentEditorForm(a);
-            PBAdminActionModal.open('admin-assessment-editor-card', 'Edit Assessment: ' + a.title);
-          });
-          actWrap.appendChild(editBtn);
 
           var archBtn = document.createElement('button');
           archBtn.type = 'button';
@@ -18585,10 +18785,15 @@ var qrcode = (function() {
 
           /* Col 3: Reason */
           var tdReason = document.createElement('td');
-          tdReason.style.maxWidth = '300px';
-          tdReason.style.whiteSpace = 'pre-wrap';
-          tdReason.style.wordBreak = 'break-word';
-          tdReason.textContent = r.reason || '-';
+          tdReason.className = 'pb-table-primary-col';
+          var stuReasonDom = createCollapsibleDescriptionDom(r.reason || '-', {
+            clampThreshold: 95
+          });
+          if (stuReasonDom) {
+            tdReason.appendChild(stuReasonDom);
+          } else {
+            tdReason.textContent = '-';
+          }
           if (r.adminNote) {
             var noteBox = document.createElement('div');
             noteBox.style.marginTop = '6px';
@@ -18809,10 +19014,15 @@ var qrcode = (function() {
 
           /* Col 4: Reason */
           var tdReason = document.createElement('td');
-          tdReason.style.maxWidth = '280px';
-          tdReason.style.whiteSpace = 'pre-wrap';
-          tdReason.style.wordBreak = 'break-word';
-          tdReason.textContent = r.reason || '-';
+          tdReason.className = 'pb-table-primary-col';
+          var admReasonDom = createCollapsibleDescriptionDom(r.reason || '-', {
+            clampThreshold: 95
+          });
+          if (admReasonDom) {
+            tdReason.appendChild(admReasonDom);
+          } else {
+            tdReason.textContent = '-';
+          }
 
           /* Col 5: Email Status & Recipient */
           var tdEmail = document.createElement('td');
@@ -19040,7 +19250,7 @@ var qrcode = (function() {
           (course.updatedAtBangkok || course.updatedAtUtc || '-')
       );
       setText('student-course-title', course.title || 'Course Materials');
-      setText('student-course-subtitle', course.subtitle || '');
+      renderStudentCourseHeroSubtitle(course.subtitle || '');
       setText(
         'student-course-access-note',
         (d && d.accessControlNotice) ||
@@ -19333,7 +19543,8 @@ var qrcode = (function() {
       setText('admin-preview-popup-title', cSum.title || 'Loading Course & Assessment Preview...');
       setText(
         'admin-preview-popup-subtitle',
-        cSum.subtitle || 'Inspect assigned assessments, quizzes, and sections below, or click through to open the full preview page directly.'
+        formatDisplaySentenceText(cSum.subtitle) ||
+          'Inspect assigned assessments, quizzes, and sections below, or click through to open the full preview page directly.'
       );
       setText('admin-preview-popup-kpi-label-1', 'Sections & Modules');
       setText('admin-preview-popup-kpi-label-2', 'Assigned Assessments');
@@ -19341,12 +19552,16 @@ var qrcode = (function() {
       setText('admin-preview-popup-kpi-label-4', 'Last Updated (BKK)');
       setText(
         'admin-preview-popup-kpi-sections',
-        cSum.sectionCount !== undefined ? String(cSum.sectionCount) + ' Sections' : '...'
+        cSum.sectionCount !== undefined
+          ? String(cSum.sectionCount) + (Number(cSum.sectionCount) === 1 ? ' Section' : ' Sections')
+          : '...'
       );
       setText('admin-preview-popup-kpi-assessments', 'Loading...');
       setText(
         'admin-preview-popup-kpi-students',
-        cSum.activeEnrollmentCount !== undefined ? String(cSum.activeEnrollmentCount) + ' Students' : '-'
+        cSum.activeEnrollmentCount !== undefined
+          ? String(cSum.activeEnrollmentCount) + (Number(cSum.activeEnrollmentCount) === 1 ? ' Student' : ' Students')
+          : '-'
       );
       setText('admin-preview-popup-kpi-updated', cSum.updatedAtBangkok || cSum.updatedAtUtc || '-');
       if (openFullLbl) {
@@ -19419,10 +19634,13 @@ var qrcode = (function() {
           setText('admin-preview-popup-title', course.title || 'Course Preview');
           setText(
             'admin-preview-popup-subtitle',
-            course.subtitle ||
+            formatDisplaySentenceText(course.subtitle) ||
               'Click any assessment or section below, or click "Open Full Preview Page" to open the full student preview page directly.'
           );
-          setText('admin-preview-popup-kpi-sections', String(secs.length) + ' Sections');
+          setText(
+            'admin-preview-popup-kpi-sections',
+            String(secs.length) + (secs.length === 1 ? ' Section' : ' Sections')
+          );
           var totalAsmItems = nativeExams.length + linkedAsmCards.length;
           setText(
             'admin-preview-popup-kpi-assessments',
@@ -19670,7 +19888,7 @@ var qrcode = (function() {
               (course.updatedAtBangkok || course.updatedAtUtc || '-')
           );
           setText('student-course-title', course.title || 'Course Materials');
-          setText('student-course-subtitle', course.subtitle || '');
+          renderStudentCourseHeroSubtitle(course.subtitle || '');
           setText(
             'student-course-access-note',
             d.accessControlNotice ||
@@ -20530,8 +20748,20 @@ var qrcode = (function() {
       return map[k] || (k ? k.replace(/_/g, ' ') : '-');
     }
 
-    function formatQuestionTypeDisplayLabel(qType) {
+    function formatQuestionTypeDisplayLabel(qType, opt_compact) {
       var k = String(qType || 'SINGLE_CHOICE').trim().toUpperCase();
+      if (opt_compact) {
+        var compactMap = {
+          SINGLE_CHOICE: 'MC (5 Opts)',
+          COMPLEX_MULTIPLE_CHOICE: 'Complex MC',
+          MULTIPLE_SELECT: 'Multi-Select',
+          TRUE_FALSE: 'True / False',
+          NUMERIC_RESPONSE: 'Numeric',
+          SHORT_ANSWER: 'Short Answer',
+          WRITTEN_RESPONSE: 'Written'
+        };
+        return compactMap[k] || k.replace(/_/g, ' ');
+      }
       var map = {
         SINGLE_CHOICE: 'Multiple Choice (5 Opts)',
         COMPLEX_MULTIPLE_CHOICE: 'Complex MC (Yes/No)',
@@ -21419,37 +21649,36 @@ var qrcode = (function() {
 
             /* Col 1: Code & Title + Stem snippet */
             var td1 = document.createElement('td');
-            var codeStrong = document.createElement('strong');
-            codeStrong.style.color = 'var(--color-brand-deep)';
-            codeStrong.textContent = '[' + q.questionCode + '] ' + q.title;
-            td1.appendChild(codeStrong);
-            var stemDiv = document.createElement('div');
-            stemDiv.style.fontSize = '0.8rem';
-            stemDiv.style.color = 'var(--color-text-secondary)';
-            stemDiv.style.marginTop = '3px';
-            var snippet = String(q.stemPlainText || '').slice(0, 110);
-            stemDiv.textContent = snippet + (String(q.stemPlainText || '').length > 110 ? '...' : '');
-            td1.appendChild(stemDiv);
+            td1.className = 'pb-table-primary-col';
+            var qExtras = [];
             if (q.stimulus) {
-              var stimBadge = document.createElement('span');
-              stimBadge.className = 'badge badge-ok';
-              stimBadge.style.fontSize = '0.68rem';
-              stimBadge.style.marginTop = '4px';
-              stimBadge.textContent = 'Shared Stimulus: ' + q.stimulus.stimulusCode;
-              td1.appendChild(stimBadge);
+              qExtras.push({
+                label: 'Stimulus: ' + q.stimulus.stimulusCode,
+                className: 'badge badge-ok'
+              });
             }
+            td1.appendChild(
+              createTablePrimaryIdentityDom({
+                code: q.questionCode,
+                title: q.title,
+                description: q.stemPlainText || '',
+                extraBadges: qExtras,
+                descOptions: { clampThreshold: 90 }
+              })
+            );
 
             /* Col 2: Type & Grading Mode */
             var td2 = document.createElement('td');
             var typeBadge = document.createElement('span');
             typeBadge.className = 'badge badge-ok';
-            typeBadge.textContent = q.questionType;
+            typeBadge.textContent = formatQuestionTypeDisplayLabel(q.questionType, true);
+            typeBadge.title = formatQuestionTypeDisplayLabel(q.questionType, false);
             td2.appendChild(typeBadge);
             var gmDiv = document.createElement('div');
             gmDiv.style.fontSize = '0.76rem';
             gmDiv.style.color = 'var(--color-text-muted)';
             gmDiv.style.marginTop = '4px';
-            gmDiv.textContent = 'Grading: ' + q.gradingMode;
+            gmDiv.textContent = 'Grading: ' + formatFriendlyEnumStatus(q.gradingMode);
             td2.appendChild(gmDiv);
 
             /* Col 3: Topics & Difficulty */
@@ -21473,7 +21702,7 @@ var qrcode = (function() {
             verDiv.style.fontSize = '0.76rem';
             verDiv.style.color = 'var(--color-text-secondary)';
             verDiv.textContent =
-              'Version ' + q.versionNo + ' (' + q.usedInAttemptsCount + ' attempts)';
+              'v' + q.versionNo + ' (' + q.usedInAttemptsCount + ' attempts)';
             td4.appendChild(verDiv);
 
             /* Col 5: Status */
@@ -21491,7 +21720,7 @@ var qrcode = (function() {
             /* Col 6: Actions */
             var td6 = document.createElement('td');
             var actRow = document.createElement('div');
-            actRow.className = 'pb-users-actions-inline-row';
+            actRow.className = 'pb-table-actions-grid';
 
             var prevBtn = document.createElement('button');
             prevBtn.type = 'button';
@@ -22880,18 +23109,20 @@ var qrcode = (function() {
           var tr = document.createElement('tr');
 
           var tdTitle = document.createElement('td');
-          var codeStrong = document.createElement('div');
-          codeStrong.style.fontWeight = '700';
-          codeStrong.style.color = 'var(--color-brand-deep)';
-          codeStrong.textContent = ex.examCode;
-          tdTitle.appendChild(codeStrong);
-          var titleDiv = document.createElement('div');
-          titleDiv.style.fontSize = '0.86rem';
-          titleDiv.textContent = ex.title;
-          tdTitle.appendChild(titleDiv);
+          tdTitle.className = 'pb-table-primary-col';
+          tdTitle.appendChild(
+            createTablePrimaryIdentityDom({
+              code: ex.examCode,
+              title: ex.title,
+              description: ex.descriptionPlainText || '',
+              descOptions: { clampThreshold: 84 }
+            })
+          );
           tr.appendChild(tdTitle);
 
           var tdMode = document.createElement('td');
+          var modeStack = document.createElement('div');
+          modeStack.className = 'pb-table-item-stack';
           var mBadge = document.createElement('span');
           mBadge.className =
             ex.examMode === 'PRACTICE'
@@ -22899,23 +23130,42 @@ var qrcode = (function() {
               : ex.examMode === 'MOCK_EXAM'
               ? 'badge pb-exam-badge-mock'
               : 'badge pb-exam-badge-assigned';
-          mBadge.textContent = ex.examModeLabel || ex.examMode;
-          tdMode.appendChild(mBadge);
+          mBadge.style.whiteSpace = 'nowrap';
+          var compactModeLabel =
+            ex.examMode === 'PRACTICE'
+              ? 'Practice Quiz'
+              : ex.examMode === 'MOCK_EXAM'
+              ? 'Timed Mock'
+              : 'Assigned Exam';
+          mBadge.textContent = compactModeLabel;
+          mBadge.title = ex.examModeLabel || compactModeLabel;
+          modeStack.appendChild(mBadge);
           var crsDiv = document.createElement('div');
-          crsDiv.style.fontSize = '0.78rem';
-          crsDiv.style.marginTop = '4px';
+          crsDiv.style.fontSize = '0.77rem';
           crsDiv.style.color = 'var(--color-text-secondary)';
-          crsDiv.textContent = ex.courseCode ? ex.courseCode + ' - ' + ex.courseTitle : 'Multi-Course';
-          tdMode.appendChild(crsDiv);
+          crsDiv.style.overflow = 'hidden';
+          crsDiv.style.textOverflow = 'ellipsis';
+          crsDiv.style.maxWidth = '128px';
+          crsDiv.style.whiteSpace = 'nowrap';
+          var fullCourseLbl = ex.courseCode ? ex.courseCode + ' — ' + ex.courseTitle : 'Multi-Course';
+          crsDiv.textContent = ex.courseCode ? ex.courseCode + (ex.courseTitle ? ' · ' + ex.courseTitle : '') : 'Multi-Course';
+          crsDiv.title = fullCourseLbl;
+          modeStack.appendChild(crsDiv);
+          tdMode.appendChild(modeStack);
           tr.appendChild(tdMode);
 
           var tdStruct = document.createElement('td');
-          tdStruct.textContent =
-            ex.sectionCount +
-            ' sec | ' +
-            ex.totalQuestionsCount +
-            ' Qs | ' +
-            ex.maxPointsDisplay;
+          var structWrap = document.createElement('div');
+          structWrap.className = 'pb-table-stat-group';
+          var secSt = document.createElement('span');
+          secSt.className = 'pb-table-stat-chip';
+          secSt.textContent = String(ex.sectionCount || 0) + ' sec · ' + String(ex.totalQuestionsCount || 0) + ' Qs';
+          var ptsSt = document.createElement('span');
+          ptsSt.className = 'pb-table-stat-chip';
+          ptsSt.textContent = ex.maxPointsDisplay || '0 pts';
+          structWrap.appendChild(secSt);
+          structWrap.appendChild(ptsSt);
+          tdStruct.appendChild(structWrap);
           tr.appendChild(tdStruct);
 
           var tdTime = document.createElement('td');
@@ -22927,13 +23177,16 @@ var qrcode = (function() {
           var maxA = Number(ex.maxAttempts);
           if (maxA === 0 || ex.allowedAttempts === 'UNLIMITED') {
             attBadge.className = 'badge pb-cat-attempt-unlimited';
-            attBadge.textContent = 'Unlimited Retakes';
+            attBadge.textContent = 'Unlimited';
+            attBadge.title = 'Unlimited Retakes';
           } else if (maxA === 1) {
             attBadge.className = 'badge pb-cat-attempt-single';
-            attBadge.textContent = 'Single Attempt (1)';
+            attBadge.textContent = '1 Attempt';
+            attBadge.title = 'Single Attempt (1)';
           } else {
             attBadge.className = 'badge pb-cat-attempt-multi';
-            attBadge.textContent = 'Multiple (' + String(maxA || 1) + ' Attempts)';
+            attBadge.textContent = String(maxA || 1) + ' Attempts';
+            attBadge.title = 'Multiple (' + String(maxA || 1) + ' Attempts)';
           }
           attBadge.style.marginTop = '4px';
           tdTime.appendChild(attBadge);
@@ -22970,24 +23223,11 @@ var qrcode = (function() {
 
           var tdAct = document.createElement('td');
           var btnWrap = document.createElement('div');
-          btnWrap.style.display = 'flex';
-          btnWrap.style.gap = '6px';
-          btnWrap.style.flexWrap = 'wrap';
-
-          var prevBtn = document.createElement('button');
-          prevBtn.type = 'button';
-          prevBtn.className = 'btn btn-outline btn-sm';
-          setBtnVectorIcon(prevBtn, 'preview', 'Preview', 'Preview examination set');
-          prevBtn.addEventListener('click', function () {
-            runButtonWithLoadingState(prevBtn, 'Loading Preview...', function () {
-              return openStudentExamInstructionsModalPhase3(ex.examSetId, true);
-            });
-          });
-          btnWrap.appendChild(prevBtn);
+          btnWrap.className = 'pb-table-actions-grid';
 
           var editBtn = document.createElement('button');
           editBtn.type = 'button';
-          editBtn.className = 'btn btn-secondary btn-sm';
+          editBtn.className = 'btn btn-secondary btn-sm pb-action-full';
           setBtnVectorIcon(editBtn, 'edit', 'Edit', 'Edit exam in Form Builder');
           editBtn.addEventListener('click', function () {
             if (typeof openFormsExamBuilderWithExam === 'function') {
@@ -23000,6 +23240,17 @@ var qrcode = (function() {
             }
           });
           btnWrap.appendChild(editBtn);
+
+          var prevBtn = document.createElement('button');
+          prevBtn.type = 'button';
+          prevBtn.className = 'btn btn-outline btn-sm';
+          setBtnVectorIcon(prevBtn, 'preview', 'Preview', 'Preview examination set');
+          prevBtn.addEventListener('click', function () {
+            runButtonWithLoadingState(prevBtn, 'Loading Preview...', function () {
+              return openStudentExamInstructionsModalPhase3(ex.examSetId, true);
+            });
+          });
+          btnWrap.appendChild(prevBtn);
 
           var pubBtn = document.createElement('button');
           pubBtn.type = 'button';
@@ -23254,10 +23505,14 @@ var qrcode = (function() {
           headerWrap.appendChild(titleH3);
 
           if (exam.descriptionPlainText) {
-            var descP = document.createElement('p');
-            descP.className = 'pb-exam-set-desc';
-            descP.textContent = exam.descriptionPlainText;
-            headerWrap.appendChild(descP);
+            var exDescDom = createCollapsibleDescriptionDom(exam.descriptionPlainText, {
+              clampThreshold: 100,
+              stopPropagation: true
+            });
+            if (exDescDom) {
+              exDescDom.classList.add('pb-exam-set-desc');
+              headerWrap.appendChild(exDescDom);
+            }
           }
 
           card.appendChild(headerWrap);
