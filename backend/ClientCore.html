@@ -8146,14 +8146,10 @@
 
           var meta = document.createElement('div');
           meta.className = 'pb-blur-up-caption';
-          meta.textContent =
-            'Authorized Blob Preview: ' +
-            (entry.originalFilename || cleanId) +
-            ' (' +
-            entry.mimeType +
-            ', ' +
-            Math.round((entry.sizeBytes || 0) / 1024 * 10) / 10 +
-            ' KB)';
+          var sizeKb = Math.round((entry.sizeBytes || 0) / 1024 * 10) / 10;
+          var cleanName = entry.originalFilename || cleanId;
+          meta.textContent = cleanName + (sizeKb > 0 ? ' (' + sizeKb + ' KB)' : '');
+          meta.title = cleanName + ' (' + (entry.mimeType || 'image') + ', ' + sizeKb + ' KB)';
           stage.appendChild(meta);
         })
         .catch(function (err) {
@@ -14077,6 +14073,10 @@ var qrcode = (function() {
             var thumbBox = document.createElement('div');
             thumbBox.id = thumbContainerId;
             thumbBox.className = 'admin-receipt-queue-thumb';
+            thumbBox.title = 'Click to inspect full-size transfer slip';
+            thumbBox.addEventListener('click', function () {
+              openAdminFullSizeReceiptModalStep12(p);
+            });
             tdRec.appendChild(thumbBox);
 
             var btnFull = document.createElement('button');
@@ -19996,6 +19996,14 @@ var qrcode = (function() {
           }
         }
       }
+      if (!found && Array.isArray(currentStudentCourseExamsCatalogPhase3)) {
+        for (var j = 0; j < currentStudentCourseExamsCatalogPhase3.length; j++) {
+          if (currentStudentCourseExamsCatalogPhase3[j] && currentStudentCourseExamsCatalogPhase3[j].examSetId === examSetId) {
+            found = currentStudentCourseExamsCatalogPhase3[j];
+            break;
+          }
+        }
+      }
       if (!found) return null;
       var secs = Array.isArray(found.sections) ? found.sections : [];
       var secOverview = [];
@@ -20058,7 +20066,15 @@ var qrcode = (function() {
     function openStudentExamInstructionsModalPhase3(examSetId, opt_isAdminPreview) {
       var modal = document.getElementById('modal-student-exam-instructions');
       if (!modal) return Promise.resolve(null);
-      modal.classList.remove('hidden');
+      openModalDialog('modal-student-exam-instructions', 'btn-exam-inst-header-close');
+      if (!modal.dataset.boundBackdropClick) {
+        modal.dataset.boundBackdropClick = '1';
+        modal.addEventListener('click', function (evt) {
+          if (evt.target === modal) {
+            closeStudentExamInstructionsModalPhase3();
+          }
+        });
+      }
 
       var isAdminPrev = Boolean(opt_isAdminPreview);
       var closeBtnFooter = document.getElementById('btn-exam-inst-close');
@@ -20072,6 +20088,8 @@ var qrcode = (function() {
       setText('exam-inst-max-points', 'Loading...');
       setText('exam-inst-duration', 'Loading...');
       setText('exam-inst-attempts', 'Loading...');
+      setText('exam-inst-window', 'Loading...');
+      setText('exam-inst-release-policy', 'Loading...');
       renderModalSkeletonBlock('exam-inst-richtext-body', 1);
       renderTableSkeletonRows('exam-inst-sections-tbody', 4, 2);
 
@@ -20211,6 +20229,11 @@ var qrcode = (function() {
         }
       }
 
+      var instantCachedBundle = buildFallbackAdminPreviewInstructionsBundle(examSetId);
+      if (instantCachedBundle) {
+        applyInstructionsBundleToModal(instantCachedBundle);
+      }
+
       return rpcCallEnvelope(
         'exams.getInstructions',
         {
@@ -20223,8 +20246,8 @@ var qrcode = (function() {
           applyInstructionsBundleToModal(env.data || {});
         })
         .catch(function (err) {
-          if (isAdminPrev) {
-            var fallback = buildFallbackAdminPreviewInstructionsBundle(examSetId);
+          if (instantCachedBundle || isAdminPrev) {
+            var fallback = instantCachedBundle || buildFallbackAdminPreviewInstructionsBundle(examSetId);
             if (fallback) {
               applyInstructionsBundleToModal(fallback);
               return;
@@ -20236,8 +20259,7 @@ var qrcode = (function() {
     }
 
     function closeStudentExamInstructionsModalPhase3() {
-      var modal = document.getElementById('modal-student-exam-instructions');
-      if (modal) modal.classList.add('hidden');
+      closeModalDialog('modal-student-exam-instructions');
     }
 
 
@@ -24250,7 +24272,15 @@ var qrcode = (function() {
     function openStudentPublishedExamResultModalPhase7(examSetId, opt_attemptId) {
       var modal = document.getElementById('modal-student-exam-result');
       if (!modal) return;
-      modal.classList.remove('hidden');
+      openModalDialog('modal-student-exam-result', 'btn-exam-result-header-close');
+      if (!modal.dataset.boundBackdropClick) {
+        modal.dataset.boundBackdropClick = '1';
+        modal.addEventListener('click', function (evt) {
+          if (evt.target === modal) {
+            closeModalDialog('modal-student-exam-result');
+          }
+        });
+      }
 
       setText('exam-result-title', 'Loading Examination Result...');
       setText('exam-result-policy-text', 'Checking server publication and explanation release rules...');
@@ -24520,8 +24550,7 @@ var qrcode = (function() {
       var closeRes1 = document.getElementById('btn-exam-result-header-close');
       var closeRes2 = document.getElementById('btn-exam-result-close');
       function hideResultModal() {
-        var m = document.getElementById('modal-student-exam-result');
-        if (m) m.classList.add('hidden');
+        closeModalDialog('modal-student-exam-result');
       }
       if (closeRes1) closeRes1.addEventListener('click', hideResultModal);
       if (closeRes2) closeRes2.addEventListener('click', hideResultModal);
@@ -25901,6 +25930,15 @@ var qrcode = (function() {
           } else if (activeModalId === 'modal-admin-receipt-viewer') {
             evt.preventDefault();
             closeAdminFullSizeReceiptModalStep12();
+          } else if (activeModalId === 'modal-student-exam-instructions') {
+            evt.preventDefault();
+            closeStudentExamInstructionsModalPhase3();
+          } else if (activeModalId === 'modal-student-exam-result') {
+            evt.preventDefault();
+            closeModalDialog('modal-student-exam-result');
+          } else if (activeModalId === 'modal-admin-assigned-assessment-preview') {
+            evt.preventDefault();
+            closeAdminAssignedAssessmentPreviewPopup();
           } else if (activeModalId === 'modal-privacy-gate') {
             evt.preventDefault();
             setPrivacyGateInlineAlert(
