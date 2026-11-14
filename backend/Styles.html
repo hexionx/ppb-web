@@ -16478,7 +16478,7 @@
   }
 
   /* ==========================================================================
-   * MyTCAS A-LEVEL 66 BIOLOGY BLUEPRINT BAR & COMPLEX MC (ใช่ / ไม่ใช่)
+   * MyTCAS A-LEVEL 66 BIOLOGY BLUEPRINT BAR & COMPLEX MC (YES / NO)
    * ========================================================================== */
   .pb-alevel-blueprint-bar {
     margin-top: 14px;
@@ -16701,7 +16701,7 @@
   }
 
   /* ==========================================================================
-   * MYTCAS COMPLEX MULTIPLE CHOICE (เลือกตอบเชิงซ้อน: ใช่ / ไม่ใช่)
+   * MYTCAS COMPLEX MULTIPLE CHOICE (YES / NO STATEMENTS)
    * ========================================================================== */
   .pb-complex-mc-card-list {
     display: flex;
@@ -16788,6 +16788,215 @@
     background: #DC2626;
     color: #FFFFFF;
     box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
+  }
+
+  /* ==========================================================================
+   * UX/UI POLISH: SINGLE-ROW DESKTOP NAV, SELECTIVE RESET & TOC ANTI-OVERLAP
+   * ========================================================================== */
+  @media (min-width: 901px) {
+    .site-header .header-inner {
+      max-width: min(100%, 1440px);
+      padding: 10px 20px;
+      gap: 16px;
+      flex-wrap: nowrap;
+    }
+
+    .site-header .brand-group {
+      flex-shrink: 0;
+    }
+
+    .site-header .desktop-nav {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: safe flex-end;
+      flex-wrap: nowrap;
+      gap: 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .site-header .desktop-nav::-webkit-scrollbar {
+      display: none;
+    }
+
+    .site-header .desktop-nav .nav-link {
+      white-space: nowrap;
+      flex-shrink: 0;
+      padding: 7px 10px;
+      font-size: 0.85rem;
+    }
+
+    .site-header .desktop-nav .btn-sm {
+      white-space: nowrap;
+      flex-shrink: 0;
+      padding: 7px 12px;
+      font-size: 0.84rem;
+    }
+  }
+
+  @media (max-width: 1320px) and (min-width: 901px) {
+    .site-header .header-inner {
+      padding: 10px 16px;
+      gap: 12px;
+    }
+
+    .site-header .brand-subtitle {
+      display: none;
+    }
+
+    .site-header .brand-name {
+      font-size: 1.02rem;
+    }
+
+    .site-header .desktop-nav {
+      gap: 2px;
+    }
+
+    .site-header .desktop-nav .nav-link {
+      padding: 6px 8px;
+      font-size: 0.82rem;
+    }
+
+    .site-header .desktop-nav .btn-sm {
+      padding: 6px 10px;
+      font-size: 0.81rem;
+    }
+  }
+
+  @media (max-width: 1080px) and (min-width: 901px) {
+    .site-header .desktop-nav .nav-link {
+      padding: 5px 6px;
+      font-size: 0.76rem;
+    }
+
+    .site-header .desktop-nav .btn-sm {
+      padding: 5px 8px;
+      font-size: 0.76rem;
+    }
+  }
+
+  /* Hide floating Contents pill whenever an exam/builder/modal covers the bottom-right corner */
+  body.pb-modal-open .pb-floating-toc-dock,
+  body.pb-admin-modal-lock .pb-floating-toc-dock,
+  body.pb-hide-toc-dock .pb-floating-toc-dock {
+    display: none !important;
+  }
+
+  .pb-reset-mode-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  @media (max-width: 680px) {
+    .pb-reset-mode-tabs {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .pb-reset-mode-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1.5px solid #FECACA;
+    background: #FFFFFF;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .pb-reset-mode-option input[type="radio"] {
+    margin-top: 3px;
+    accent-color: #DC2626;
+    flex-shrink: 0;
+  }
+
+  .pb-reset-mode-option strong {
+    display: block;
+    font-size: 0.92rem;
+    color: #991B1B;
+  }
+
+  .pb-reset-mode-option span {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.8rem;
+    color: #64748B;
+    line-height: 1.4;
+  }
+
+  .pb-reset-mode-option.is-active {
+    border-color: #DC2626;
+    background: #FEF2F2;
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.12);
+  }
+
+  .pb-reset-categories-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  @media (max-width: 680px) {
+    .pb-reset-categories-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .pb-reset-cat-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1.5px solid #E2E8F0;
+    background: #FFFFFF;
+    cursor: pointer;
+    transition: border-color 0.14s ease, background 0.14s ease;
+  }
+
+  .pb-reset-cat-item input[type="checkbox"] {
+    margin-top: 3px;
+    accent-color: #DC2626;
+    flex-shrink: 0;
+  }
+
+  .pb-reset-cat-item.is-selected {
+    border-color: #EF4444;
+    background: #FEF2F2;
+  }
+
+  .pb-reset-cat-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #0F172A;
+  }
+
+  .pb-reset-cat-desc {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.76rem;
+    color: #64748B;
+    line-height: 1.35;
+  }
+
+  .pb-reset-scope-summary {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #FFF7ED;
+    border: 1px solid #FED7AA;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #9A3412;
   }
 
 </style>

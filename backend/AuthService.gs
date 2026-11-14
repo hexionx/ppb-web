@@ -692,6 +692,15 @@ function authenticateUserLogin_(payload) {
     var tokenSha256 = sha256Hex_(rawSessionToken);
     var sessionId = generateEntityId_('ses_');
 
+    // Enforce single-device login: revoke all prior active sessions for this user before creating the new session
+    var supersededSessionCount = 0;
+    try {
+      var revokedRes = revokeAllUserSessions_(freshUser.user_id, 'NEW_DEVICE_LOGIN', sessionId);
+      supersededSessionCount = typeof revokedRes === 'number' ? revokedRes : (revokedRes ? 1 : 0);
+    } catch (revokePriorErr) {
+      supersededSessionCount = 0;
+    }
+
     insertSheetRecord_('Sessions', {
       session_id: sessionId,
       token_sha256_hex: tokenSha256,
@@ -795,6 +804,17 @@ function requireAuthenticatedSessionGuard_(rawSessionToken, actionSpec) {
   }
 
   if (matchedSession.status !== 'ACTIVE') {
+    if (String(matchedSession.revoke_reason || '').toUpperCase() === 'NEW_DEVICE_LOGIN') {
+      throw createAppError_(
+        PB_ERROR_CODES_.ERR_AUTH_REQUIRED,
+        'You have been logged out because your account was signed in on another device.',
+        {
+          sessionSuperseded: true,
+          revokeReason: 'NEW_DEVICE_LOGIN',
+          revokedAtUtc: matchedSession.revoked_at_utc || ''
+        }
+      );
+    }
     throw createAppError_(
       PB_ERROR_CODES_.ERR_AUTH_REQUIRED,
       'Your session is no longer active (' +

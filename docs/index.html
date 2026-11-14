@@ -2039,7 +2039,7 @@
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <span class="badge badge-ok" id="exam-ws-q-number-badge">Question 1 of 1</span>
           <span class="badge" id="exam-ws-q-section-badge">Part I</span>
-          <span class="badge" id="exam-ws-q-type-badge">SINGLE_CHOICE</span>
+          <span class="badge" id="exam-ws-q-type-badge">Multiple Choice</span>
           <span class="badge" id="exam-ws-q-points-badge">2 pts</span>
         </div>
         <button
@@ -4968,7 +4968,7 @@
     <!-- Dedicated Exams & Quizzes Studio Banner (Quick Launch) -->
     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 12px 16px; margin-bottom: 14px; border-radius: 14px; background: linear-gradient(135deg, #F0FDFA 0%, #ECFEFF 100%); border: 1.5px solid rgba(6, 182, 212, 0.28);">
       <div>
-        <span class="badge badge-ok">NEW EXAM STUDIO</span>
+        <span class="badge badge-ok">EXAM STUDIO</span>
         <strong style="margin-left: 8px; color: var(--color-brand-deep); font-size: 0.96rem;">
           Looking for Exam &amp; Quiz Creation, Grading, or Integrity Monitoring?
         </strong>
@@ -4992,7 +4992,7 @@
         aria-controls="admin-panel-settings"
         data-admin-tab="settings"
       >
-        1. School Settings &amp; Website CMS
+        Settings &amp; Website
       </button>
       <button
         type="button"
@@ -5003,7 +5003,7 @@
         aria-controls="admin-panel-users"
         data-admin-tab="users"
       >
-        2. Users &amp; Course Assignments
+        Users &amp; Enrollments
       </button>
       <button
         type="button"
@@ -5014,7 +5014,7 @@
         aria-controls="admin-panel-courses"
         data-admin-tab="courses"
       >
-        3. Courses, Sections &amp; Cards
+        Courses &amp; Lessons
       </button>
       <button
         type="button"
@@ -5058,7 +5058,7 @@
         aria-controls="admin-panel-invoices"
         data-admin-tab="invoices"
       >
-        4. Tuition Invoices &amp; Payments
+        Billing &amp; Payments
       </button>
       <button
         type="button"
@@ -5069,7 +5069,7 @@
         aria-controls="admin-panel-overview"
         data-admin-tab="overview"
       >
-        5. Portal Summary &amp; Logo Diagnostics
+        Portal Overview
       </button>
       <button
         type="button"
@@ -5080,7 +5080,7 @@
         aria-controls="admin-panel-unavailability"
         data-admin-tab="unavailability"
       >
-        6. Unavailability Reports
+        Absence Requests
       </button>
     </div>
 
@@ -5171,7 +5171,8 @@
             Homepage &amp; Hero CMS
           </button>
           <button type="button" class="btn btn-outline btn-sm pb-btn-danger-outline" id="btn-admin-open-factory-reset-modal">
-            Factory Reset (OTP)
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            <span>System Reset</span>
           </button>
         </div>
       </div>
@@ -5993,7 +5994,7 @@
         <div>
           <span class="badge badge-danger" id="admin-factory-reset-status-badge">Mandatory 2-Step Email OTP Verification</span>
           <h2 style="margin: 8px 0 4px 0; font-size: 1.3rem; color: #991B1B;">
-            Database Factory Reset — Clear All Google Sheets Data
+            System Reset — Full Reset or Selective Data Deletion
           </h2>
           <p style="margin: 0; font-size: 0.92rem; color: #7F1D1D;">
             Clears all data rows across all 16 Google Sheets tabs while preserving the row-1 schema headers. To prevent accidental data loss, this action requires a <strong>6-digit One-Time Passcode (OTP)</strong> sent to your designated email address, your current <strong>Administrator Password</strong>, and typing the exact phrase <code>FACTORY RESET</code>.
@@ -6001,10 +6002,54 @@
         </div>
       </div>
 
+      <!-- Scope Selector: Full System Reset vs Selective Data Categories -->
+      <div class="pb-factory-reset-step-box" id="pb-factory-reset-scope-box">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+          <h3 style="margin: 0; font-size: 1.04rem; color: #991B1B;">
+            1. Choose Reset Scope &amp; Specific Data to Delete
+          </h3>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-factory-reset-refresh-preview">
+            Refresh Row Counts
+          </button>
+        </div>
+
+        <div class="pb-reset-mode-tabs" role="radiogroup" aria-label="System reset mode">
+          <label class="pb-reset-mode-option is-active" id="lbl-reset-mode-full">
+            <input type="radio" name="factoryResetMode" id="radio-reset-mode-full" value="FULL" checked />
+            <div>
+              <strong>Full System Reset</strong>
+              <span>Erase all portal data across every category and reset Settings to defaults</span>
+            </div>
+          </label>
+          <label class="pb-reset-mode-option" id="lbl-reset-mode-selective">
+            <input type="radio" name="factoryResetMode" id="radio-reset-mode-selective" value="SELECTIVE" />
+            <div>
+              <strong>Selective Data Deletion</strong>
+              <span>Choose only the specific modules or records you want to clear</span>
+            </div>
+          </label>
+        </div>
+
+        <div id="pb-factory-reset-selective-controls" class="hidden" style="margin-top: 10px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+            <span style="font-size: 0.84rem; font-weight: 700; color: #7F1D1D;">Select Specific Data Categories to Delete:</span>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-outline btn-sm" id="btn-factory-reset-select-all">Select All</button>
+              <button type="button" class="btn btn-outline btn-sm" id="btn-factory-reset-clear-all">Clear All</button>
+            </div>
+          </div>
+          <div id="pb-factory-reset-categories-grid" class="pb-reset-categories-grid"></div>
+        </div>
+
+        <div id="pb-factory-reset-scope-summary" class="pb-reset-scope-summary">
+          Full System Reset selected — all portal data categories will be cleared. Your active administrator account remains safe when Keep Admin is checked below.
+        </div>
+      </div>
+
       <!-- Step 1: Request 6-Digit Email OTP -->
       <div class="pb-factory-reset-step-box">
         <h3 style="margin: 0 0 8px 0; font-size: 1.04rem; color: #991B1B;">
-          Step 1: Send 6-Digit Verification OTP to Designated Email
+          2. Send 6-Digit Verification OTP to Designated Email
         </h3>
         <div class="form-grid-2col" style="align-items: flex-end;">
           <div class="form-group" style="margin-bottom: 0;">
@@ -6040,7 +6085,7 @@
       <!-- Step 2: Confirm OTP, Admin Password & Phrase to Execute Factory Reset -->
       <form id="form-admin-factory-reset" class="pb-factory-reset-step-box" style="margin-bottom: 0;" novalidate>
         <h3 style="margin: 0 0 10px 0; font-size: 1.04rem; color: #991B1B;">
-          Step 2: Verify 6-Digit OTP &amp; Execute Factory Reset
+          3. Verify 6-Digit OTP &amp; Execute System Reset
         </h3>
 
         <div class="form-grid-2col">
@@ -6109,7 +6154,7 @@
             class="btn btn-danger"
             id="btn-admin-execute-factory-reset"
           >
-            <span>2. Verify OTP &amp; Execute Factory Reset</span>
+            <span>Verify OTP &amp; Execute System Reset</span>
           </button>
           <span
             id="admin-factory-reset-result-status"
@@ -8115,12 +8160,12 @@
           </div>
         </div>
 
-        <!-- MyTCAS A-Level 66 Biology (รหัส 66 วิชาชีววิทยา) Blueprint Overview & Quick Builders -->
+        <!-- MyTCAS A-Level 66 Biology Blueprint Overview & Quick Builders -->
         <div id="pb-alevel-blueprint-bar" class="pb-alevel-blueprint-bar" aria-label="MyTCAS A-Level 66 Biology Blueprint">
           <div class="pb-alevel-blueprint-top">
             <div class="pb-alevel-blueprint-title-group">
               <span class="badge badge-ok" style="font-size: 0.72rem;">MyTCAS A-Level 66 Bio Blueprint</span>
-              <span class="pb-alevel-spec-text">90 นาที &bull; 40 ข้อ &bull; 100 คะแนน (ปรนัย 5 ตัวเลือก 35 ข้อ &times; 2.4 + เชิงซ้อน 5 ข้อ &times; 3.2)</span>
+              <span class="pb-alevel-spec-text">90 min &bull; 40 Questions &bull; 100 pts (35 &times; 5-Option MC &times; 2.4 + 5 &times; Complex MC &times; 3.2)</span>
             </div>
             <div class="pb-alevel-blueprint-actions">
               <button type="button" class="btn btn-outline btn-sm" id="btn-forms-apply-alevel66" title="Reset settings to official MyTCAS A-Level 66 Biology defaults">
@@ -8133,7 +8178,7 @@
           </div>
           <div class="pb-alevel-blueprint-metrics">
             <span class="pb-alevel-metric-pill" id="pb-alevel-count-5opt">5-Option MC: 1 / 35</span>
-            <span class="pb-alevel-metric-pill" id="pb-alevel-count-complex">Complex MC (ใช่/ไม่ใช่): 0 / 5</span>
+            <span class="pb-alevel-metric-pill" id="pb-alevel-count-complex">Complex MC (Yes/No): 0 / 5</span>
             <span class="pb-alevel-metric-pill" id="pb-alevel-score-total">Total Score: 2.40 / 100.00</span>
           </div>
           <div id="pb-alevel-blueprint-sections" class="pb-alevel-sections-strip" aria-label="A-Level Biology Topic Blueprint Sections"></div>
@@ -8180,7 +8225,7 @@
               </div>
               <div class="form-group">
                 <label for="input-forms-sec-title" class="form-label">Section Header Title</label>
-                <input type="text" id="input-forms-sec-title" class="form-input" value="A-Level 66 ชีววิทยา (90 นาที • 40 ข้อ)" />
+                <input type="text" id="input-forms-sec-title" class="form-input" value="A-Level 66 Biology (90 min • 40 Questions)" />
               </div>
               <div class="form-group">
                 <label for="select-forms-sec-mode" class="form-label">Question Delivery Mode</label>
@@ -9412,7 +9457,7 @@
         <div>
           <span class="badge badge-ok" id="admin-logo-status-badge">Checking Logo...</span>
           <h2 style="margin: 6px 0 4px 0; font-size: 1.22rem; color: var(--color-brand-deep);">
-            Official School Logo Status &amp; Diagnostics (Admin Only)
+            Official School Logo &amp; Portal Overview
           </h2>
         </div>
       </div>

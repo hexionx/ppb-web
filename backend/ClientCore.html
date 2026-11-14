@@ -2646,6 +2646,9 @@
               sessionEmail ||
               'phuwadet.khu@student.mahidol.edu';
           }
+          if (typeof loadFactoryResetPreviewCounts === 'function') {
+            loadFactoryResetPreviewCounts();
+          }
         }
         activeModalId = targetId;
         ensureModalHeader(el, opt_title || 'Admin Editor');
@@ -2782,15 +2785,12 @@
           badge: 'Admin Dashboard',
           title: 'Admin Dashboard Contents',
           items: [
-            { label: '1. School Settings & Website CMS', adminTab: 'settings', targetId: 'admin-panel-settings' },
-            { label: '2. Users & Course Assignments', adminTab: 'users', targetId: 'admin-panel-users' },
-            { label: '3. Courses, Sections & Cards', adminTab: 'courses', targetId: 'admin-panel-courses' },
-            { label: '4. Assessments, Grading & Scores', adminTab: 'assessments', targetId: 'admin-panel-assessments' },
-            { label: '5. Examination Creation & Question Bank', adminTab: 'exam-creation', targetId: 'admin-panel-exam-creation' },
-            { label: '6. Examination Integrity & Appeals', adminTab: 'exam-integrity', targetId: 'admin-panel-exam-integrity' },
-            { label: '7. Tuition Invoices & Payments', adminTab: 'invoices', targetId: 'admin-panel-invoices' },
-            { label: '8. Portal Summary & File Storage', adminTab: 'overview', targetId: 'admin-panel-overview' },
-            { label: '9. Student Absence Reports', adminTab: 'unavailability', targetId: 'admin-panel-unavailability' }
+            { label: 'Settings & Website', adminTab: 'settings', targetId: 'admin-panel-settings' },
+            { label: 'Users & Enrollments', adminTab: 'users', targetId: 'admin-panel-users' },
+            { label: 'Courses & Lessons', adminTab: 'courses', targetId: 'admin-panel-courses' },
+            { label: 'Billing & Payments', adminTab: 'invoices', targetId: 'admin-panel-invoices' },
+            { label: 'Portal Overview', adminTab: 'overview', targetId: 'admin-panel-overview' },
+            { label: 'Absence Requests', adminTab: 'unavailability', targetId: 'admin-panel-unavailability' }
           ]
         }
       };
@@ -2800,7 +2800,7 @@
         settings: [
           { label: 'School & Payment Configuration', targetId: 'form-admin-settings' },
           { label: 'Public Website & Hero CMS', targetId: 'admin-public-website-cms-card' },
-          { label: 'Database Factory Reset (Modal)', modalId: 'admin-factory-reset-card', modalTitle: 'Database Factory Reset (2-Step OTP)' }
+          { label: 'System Reset (Modal)', modalId: 'admin-factory-reset-card', modalTitle: 'System Reset (Selective or Full)' }
         ],
         users: [
           { label: 'User Directory & Search Filter', targetId: 'form-admin-users-filter' },
@@ -2909,8 +2909,18 @@
         var rawViewKey = opt_viewName || currentActiveViewName || 'landing';
         var viewKey = rawViewKey === 'course-detail' ? 'courseDetail' : rawViewKey;
         var dock = document.getElementById('pb-floating-toc-dock');
+        var fbWs = document.getElementById('pb-forms-builder-workspace');
+        var isFormsOpen = Boolean(fbWs && fbWs.classList && !fbWs.classList.contains('hidden'));
+        var isExamActive =
+          viewKey === 'exam-workspace' ||
+          viewKey === 'examWorkspace' ||
+          Boolean(isFormsOpen);
+        if (document.body && document.body.classList) {
+          document.body.classList.toggle('pb-hide-toc-dock', isExamActive);
+        }
         if (!dock) return;
         if (
+          isExamActive ||
           viewKey === 'loading' ||
           viewKey === 'fatal' ||
           viewKey === 'landing' ||
@@ -3903,12 +3913,74 @@
         currentStudentCourseFromAdminPreview = false;
       }
 
+      var PBSessionWatcher = (function () {
+        var pollTimerId = null;
+        var bound = false;
+        var lastCheckMs = 0;
+
+        function runSessionHeartbeatCheck() {
+          if (!currentSessionMeta || !currentSessionMeta.user || isLogoutInProgress) {
+            return;
+          }
+          if (document.visibilityState === 'hidden') return;
+          var nowMs = Date.now();
+          if (nowMs - lastCheckMs < 4000) return;
+          lastCheckMs = nowMs;
+          rpcCallEnvelope('auth.getSessionStatus', {}, { silent: true }).catch(function () {});
+        }
+
+        function ensureListeners() {
+          if (bound || typeof document === 'undefined') return;
+          bound = true;
+          document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible') {
+              runSessionHeartbeatCheck();
+            }
+          });
+          if (typeof window !== 'undefined' && window.addEventListener) {
+            window.addEventListener('focus', function () {
+              runSessionHeartbeatCheck();
+            });
+          }
+        }
+
+        return {
+          start: function () {
+            ensureListeners();
+            if (pollTimerId) clearInterval(pollTimerId);
+            pollTimerId = setInterval(function () {
+              runSessionHeartbeatCheck();
+            }, 20000);
+          },
+          stop: function () {
+            if (pollTimerId) {
+              clearInterval(pollTimerId);
+              pollTimerId = null;
+            }
+          },
+          checkNow: runSessionHeartbeatCheck
+        };
+      })();
+
       if (!sessionSummary || !sessionSummary.user) {
+        if (typeof PBSessionWatcher === 'object' && PBSessionWatcher) {
+          PBSessionWatcher.stop();
+        }
         resetAllPortalSessionState('SESSION_ENDED');
         syncHeaderNavigation(null);
         showSectionView('landing');
 
-        if (opt_restoreStatus === 'INVALID_OR_EXPIRED') {
+        if (opt_restoreStatus === 'SESSION_SUPERSEDED') {
+          var supMsg =
+            typeof arguments[2] === 'string' && arguments[2].trim()
+              ? arguments[2].trim()
+              : 'You have been automatically signed out because your account was logged in on another device.';
+          openModalDialog('modal-login', 'input-login-username');
+          setLoginInlineAlert('warning', 'Signed Out — Logged In on Another Device', supMsg);
+          if (typeof PBNotify === 'object' && PBNotify && typeof PBNotify.toast === 'function') {
+            PBNotify.toast('warning', 'Logged Out — Signed In Elsewhere', supMsg);
+          }
+        } else if (opt_restoreStatus === 'INVALID_OR_EXPIRED') {
           openModalDialog('modal-login', 'input-login-username');
           setLoginInlineAlert(
             'warning',
@@ -3917,6 +3989,10 @@
           );
         }
         return;
+      }
+
+      if (typeof PBSessionWatcher === 'object' && PBSessionWatcher) {
+        PBSessionWatcher.start();
       }
 
       var usr = sessionSummary.user;
@@ -4203,8 +4279,21 @@
             if (isLogoutInProgress || !currentSessionMeta || !currentSessionMeta.user) {
               errorObj.suppressedDuringLogout = true;
             } else {
+              var feObj = errorObj.fieldErrors && typeof errorObj.fieldErrors === 'object' ? errorObj.fieldErrors : {};
+              var isSuperseded = Boolean(
+                feObj.sessionSuperseded ||
+                  feObj.revokeReason === 'NEW_DEVICE_LOGIN' ||
+                  String(errorObj.message || '').indexOf('another device') !== -1
+              );
               clearClientSessionCredential();
-              applySessionAndRouteState(null, 'INVALID_OR_EXPIRED');
+              applySessionAndRouteState(
+                null,
+                isSuperseded ? 'SESSION_SUPERSEDED' : 'INVALID_OR_EXPIRED',
+                isSuperseded ? errorObj.message : ''
+              );
+              if (options.silent || isSuperseded) {
+                errorObj.suppressedDuringLogout = true;
+              }
             }
           }
 
@@ -4771,12 +4860,14 @@
             applySessionAndRouteState(bootstrapData.session, 'RESTORED');
           } else {
             var restoreOutcome =
-              hadPersistedToken ||
-              bootstrapData.sessionRestoreStatus === 'INVALID_OR_EXPIRED'
+              bootstrapData.sessionRestoreReason === 'NEW_DEVICE_LOGIN'
+                ? 'SESSION_SUPERSEDED'
+                : hadPersistedToken || bootstrapData.sessionRestoreStatus === 'INVALID_OR_EXPIRED'
                 ? 'INVALID_OR_EXPIRED'
                 : 'NO_TOKEN';
+            var restoreMsg = bootstrapData.sessionRestoreMessage || '';
             clearClientSessionCredential();
-            applySessionAndRouteState(null, restoreOutcome);
+            applySessionAndRouteState(null, restoreOutcome, restoreMsg);
           }
         })
         .catch(function (err) {
@@ -8752,33 +8843,33 @@
       sections: [
         {
           id: 'PART_1',
-          shortLabel: '1. ความหลากหลายฯ',
-          title: 'ส่วนที่ 1 : ความหลากหลายทางชีวภาพและสิ่งแวดล้อม',
-          targetRangeText: '5–7 ข้อ'
+          shortLabel: '1. Biodiversity',
+          title: 'Part 1: Biodiversity & Environment',
+          targetRangeText: '5–7 Questions'
         },
         {
           id: 'PART_2',
-          shortLabel: '2. หน่วยพื้นฐานชีวิต',
-          title: 'ส่วนที่ 2 : หน่วยพื้นฐานของสิ่งมีชีวิต',
-          targetRangeText: '6–8 ข้อ'
+          shortLabel: '2. Cellular Biology',
+          title: 'Part 2: Fundamental Units of Life',
+          targetRangeText: '6–8 Questions'
         },
         {
           id: 'PART_3',
-          shortLabel: '3. ระบบสัตว์และมนุษย์',
-          title: 'ส่วนที่ 3 : ระบบและการทำงานต่าง ๆ ของสัตว์และมนุษย์',
-          targetRangeText: '12–14 ข้อ'
+          shortLabel: '3. Animal Systems',
+          title: 'Part 3: Animal & Human Organ Systems',
+          targetRangeText: '12–14 Questions'
         },
         {
           id: 'PART_4',
-          shortLabel: '4. พืช',
-          title: 'ส่วนที่ 4 : โครงสร้างและการทำงานของส่วนต่าง ๆ ในพืช',
-          targetRangeText: '6–8 ข้อ'
+          shortLabel: '4. Plant Physiology',
+          title: 'Part 4: Plant Structure & Function',
+          targetRangeText: '6–8 Questions'
         },
         {
           id: 'PART_5',
-          shortLabel: '5. พันธุศาสตร์/วิวัฒนาการ',
-          title: 'ส่วนที่ 5 : พันธุศาสตร์และวิวัฒนาการ',
-          targetRangeText: '6–8 ข้อ'
+          shortLabel: '5. Genetics & Evolution',
+          title: 'Part 5: Genetics & Evolution',
+          targetRangeText: '6–8 Questions'
         }
       ]
     };
@@ -15635,7 +15726,7 @@ var qrcode = (function() {
               } else {
                 b.className = 'badge badge-incomplete';
               }
-              b.textContent = p.status;
+              b.textContent = typeof formatFriendlyEnumStatus === 'function' ? formatFriendlyEnumStatus(p.status) : p.status;
               tdSt.appendChild(b);
 
               var tdMeta = document.createElement('td');
@@ -16430,7 +16521,7 @@ var qrcode = (function() {
               : p.status === 'AWAITING_VERIFICATION' || p.status === 'APPROVING'
               ? 'badge badge-incomplete'
               : 'badge badge-danger';
-          b.textContent = p.status;
+          b.textContent = typeof formatFriendlyEnumStatus === 'function' ? formatFriendlyEnumStatus(p.status) : p.status;
           tdSt.appendChild(b);
 
           var subTimeDiv = document.createElement('div');
@@ -20259,11 +20350,40 @@ var qrcode = (function() {
       return out;
     }
 
+    function formatFriendlyEnumStatus(rawVal) {
+      var k = String(rawVal || '').trim().toUpperCase();
+      var map = {
+        SUBMITTED: 'Submitted',
+        IN_PROGRESS: 'In Progress',
+        EXPIRED_SUBMITTED: 'Submitted (Time Expired)',
+        INVALIDATED_COPY_POLICY: 'Voided (Copy Policy)',
+        GRADED: 'Graded',
+        REGRADED: 'Regraded',
+        AUTO_GRADED_PENDING_MANUAL: 'Pending Manual Review',
+        MANUAL_REVIEW_PENDING: 'Pending Review',
+        UNGRADED: 'Ungraded',
+        PUBLISHED: 'Published',
+        DRAFT: 'Draft',
+        WITHHELD: 'Withheld',
+        ARCHIVED: 'Archived',
+        CORRECT: 'Correct',
+        PARTIAL: 'Partial Credit',
+        INCORRECT: 'Incorrect',
+        UNANSWERED: 'Unanswered',
+        CHECKED: 'Checked',
+        AWAITING_VERIFICATION: 'Awaiting Verification',
+        APPROVING: 'Verifying',
+        PAID: 'Paid',
+        REJECTED: 'Rejected'
+      };
+      return map[k] || (k ? k.replace(/_/g, ' ') : '-');
+    }
+
     function formatQuestionTypeDisplayLabel(qType) {
       var k = String(qType || 'SINGLE_CHOICE').trim().toUpperCase();
       var map = {
-        SINGLE_CHOICE: 'Single Choice (5 Opts)',
-        COMPLEX_MULTIPLE_CHOICE: 'Complex MC (ใช่/ไม่ใช่)',
+        SINGLE_CHOICE: 'Multiple Choice (5 Opts)',
+        COMPLEX_MULTIPLE_CHOICE: 'Complex MC (Yes/No)',
         MULTIPLE_SELECT: 'Multiple Select',
         TRUE_FALSE: 'True / False',
         NUMERIC_RESPONSE: 'Numeric Response',
@@ -20306,12 +20426,12 @@ var qrcode = (function() {
           var tg = document.createElement('div');
           tg.className = 'pb-complex-mc-toggle-group';
           tg.setAttribute('role', 'group');
-          tg.setAttribute('aria-label', 'ข้อความย่อยที่ ' + (idx + 1));
+          tg.setAttribute('aria-label', 'Sub-statement ' + (idx + 1));
 
           var yesBtn = document.createElement('button');
           yesBtn.type = 'button';
           yesBtn.className = 'pb-complex-mc-toggle-pill is-yes' + (curVal === 'YES' ? ' is-selected' : '');
-          yesBtn.textContent = 'ใช่ (Yes)';
+          yesBtn.textContent = 'Yes';
           yesBtn.setAttribute('aria-pressed', curVal === 'YES' ? 'true' : 'false');
           yesBtn.addEventListener('click', function () {
             if (typeof onChangeDecision === 'function') {
@@ -20323,7 +20443,7 @@ var qrcode = (function() {
           var noBtn = document.createElement('button');
           noBtn.type = 'button';
           noBtn.className = 'pb-complex-mc-toggle-pill is-no' + (curVal === 'NO' ? ' is-selected' : '');
-          noBtn.textContent = 'ไม่ใช่ (No)';
+          noBtn.textContent = 'No';
           noBtn.setAttribute('aria-pressed', curVal === 'NO' ? 'true' : 'false');
           noBtn.addEventListener('click', function () {
             if (typeof onChangeDecision === 'function') {
@@ -20342,29 +20462,50 @@ var qrcode = (function() {
 
     function formatStudentResponseSummaryText(respPayload, opt_question, opt_emptyFallback) {
       var p = respPayload && typeof respPayload === 'object' ? respPayload : {};
+      var opts = opt_question && Array.isArray(opt_question.options) ? opt_question.options : [];
+      function resolveOptionReadableLabel(optionIdVal) {
+        var targetId = String(optionIdVal || '').trim();
+        if (!targetId) return '';
+        for (var j = 0; j < opts.length; j++) {
+          var o = opts[j] || {};
+          var oid = o.optionId || o.option_id || '';
+          if (oid === targetId) {
+            var lbl = o.displayLabel || o.optionKey || String.fromCharCode(65 + j);
+            var txt = o.plainTextSummary || o.text || '';
+            if (!txt && o.contentRichText && typeof extractRichTextPlainSummarySafe === 'function') {
+              txt = extractRichTextPlainSummarySafe(o.contentRichText);
+            }
+            return txt ? lbl + '. ' + txt : 'Choice ' + lbl;
+          }
+        }
+        return 'Selected Choice';
+      }
       if (p.statementDecisions && typeof p.statementDecisions === 'object') {
-        var opts = opt_question && Array.isArray(opt_question.options) ? opt_question.options : [];
         var parts = [];
         if (opts.length > 0) {
           for (var i = 0; i < opts.length; i++) {
-            var oid = opts[i].optionId;
+            var oid = opts[i].optionId || opts[i].option_id || '';
             var dVal = String(p.statementDecisions[oid] || '').toUpperCase();
-            parts.push((i + 1) + ': ' + (dVal === 'YES' ? 'ใช่' : dVal === 'NO' ? 'ไม่ใช่' : '-'));
+            parts.push((i + 1) + ': ' + (dVal === 'YES' ? 'Yes' : dVal === 'NO' ? 'No' : '-'));
           }
         } else {
           var keys = Object.keys(p.statementDecisions);
           for (var k = 0; k < keys.length; k++) {
             var dk = String(p.statementDecisions[keys[k]] || '').toUpperCase();
-            parts.push((k + 1) + ': ' + (dk === 'YES' ? 'ใช่' : dk === 'NO' ? 'ไม่ใช่' : '-'));
+            parts.push((k + 1) + ': ' + (dk === 'YES' ? 'Yes' : dk === 'NO' ? 'No' : '-'));
           }
         }
         if (parts.length > 0) return parts.join(' | ');
       }
+      if (p.selectedOptionId) {
+        return resolveOptionReadableLabel(p.selectedOptionId);
+      }
+      if (Array.isArray(p.selectedOptionIds) && p.selectedOptionIds.length > 0) {
+        return p.selectedOptionIds.map(resolveOptionReadableLabel).join('; ');
+      }
       return (
         p.textResponse ||
         p.numericText ||
-        p.selectedOptionId ||
-        (Array.isArray(p.selectedOptionIds) && p.selectedOptionIds.length > 0 ? p.selectedOptionIds.join(', ') : '') ||
         (opt_emptyFallback !== undefined ? opt_emptyFallback : '(No answer submitted)')
       );
     }
@@ -20531,7 +20672,7 @@ var qrcode = (function() {
       if (qType === 'TRUE_FALSE') {
         badge.textContent = '2 Choices (True / False)';
       } else if (qType === 'COMPLEX_MULTIPLE_CHOICE') {
-        badge.textContent = String(currentQBankActiveOptionCountPhase2) + ' Sub-Statements (ใช่ / ไม่ใช่)';
+        badge.textContent = String(currentQBankActiveOptionCountPhase2) + ' Sub-Statements (Yes / No)';
       } else {
         var lastLetter = String.fromCharCode(64 + Math.max(2, currentQBankActiveOptionCountPhase2));
         badge.textContent = String(currentQBankActiveOptionCountPhase2) + ' Choices (A–' + lastLetter + ')';
@@ -20831,7 +20972,7 @@ var qrcode = (function() {
       if (idInp) idInp.value = '';
       if (verInp) verInp.value = '';
       setText('qbank-editor-mode-badge', 'Create New Question (v1)');
-      setText('qbank-editor-heading', 'Create New Biology Question (Immutable v1)');
+      setText('qbank-editor-heading', 'Create New Biology Question');
       setText('qbank-editor-status', '');
 
       var codeInp = document.getElementById('input-qbank-code');
@@ -20899,7 +21040,7 @@ var qrcode = (function() {
       if (verInp) verInp.value = String(q.version || 1);
       setText(
         'qbank-editor-mode-badge',
-        'Edit Question (Creates Immutable v' + String((Number(q.latestVersionNo) || 1) + 1) + ')'
+        'Edit Question (New Version v' + String((Number(q.latestVersionNo) || 1) + 1) + ')'
       );
       setText('qbank-editor-heading', 'Edit Question: [' + q.questionCode + '] ' + q.title);
       setText('qbank-editor-status', '');
@@ -21924,7 +22065,7 @@ var qrcode = (function() {
               PBNotify.toast(
                 'success',
                 'Question Saved',
-                'Saved ' + env.data.question.questionCode + ' (Immutable v' + env.data.question.versionNo + ').'
+                'Saved ' + env.data.question.questionCode + ' (v' + env.data.question.versionNo + ').'
               );
             })
             .catch(function (err) {
@@ -24203,7 +24344,7 @@ var qrcode = (function() {
                 imageAltText: fullQ.imageAltText || '',
                 selectionInstruction:
                   fullQ.questionType === 'COMPLEX_MULTIPLE_CHOICE'
-                    ? 'เลือกตอบเชิงซ้อน: พิจารณาข้อความย่อยแต่ละข้อแล้วเลือก "ใช่" หรือ "ไม่ใช่" ให้ครบทั้ง 3 ข้อย่อย'
+                    ? 'Complex Multiple Choice: Evaluate each sub-statement and select "Yes" or "No".'
                     : fullQ.questionType === 'MULTIPLE_SELECT'
                     ? 'Select all correct answers.'
                     : fullQ.questionType === 'NUMERIC_RESPONSE'
@@ -24499,7 +24640,7 @@ var qrcode = (function() {
       if (!s) return 'PART_1';
       for (var i = 0; i < PB_ALEVEL_66_BIO_BLUEPRINT.sections.length; i++) {
         var sec = PB_ALEVEL_66_BIO_BLUEPRINT.sections[i];
-        if (s === sec.id || s.indexOf(sec.title) !== -1 || s.indexOf('ส่วนที่ ' + (i + 1)) !== -1) {
+        if (s === sec.id || s.indexOf(sec.title) !== -1 || s.indexOf('Part ' + (i + 1)) !== -1 || s.indexOf('\u0E2A\u0E48\u0E27\u0E19\u0E17\u0E35\u0E48 ' + (i + 1)) !== -1) {
           return sec.id;
         }
       }
@@ -24691,7 +24832,7 @@ var qrcode = (function() {
       }
       var pCxEl = document.getElementById('pb-alevel-count-complex');
       if (pCxEl) {
-        pCxEl.textContent = 'Complex MC (ใช่/ไม่ใช่): ' + countComplex + ' / ' + PB_ALEVEL_66_BIO_BLUEPRINT.complexMcTargetCount;
+        pCxEl.textContent = 'Complex MC (Yes/No): ' + countComplex + ' / ' + PB_ALEVEL_66_BIO_BLUEPRINT.complexMcTargetCount;
         pCxEl.classList.toggle('is-target-met', countComplex === PB_ALEVEL_66_BIO_BLUEPRINT.complexMcTargetCount);
       }
       var pScEl = document.getElementById('pb-alevel-score-total');
@@ -24710,7 +24851,7 @@ var qrcode = (function() {
             btn.className = 'pb-alevel-sec-pill' + (activeFormsBlueprintSectionId === sec.id ? ' is-active' : '');
             var cNum = secCounts[sec.id] || 0;
             btn.textContent = sec.shortLabel + ': ' + cNum + ' (' + sec.targetRangeText + ')';
-            btn.title = sec.title + ' — คลิกเพื่อตั้งเป็นหมวดหลักสำหรับข้อใหม่';
+            btn.title = sec.title + ' — Click to set as active section for new questions';
             btn.addEventListener('click', function () {
               activeFormsBlueprintSectionId = sec.id;
               updateFormsBuilderSummaryBadge();
@@ -24921,7 +25062,7 @@ var qrcode = (function() {
           typeSel.className = 'form-input';
           var typeChoices = [
             { v: 'SINGLE_CHOICE', l: '\u25C9 A-Level Multiple Choice (5 Opts)' },
-            { v: 'COMPLEX_MULTIPLE_CHOICE', l: '\u229E A-Level Complex MC (ใช่ / ไม่ใช่)' },
+            { v: 'COMPLEX_MULTIPLE_CHOICE', l: '\u229E A-Level Complex MC (Yes / No)' },
             { v: 'MULTIPLE_SELECT', l: '\u2611 Checkboxes (Multi-Select)' },
             { v: 'TRUE_FALSE', l: '\u2713 True / False' },
             { v: 'NUMERIC_RESPONSE', l: '# Numeric Calculation' },
@@ -25037,7 +25178,7 @@ var qrcode = (function() {
             cmcHint.style.color = '#0F766E';
             cmcHint.style.fontWeight = '700';
             cmcHint.style.marginBottom = '6px';
-            cmcHint.textContent = 'เลือกตอบเชิงซ้อน (ข้อความต่อไปนี้ถูกต้องใช่หรือไม่): กำหนดข้อความย่อย 3–5 ข้อ พร้อมเฉลย "ใช่" หรือ "ไม่ใช่" (ถูก 3/3 = 100%, ถูก 2/3 = 50%, ถูก ≤1/3 = 0%)';
+            cmcHint.textContent = 'Complex Multiple Choice (Are these statements true?): Add 3–5 sub-statements and set each key to "Yes" or "No" (3/3 = 100%, 2/3 = 50%, <=1/3 = 0%).';
             cardEl.appendChild(cmcHint);
 
             var cmcList = document.createElement('div');
@@ -25059,7 +25200,7 @@ var qrcode = (function() {
 
                 var stmtEd = PBWordRichEditor.createInput({
                   isSingleLine: true,
-                  placeholder: 'ข้อความย่อยที่ ' + (statementIndex + 1) + ' (Ctrl+= Sub, Ctrl+Shift+= Sup, \\beta-)...',
+                  placeholder: 'Sub-statement ' + (statementIndex + 1) + ' (Ctrl+= Sub, Ctrl+Shift+= Sup, \\beta-)...',
                   initialValue: stmtObj.doc || stmtObj.text,
                   ariaLabel: 'Sub-statement ' + (statementIndex + 1),
                   onChange: function (doc, plainTxt) {
@@ -25077,7 +25218,7 @@ var qrcode = (function() {
                 var yesKeyBtn = document.createElement('button');
                 yesKeyBtn.type = 'button';
                 yesKeyBtn.className = 'pb-complex-mc-toggle-pill is-yes' + (stmtObj.isCorrect ? ' is-selected' : '');
-                yesKeyBtn.textContent = 'เฉลย: ใช่';
+                yesKeyBtn.textContent = 'Key: Yes';
                 yesKeyBtn.addEventListener('click', function () {
                   stmtObj.isCorrect = true;
                   card.isDirty = true;
@@ -25088,7 +25229,7 @@ var qrcode = (function() {
                 var noKeyBtn = document.createElement('button');
                 noKeyBtn.type = 'button';
                 noKeyBtn.className = 'pb-complex-mc-toggle-pill is-no' + (!stmtObj.isCorrect ? ' is-selected' : '');
-                noKeyBtn.textContent = 'เฉลย: ไม่ใช่';
+                noKeyBtn.textContent = 'Key: No';
                 noKeyBtn.addEventListener('click', function () {
                   stmtObj.isCorrect = false;
                   card.isDirty = true;
@@ -25468,6 +25609,9 @@ var qrcode = (function() {
       var workspace = document.getElementById('pb-forms-builder-workspace');
       if (catalogCard) catalogCard.classList.add('hidden');
       if (workspace) workspace.classList.remove('hidden');
+      if (typeof PBFloatingToc === 'object' && PBFloatingToc && typeof PBFloatingToc.syncForActiveView === 'function') {
+        PBFloatingToc.syncForActiveView();
+      }
 
       var idEl = document.getElementById('input-forms-exam-id');
       var verEl = document.getElementById('input-forms-exam-version');
@@ -25534,6 +25678,9 @@ var qrcode = (function() {
       var workspace = document.getElementById('pb-forms-builder-workspace');
       if (catalogCard) catalogCard.classList.add('hidden');
       if (workspace) workspace.classList.remove('hidden');
+      if (typeof PBFloatingToc === 'object' && PBFloatingToc && typeof PBFloatingToc.syncForActiveView === 'function') {
+        PBFloatingToc.syncForActiveView();
+      }
 
       var idEl = document.getElementById('input-forms-exam-id');
       var verEl = document.getElementById('input-forms-exam-version');
@@ -25658,6 +25805,9 @@ var qrcode = (function() {
       var workspace = document.getElementById('pb-forms-builder-workspace');
       if (workspace) workspace.classList.add('hidden');
       if (catalogCard) catalogCard.classList.remove('hidden');
+      if (typeof PBFloatingToc === 'object' && PBFloatingToc && typeof PBFloatingToc.syncForActiveView === 'function') {
+        PBFloatingToc.syncForActiveView();
+      }
     }
 
     function renderFormsImportBankDrawerList() {
@@ -25985,7 +26135,7 @@ var qrcode = (function() {
     function formatFormsSaveErrorFriendly(err) {
       var msg = (err && err.message) || 'Failed to save exam.';
       if (msg.indexOf('Question type must be SINGLE_CHOICE') !== -1 && msg.indexOf('COMPLEX_MULTIPLE_CHOICE') === -1) {
-        msg += ' — Note: Saving Complex Multiple Choice (เลือกตอบเชิงซ้อน) requires updating Google Apps Script from OneDrive\\PPB\\Web\\Code.gs.';
+        msg += ' — Note: Saving Complex Multiple Choice requires updating Google Apps Script from OneDrive\\PPB\\Web\\Code.gs and CourseService.gs.';
       }
       return msg;
     }
@@ -27631,7 +27781,7 @@ var qrcode = (function() {
             var matchCount = 0;
             for (var ci = 0; ci < opts.length; ci++) {
               var expAns = opts[ci].isCorrect ? 'YES' : 'NO';
-              corrLabels.push((ci + 1) + ': ' + (opts[ci].isCorrect ? 'ใช่' : 'ไม่ใช่'));
+              corrLabels.push((ci + 1) + ': ' + (opts[ci].isCorrect ? 'Yes' : 'No'));
               if (String(decs[opts[ci].optionId] || '').toUpperCase() === expAns) {
                 matchCount++;
               }
@@ -27674,7 +27824,7 @@ var qrcode = (function() {
           var d = env.data || {};
           var fbBox = document.getElementById('exam-ws-practice-feedback-box');
           if (fbBox) fbBox.classList.remove('hidden');
-          setText('exam-ws-practice-feedback-badge', d.correctnessState || 'CHECKED');
+          setText('exam-ws-practice-feedback-badge', formatFriendlyEnumStatus(d.correctnessState || 'CHECKED'));
           setText(
             'exam-ws-practice-feedback-score',
             'Points: ' + (d.awardedPointsDisplay || '0 pts') + ' / ' + (d.maxPointsDisplay || '1 pt')
@@ -27703,7 +27853,7 @@ var qrcode = (function() {
         currentExamCountdownIntervalPhase5 = null;
       }
 
-      setText('exam-receipt-status-badge', receiptDto.attemptStatus || 'SUBMITTED');
+      setText('exam-receipt-status-badge', formatFriendlyEnumStatus(receiptDto.attemptStatus || 'SUBMITTED'));
       setText('exam-receipt-code-badge', receiptDto.receiptCode || '');
       setText('exam-receipt-title', (receiptDto.examTitle || 'Examination') + ' — Submission Receipt');
       setText('exam-receipt-submitted-at', receiptDto.submittedAtBangkok || receiptDto.submittedAtUtc || '-');
@@ -27717,7 +27867,10 @@ var qrcode = (function() {
       );
       setText(
         'exam-receipt-grading-status',
-        'Grading: ' + (receiptDto.gradingStatus || '-') + ' | Score: ' + (receiptDto.publicationStatus || '-')
+        'Grading: ' +
+          formatFriendlyEnumStatus(receiptDto.gradingStatus) +
+          ' | Score: ' +
+          formatFriendlyEnumStatus(receiptDto.publicationStatus)
       );
       setText('exam-receipt-release-text', receiptDto.releasePolicyExplanation || '');
 
@@ -27902,7 +28055,7 @@ var qrcode = (function() {
               : att.attemptStatus === 'IN_PROGRESS'
               ? 'badge badge-warning'
               : 'badge';
-          stBadge.textContent = att.attemptStatus;
+          stBadge.textContent = formatFriendlyEnumStatus(att.attemptStatus);
           tdAttSt.appendChild(stBadge);
           tr.appendChild(tdAttSt);
 
@@ -27914,12 +28067,12 @@ var qrcode = (function() {
               : att.gradingStatus === 'GRADED' || att.gradingStatus === 'REGRADED'
               ? 'badge badge-ok'
               : 'badge';
-          gBadge.textContent = att.gradingStatus;
+          gBadge.textContent = formatFriendlyEnumStatus(att.gradingStatus);
           tdGrad.appendChild(gBadge);
           var pubDiv = document.createElement('div');
           pubDiv.style.fontSize = '0.75rem';
           pubDiv.style.marginTop = '4px';
-          pubDiv.textContent = 'Release: ' + att.publicationStatus;
+          pubDiv.textContent = 'Release: ' + formatFriendlyEnumStatus(att.publicationStatus);
           tdGrad.appendChild(pubDiv);
           tr.appendChild(tdGrad);
 
@@ -27997,7 +28150,7 @@ var qrcode = (function() {
 
           setText(
             'manual-grading-status-badge',
-            (att.gradingStatus || 'GRADED') + ' | ' + (att.totalScoreDisplay || '')
+            formatFriendlyEnumStatus(att.gradingStatus || 'GRADED') + ' | ' + (att.totalScoreDisplay || '')
           );
           setText(
             'manual-grading-heading',
@@ -28037,14 +28190,14 @@ var qrcode = (function() {
               ' [' +
               it.questionCode +
               '] (' +
-              it.questionType +
+              formatQuestionTypeDisplayLabel(it.questionType) +
               ' | Max: ' +
               it.maxPointsDisplay +
-              ' | Current: ' +
+              ' | Score: ' +
               it.awardedPointsDisplay +
-              ' [' +
-              it.correctnessState +
-              '])';
+              ' — ' +
+              formatFriendlyEnumStatus(it.correctnessState) +
+              ')';
             box.appendChild(headDiv);
 
             var respDiv = document.createElement('div');
@@ -28057,7 +28210,11 @@ var qrcode = (function() {
             var p = it.responsePayload || {};
             respDiv.textContent =
               'Student Response: ' +
-              formatStudentResponseSummaryText(p, it.question || null, '(No answer submitted)');
+              formatStudentResponseSummaryText(
+                p,
+                it.questionAdminView || it.question || null,
+                '(No answer submitted)'
+              );
             box.appendChild(respDiv);
 
             var ctrlGrid = document.createElement('div');
@@ -28216,7 +28373,7 @@ var qrcode = (function() {
           if (!d.scorePublished || !d.scoreSummary) {
             setText('exam-result-score-badge', 'Score Pending Release');
             setText('exam-result-pct-badge', d.publicationStatus || 'UNPUBLISHED');
-            setText('exam-result-pass-badge', d.gradingStatus || 'GRADED');
+            setText('exam-result-pass-badge', formatFriendlyEnumStatus(d.gradingStatus || 'GRADED'));
             setText('exam-result-explanation-badge', 'Explanations Withheld');
             if (secWrap) secWrap.classList.add('hidden');
             if (itemsWrap) itemsWrap.classList.add('hidden');
@@ -28292,7 +28449,7 @@ var qrcode = (function() {
                 ' / ' +
                 it.maxPointsDisplay +
                 ' (' +
-                it.correctnessState +
+                formatFriendlyEnumStatus(it.correctnessState) +
                 ')';
               topRow.appendChild(ptBadge);
               card.appendChild(topRow);
@@ -32714,18 +32871,19 @@ var qrcode = (function() {
             activePaymentSessionDto = null;
             setText(
               'payment-confirm-submission-status',
-              'Submitted! Status is now ' + (updatedPay.status || 'AWAITING_VERIFICATION')
+              'Submitted! Status is now ' +
+                (typeof formatFriendlyEnumStatus === 'function'
+                  ? formatFriendlyEnumStatus(updatedPay.status || 'AWAITING_VERIFICATION')
+                  : updatedPay.status || 'Awaiting Verification')
             );
             setStudentPaymentsAlert(
               'success',
-              'Payment Submitted — Status: Awaiting Verification (AWAITING_VERIFICATION)',
+              'Payment Submitted — Status: Awaiting Verification',
               'Session ' +
                 pid +
                 ' (' +
                 (updatedPay.totalAmountThbFormatted || '') +
-                ') and its receipt (' +
-                fid +
-                ') have been submitted for administrator verification.'
+                ') and transfer receipt have been submitted for administrator verification.'
             );
             if (typeof PBNotify === 'object' && PBNotify && typeof PBNotify.toast === 'function') {
               PBNotify.toast({
@@ -33597,7 +33755,204 @@ var qrcode = (function() {
         });
       }
 
-      /* Database Factory Reset (2-Step Email OTP Verification) Bindings */
+      /* System Reset (Full Reset or Selective Data Deletion with 2-Step Email OTP) Bindings */
+      var PB_DEFAULT_RESET_CATEGORIES = [
+        { id: 'COURSES_CONTENT', label: 'Courses, Sections, Cards & Quizzes', description: 'Course catalog, sections, lesson cards, and legacy assessment scores.', rowCount: null },
+        { id: 'EXAMS_QBANK', label: 'Question Bank & Exam Studio Tests', description: 'Shared passages/stimuli, questions, exam sets, sections, and student assignments.', rowCount: null },
+        { id: 'SUBMISSIONS_INTEGRITY', label: 'Exam Submissions, Grades & Integrity Logs', description: 'Student exam attempts, saved responses, rubric scores, and exam integrity events.', rowCount: null },
+        { id: 'STUDENTS_ENROLLMENTS', label: 'Student Accounts & Enrollments', description: 'Student login accounts, privacy records, and course enrollments (admin accounts stay intact in selective mode).', rowCount: null },
+        { id: 'BILLING_PAYMENTS', label: 'Invoices, Payment Slips & Billing Journal', description: 'Tuition invoices, uploaded transfer slips, approval records, and income journal logs.', rowCount: null },
+        { id: 'CALENDAR_AVAILABILITY', label: 'Class Calendar & Unavailability Requests', description: 'Class calendar events and student schedule availability requests.', rowCount: null },
+        { id: 'FILES_MEDIA', label: 'Uploaded Files & Media Index', description: 'Database file references for course covers, logos, lesson attachments, and exam diagrams.', rowCount: null },
+        { id: 'SECURITY_AUDIT', label: 'Audit Logs, Login Attempts & Other Sessions', description: 'System audit history, login attempt counters, and other active sessions.', rowCount: null },
+        { id: 'SETTINGS_RESET', label: 'Portal Settings (Restore Factory Defaults)', description: 'Resets portal branding, bank transfer instructions, and display settings to defaults.', rowCount: null }
+      ];
+      var factoryResetCategoriesCache = PB_DEFAULT_RESET_CATEGORIES.slice();
+      var selectedFactoryResetCategoryMap = {};
+      PB_DEFAULT_RESET_CATEGORIES.forEach(function (c) {
+        selectedFactoryResetCategoryMap[c.id] = false;
+      });
+
+      function getCurrentFactoryResetMode() {
+        var rSel = document.getElementById('radio-reset-mode-selective');
+        return rSel && rSel.checked ? 'SELECTIVE' : 'FULL';
+      }
+
+      function getSelectedFactoryResetCategoryIds() {
+        if (getCurrentFactoryResetMode() === 'FULL') {
+          return factoryResetCategoriesCache.map(function (c) { return c.id; });
+        }
+        return Object.keys(selectedFactoryResetCategoryMap).filter(function (id) {
+          return Boolean(selectedFactoryResetCategoryMap[id]);
+        });
+      }
+
+      function renderFactoryResetScopeUi() {
+        var mode = getCurrentFactoryResetMode();
+        var lblFull = document.getElementById('lbl-reset-mode-full');
+        var lblSel = document.getElementById('lbl-reset-mode-selective');
+        var selWrap = document.getElementById('pb-factory-reset-selective-controls');
+        var grid = document.getElementById('pb-factory-reset-categories-grid');
+        var sumEl = document.getElementById('pb-factory-reset-scope-summary');
+        var keepAdminChk = document.getElementById('input-admin-factory-reset-keep-admin');
+        var keepAdmin = keepAdminChk ? Boolean(keepAdminChk.checked) : true;
+
+        if (lblFull) lblFull.classList.toggle('is-active', mode === 'FULL');
+        if (lblSel) lblSel.classList.toggle('is-active', mode === 'SELECTIVE');
+        if (selWrap) selWrap.classList.toggle('hidden', mode !== 'SELECTIVE');
+
+        if (grid) {
+          while (grid.firstChild) grid.removeChild(grid.firstChild);
+          for (var i = 0; i < factoryResetCategoriesCache.length; i++) {
+            (function (cat) {
+              var isChecked = Boolean(selectedFactoryResetCategoryMap[cat.id]);
+              var cardLbl = document.createElement('label');
+              cardLbl.className = 'pb-reset-cat-item' + (isChecked ? ' is-selected' : '');
+
+              var chk = document.createElement('input');
+              chk.type = 'checkbox';
+              chk.value = cat.id;
+              chk.checked = isChecked;
+              chk.addEventListener('change', function () {
+                selectedFactoryResetCategoryMap[cat.id] = Boolean(chk.checked);
+                cardLbl.classList.toggle('is-selected', Boolean(chk.checked));
+                updateFactoryResetSummaryBanner();
+              });
+              cardLbl.appendChild(chk);
+
+              var txtWrap = document.createElement('div');
+              txtWrap.style.flex = '1';
+              txtWrap.style.minWidth = '0';
+
+              var titleRow = document.createElement('div');
+              titleRow.className = 'pb-reset-cat-title';
+              var titleTxt = document.createElement('span');
+              titleTxt.textContent = cat.label;
+              titleRow.appendChild(titleTxt);
+
+              var cntBadge = document.createElement('span');
+              cntBadge.className = 'badge' + (cat.rowCount > 0 ? ' badge-warning' : '');
+              cntBadge.style.fontSize = '0.7rem';
+              cntBadge.textContent =
+                cat.rowCount === null || cat.rowCount === undefined
+                  ? '...'
+                  : String(cat.rowCount) + (cat.rowCount === 1 ? ' row' : ' rows');
+              titleRow.appendChild(cntBadge);
+              txtWrap.appendChild(titleRow);
+
+              var descEl = document.createElement('span');
+              descEl.className = 'pb-reset-cat-desc';
+              descEl.textContent = cat.description || '';
+              txtWrap.appendChild(descEl);
+
+              cardLbl.appendChild(txtWrap);
+              grid.appendChild(cardLbl);
+            })(factoryResetCategoriesCache[i]);
+          }
+        }
+
+        function updateFactoryResetSummaryBanner() {
+          if (!sumEl) return;
+          var totalAll = 0;
+          var totalSel = 0;
+          var selNames = [];
+          for (var j = 0; j < factoryResetCategoriesCache.length; j++) {
+            var c = factoryResetCategoriesCache[j];
+            var r = Number(c.rowCount || 0);
+            totalAll += r;
+            if (selectedFactoryResetCategoryMap[c.id]) {
+              totalSel += r;
+              selNames.push(c.label);
+            }
+          }
+          if (mode === 'FULL') {
+            sumEl.textContent =
+              'Full System Reset: ALL ' +
+              factoryResetCategoriesCache.length +
+              ' categories (' +
+              totalAll +
+              ' current data rows) will be cleared. ' +
+              (keepAdmin
+                ? 'Your active administrator account & baseline Settings remain intact.'
+                : 'WARNING: Administrator accounts will also be wiped!');
+          } else if (selNames.length === 0) {
+            sumEl.textContent =
+              'Selective Reset: No categories selected yet — check at least one specific category above to delete.';
+          } else {
+            sumEl.textContent =
+              'Selective Reset: Deleting ' +
+              selNames.length +
+              ' selected categor' +
+              (selNames.length === 1 ? 'y' : 'ies') +
+              ' (' +
+              totalSel +
+              ' data rows): ' +
+              selNames.join(', ') +
+              '. All unselected data and administrator accounts remain safe.';
+          }
+        }
+        updateFactoryResetSummaryBanner();
+      }
+
+      function loadFactoryResetPreviewCounts() {
+        renderFactoryResetScopeUi();
+        return rpcCallEnvelope('admin.getFactoryResetPreview', {})
+          .then(function (env) {
+            var d = env && env.data ? env.data : {};
+            if (Array.isArray(d.categories) && d.categories.length > 0) {
+              factoryResetCategoriesCache = d.categories;
+            }
+            var emailInp = document.getElementById('input-admin-factory-reset-email');
+            if (emailInp && !emailInp.value.trim() && d.designatedEmail) {
+              emailInp.value = d.designatedEmail;
+            }
+            renderFactoryResetScopeUi();
+          })
+          .catch(function () {
+            renderFactoryResetScopeUi();
+          });
+      }
+
+      ['radio-reset-mode-full', 'radio-reset-mode-selective', 'input-admin-factory-reset-keep-admin'].forEach(function (elId) {
+        var el = document.getElementById(elId);
+        if (el) {
+          el.addEventListener('change', function () {
+            renderFactoryResetScopeUi();
+          });
+        }
+      });
+
+      var btnSelAllReset = document.getElementById('btn-factory-reset-select-all');
+      if (btnSelAllReset) {
+        btnSelAllReset.addEventListener('click', function () {
+          factoryResetCategoriesCache.forEach(function (c) {
+            selectedFactoryResetCategoryMap[c.id] = true;
+          });
+          renderFactoryResetScopeUi();
+        });
+      }
+
+      var btnClrAllReset = document.getElementById('btn-factory-reset-clear-all');
+      if (btnClrAllReset) {
+        btnClrAllReset.addEventListener('click', function () {
+          factoryResetCategoriesCache.forEach(function (c) {
+            selectedFactoryResetCategoryMap[c.id] = false;
+          });
+          renderFactoryResetScopeUi();
+        });
+      }
+
+      var btnRefreshResetPrev = document.getElementById('btn-factory-reset-refresh-preview');
+      if (btnRefreshResetPrev) {
+        btnRefreshResetPrev.addEventListener('click', function () {
+          runButtonWithLoadingState(btnRefreshResetPrev, 'Loading...', function () {
+            return loadFactoryResetPreviewCounts();
+          });
+        });
+      }
+
+      renderFactoryResetScopeUi();
+
       bindActionButton('btn-admin-request-factory-reset-otp', function () {
         var emailInp = document.getElementById('input-admin-factory-reset-email');
         var designatedEmail = emailInp ? emailInp.value.trim() : '';
@@ -33621,7 +33976,7 @@ var qrcode = (function() {
             }
             PBNotify.toast(
               'info',
-              '6-Digit Factory Reset OTP Sent',
+              '6-Digit System Reset OTP Sent',
               d.message || statusMsg
             );
             var otpInp = document.getElementById('input-admin-factory-reset-otp');
@@ -33634,7 +33989,7 @@ var qrcode = (function() {
             );
             PBNotify.toast(
               'danger',
-              'Could Not Send Factory Reset OTP',
+              'Could Not Send System Reset OTP',
               (err && err.message) || 'Failed to request OTP.'
             );
           });
@@ -33649,6 +34004,8 @@ var qrcode = (function() {
           var phraseInp = document.getElementById('input-admin-factory-reset-phrase');
           var keepAdminChk = document.getElementById('input-admin-factory-reset-keep-admin');
 
+          var resetMode = getCurrentFactoryResetMode();
+          var selectedCategories = getSelectedFactoryResetCategoryIds();
           var otpCode = otpInp ? otpInp.value.trim() : '';
           var adminPassword = pwInp ? pwInp.value : '';
           var confirmationPhrase = phraseInp ? phraseInp.value.trim() : '';
@@ -33659,6 +34016,14 @@ var qrcode = (function() {
           PBNotify.clearFieldError('input-admin-factory-reset-phrase');
 
           var hasErr = false;
+          if (resetMode === 'SELECTIVE' && selectedCategories.length === 0) {
+            PBNotify.toast(
+              'warning',
+              'No Data Categories Selected',
+              'In Selective Data Deletion mode, please select at least one category to delete.'
+            );
+            return;
+          }
           if (!/^[0-9]{6}$/.test(otpCode)) {
             PBNotify.setFieldError(
               'input-admin-factory-reset-otp',
@@ -33683,7 +34048,7 @@ var qrcode = (function() {
           if (hasErr) {
             PBNotify.toast(
               'warning',
-              'Factory Reset Confirmation Incomplete',
+              'System Reset Confirmation Incomplete',
               'Please enter the 6-digit email OTP, your administrator password, and the phrase FACTORY RESET.'
             );
             return;
@@ -33691,10 +34056,14 @@ var qrcode = (function() {
 
           setText(
             'admin-factory-reset-result-status',
-            'Verifying 6-digit OTP and clearing all Google Sheets data...'
+            resetMode === 'FULL'
+              ? 'Verifying 6-digit OTP and performing full system reset...'
+              : 'Verifying 6-digit OTP and deleting ' + selectedCategories.length + ' selected data category(ies)...'
           );
 
           rpcCallEnvelope('admin.executeFactoryReset', {
+            resetMode: resetMode,
+            selectedCategories: selectedCategories,
             otpCode: otpCode,
             adminPassword: adminPassword,
             confirmationPhrase: confirmationPhrase,
@@ -33702,16 +34071,17 @@ var qrcode = (function() {
           })
             .then(function (env) {
               var d = env.data || {};
-              setText('admin-factory-reset-result-status', d.message || 'Factory reset completed.');
+              setText('admin-factory-reset-result-status', d.message || 'System reset completed.');
               if (otpInp) otpInp.value = '';
               if (pwInp) pwInp.value = '';
               if (phraseInp) phraseInp.value = '';
               PBNotify.toast(
                 'success',
-                'Database Factory Reset Completed',
-                d.message || 'All Google Sheets data rows have been cleared.'
+                resetMode === 'FULL' ? 'Full System Reset Completed' : 'Selective Data Deletion Completed',
+                d.message || 'Selected portal data has been cleared.'
               );
-              if (keepCurrentAdmin) {
+              if (resetMode === 'SELECTIVE' || keepCurrentAdmin) {
+                loadFactoryResetPreviewCounts();
                 refreshAdminDashboardSummary();
               } else {
                 clearClientSessionCredential();
@@ -33721,12 +34091,12 @@ var qrcode = (function() {
             .catch(function (err) {
               setText(
                 'admin-factory-reset-result-status',
-                'Factory reset rejected (' + ((err && err.code) || 'ERR') + '): ' + ((err && err.message) || '')
+                'System reset rejected (' + ((err && err.code) || 'ERR') + '): ' + ((err && err.message) || '')
               );
               PBNotify.toast(
                 'danger',
-                'Factory Reset Rejected (' + ((err && err.code) || 'ERR') + ')',
-                (err && err.message) || 'Could not complete factory reset.'
+                'System Reset Rejected (' + ((err && err.code) || 'ERR') + ')',
+                (err && err.message) || 'Could not complete system reset.'
               );
             });
         });

@@ -656,6 +656,16 @@ function getRpcActionRegistry_() {
       validatePayload: validateObjectPayloadOnly_,
       handler: handleAdminUpdateSettingsStep6_
     }),
+    'admin.getFactoryResetPreview': Object.freeze({
+      actionName: 'admin.getFactoryResetPreview',
+      visibility: 'PROTECTED',
+      requiredRoles: Object.freeze(['ADMIN']),
+      requiresPrivacyAck: false,
+      isFinancialMutation: false,
+      maxRequestBytes: stdLimit,
+      validatePayload: validateObjectPayloadOnly_,
+      handler: handleAdminGetFactoryResetPreview_
+    }),
     'admin.requestFactoryResetOtp': Object.freeze({
       actionName: 'admin.requestFactoryResetOtp',
       visibility: 'PROTECTED',
@@ -2232,6 +2242,8 @@ function handlePublicGetBootstrap_(payload, context) {
 
   var activeSessionSummary = null;
   var sessionRestoreStatus = 'NO_TOKEN';
+  var sessionRestoreReason = '';
+  var sessionRestoreMessage = '';
   if (payload.existingSessionToken) {
     try {
       var verified = requireAuthenticatedSessionGuard_(
@@ -2251,6 +2263,13 @@ function handlePublicGetBootstrap_(payload, context) {
     } catch (invalidOrExpiredErr) {
       activeSessionSummary = null;
       sessionRestoreStatus = 'INVALID_OR_EXPIRED';
+      var fe = invalidOrExpiredErr && invalidOrExpiredErr.fieldErrors ? invalidOrExpiredErr.fieldErrors : {};
+      if (fe.revokeReason === 'NEW_DEVICE_LOGIN' || fe.sessionSuperseded) {
+        sessionRestoreReason = 'NEW_DEVICE_LOGIN';
+        sessionRestoreMessage =
+          invalidOrExpiredErr.message ||
+          'You have been logged out because your account was signed in on another device.';
+      }
     }
   }
 
@@ -2424,6 +2443,8 @@ function handlePublicGetBootstrap_(payload, context) {
     authenticationImplemented: true,
     hasAnyUserAccount: hasAnyUserAccount,
     sessionRestoreStatus: sessionRestoreStatus,
+    sessionRestoreReason: sessionRestoreReason,
+    sessionRestoreMessage: sessionRestoreMessage,
     session: activeSessionSummary,
     correlationRequestId: context.requestId
   };
@@ -5124,6 +5145,16 @@ function authenticateUserLogin_(payload) {
     var tokenSha256 = sha256Hex_(rawSessionToken);
     var sessionId = generateEntityId_('ses_');
 
+    // Enforce single-device login: revoke all prior active sessions for this user before creating the new session
+    var supersededSessionCount = 0;
+    try {
+      var revokedRes = revokeAllUserSessions_(freshUser.user_id, 'NEW_DEVICE_LOGIN', sessionId);
+      supersededSessionCount = typeof revokedRes === 'number' ? revokedRes : (revokedRes ? 1 : 0);
+    } catch (revokePriorErr) {
+      // Fall through if no prior session existed or continue cleanly after logging
+      supersededSessionCount = 0;
+    }
+
     insertSheetRecord_('Sessions', {
       session_id: sessionId,
       token_sha256_hex: tokenSha256,
@@ -5227,6 +5258,17 @@ function requireAuthenticatedSessionGuard_(rawSessionToken, actionSpec) {
   }
 
   if (matchedSession.status !== 'ACTIVE') {
+    if (String(matchedSession.revoke_reason || '').toUpperCase() === 'NEW_DEVICE_LOGIN') {
+      throw createAppError_(
+        PB_ERROR_CODES_.ERR_AUTH_REQUIRED,
+        'You have been logged out because your account was signed in on another device.',
+        {
+          sessionSuperseded: true,
+          revokeReason: 'NEW_DEVICE_LOGIN',
+          revokedAtUtc: matchedSession.revoked_at_utc || ''
+        }
+      );
+    }
     throw createAppError_(
       PB_ERROR_CODES_.ERR_AUTH_REQUIRED,
       'Your session is no longer active (' +
@@ -27818,6 +27860,157 @@ function clearFactoryResetOtpState_() {
   } catch (ignorePropErr) {}
 }
 
+var PB_FACTORY_RESET_CATEGORIES_ = Object.freeze([
+  Object.freeze({
+    id: 'COURSES_CONTENT',
+    label: 'Courses, Sections, Cards & Quizzes',
+    description: 'Course catalog, sections, lesson cards, and legacy assessment scores.',
+    sheets: Object.freeze(['Courses', 'Sections', 'Cards', 'Assessments', 'AssessmentScores'])
+  }),
+  Object.freeze({
+    id: 'EXAMS_QBANK',
+    label: 'Question Bank & Exam Studio Tests',
+    description: 'Shared passages/stimuli, questions, exam sets, sections, and student assignments.',
+    sheets: Object.freeze([
+      'SharedStimuli', 'QuestionBank', 'QuestionVersions', 'QuestionOptions',
+      'ExamSets', 'ExamVersions', 'ExamSections', 'ExamItems', 'ExamAssignments'
+    ])
+  }),
+  Object.freeze({
+    id: 'SUBMISSIONS_INTEGRITY',
+    label: 'Exam Submissions, Grades & Integrity Logs',
+    description: 'Student exam attempts, saved responses, rubric scores, and exam integrity events.',
+    sheets: Object.freeze([
+      'ExamAttempts', 'AttemptItems', 'AttemptResponses', 'ExamOperationJournal',
+      'ResultRevisions', 'ExamIntegrityEvents', 'ExamPolicyAcknowledgments',
+      'StudentIntegrityProfiles', 'ExamIntegrityReviews'
+    ])
+  }),
+  Object.freeze({
+    id: 'STUDENTS_ENROLLMENTS',
+    label: 'Student Accounts & Enrollments',
+    description: 'Student login accounts, privacy records, and course enrollments (admin accounts stay intact in selective mode).',
+    sheets: Object.freeze(['Users', 'Enrollments', 'PrivacyChoices'])
+  }),
+  Object.freeze({
+    id: 'BILLING_PAYMENTS',
+    label: 'Invoices, Payment Slips & Billing Journal',
+    description: 'Tuition invoices, uploaded transfer slips, approval records, and income journal logs.',
+    sheets: Object.freeze(['Invoices', 'Payments', 'PaymentJournal'])
+  }),
+  Object.freeze({
+    id: 'CALENDAR_AVAILABILITY',
+    label: 'Class Calendar & Unavailability Requests',
+    description: 'Class calendar events and student schedule availability requests.',
+    sheets: Object.freeze(['UnavailabilityRequests'])
+  }),
+  Object.freeze({
+    id: 'FILES_MEDIA',
+    label: 'Uploaded Files & Media Index',
+    description: 'Database file references for course covers, logos, lesson attachments, and exam diagrams.',
+    sheets: Object.freeze(['Files'])
+  }),
+  Object.freeze({
+    id: 'SECURITY_AUDIT',
+    label: 'Audit Logs, Login Attempts & Other Sessions',
+    description: 'System audit history, login attempt counters, and other active sessions.',
+    sheets: Object.freeze(['AuditEvents', 'LoginAttempts', 'Sessions'])
+  }),
+  Object.freeze({
+    id: 'SETTINGS_RESET',
+    label: 'Portal Settings (Restore Factory Defaults)',
+    description: 'Resets portal branding, bank transfer instructions, and display settings to defaults.',
+    sheets: Object.freeze(['Settings'])
+  })
+]);
+
+function resolveFactoryResetCategoryList_(resetModeRaw, rawSelectedCategories) {
+  var mode = String(resetModeRaw || '').trim().toUpperCase();
+  var allIds = PB_FACTORY_RESET_CATEGORIES_.map(function (c) { return c.id; });
+  if (!mode) {
+    mode = Array.isArray(rawSelectedCategories) && rawSelectedCategories.length > 0 ? 'SELECTIVE' : 'FULL';
+  }
+  if (mode === 'FULL') {
+    return { mode: 'FULL', categoryIds: allIds.slice() };
+  }
+  var requested = Array.isArray(rawSelectedCategories) ? rawSelectedCategories : [];
+  var validMap = {};
+  for (var i = 0; i < PB_FACTORY_RESET_CATEGORIES_.length; i++) {
+    validMap[PB_FACTORY_RESET_CATEGORIES_[i].id] = true;
+  }
+  var chosen = [];
+  var seen = {};
+  for (var j = 0; j < requested.length; j++) {
+    var cid = String(requested[j] || '').trim().toUpperCase();
+    if (validMap[cid] && !seen[cid]) {
+      seen[cid] = true;
+      chosen.push(cid);
+    }
+  }
+  return { mode: 'SELECTIVE', categoryIds: chosen };
+}
+
+function handleAdminGetFactoryResetPreview_(payload, context) {
+  var authContext = context && context.authContext ? context.authContext : null;
+  var adminUser = assertAdminRoleStep6_(authContext);
+  var ss = openConfiguredSpreadsheet_();
+  ensureAllDatabaseSheets_(ss);
+  if (typeof ensureExamIntegrityPhaseASheetsExist_ === 'function') {
+    ensureExamIntegrityPhaseASheetsExist_(ss);
+  }
+
+  var studentAccountCount = 0;
+  var adminAccountCount = 0;
+  try {
+    var usersTbl = readSheetTable_('Users');
+    for (var ui = 0; ui < usersTbl.records.length; ui++) {
+      var uRec = usersTbl.records[ui];
+      if (String(uRec.role || '').toUpperCase() === 'ADMIN') {
+        adminAccountCount += 1;
+      } else {
+        studentAccountCount += 1;
+      }
+    }
+  } catch (ignoreUsersErr) {}
+
+  var categories = [];
+  var totalRowsAcrossAllCategories = 0;
+  for (var i = 0; i < PB_FACTORY_RESET_CATEGORIES_.length; i++) {
+    var cat = PB_FACTORY_RESET_CATEGORIES_[i];
+    var catRowCount = 0;
+    var sheetStats = [];
+    for (var s = 0; s < cat.sheets.length; s++) {
+      var sName = cat.sheets[s];
+      var sh = ss.getSheetByName(sName);
+      var rows = sh ? Math.max(0, sh.getLastRow() - 1) : 0;
+      if (cat.id === 'STUDENTS_ENROLLMENTS' && sName === 'Users') {
+        rows = studentAccountCount;
+      }
+      catRowCount += rows;
+      sheetStats.push({ sheetName: sName, rowCount: rows });
+    }
+    totalRowsAcrossAllCategories += catRowCount;
+    categories.push({
+      id: cat.id,
+      label: cat.label,
+      description: cat.description,
+      rowCount: catRowCount,
+      sheetCount: cat.sheets.length,
+      sheets: sheetStats
+    });
+  }
+
+  return {
+    categories: categories,
+    totalRowsAcrossAllCategories: totalRowsAcrossAllCategories,
+    totalWorksheetTabs: Object.keys(PB_SHEET_SCHEMAS_ || {}).length,
+    studentAccountCount: studentAccountCount,
+    adminAccountCount: adminAccountCount,
+    currentAdminUsername: adminUser.username_display || adminUser.username_lower || 'Admin',
+    designatedEmail: resolveFactoryResetRecipientEmail_(adminUser)
+  };
+}
+
 function handleAdminRequestFactoryResetOtp_(payload, context) {
   var authContext = context && context.authContext ? context.authContext : null;
   var adminUser = assertAdminRoleStep6_(authContext);
@@ -27937,8 +28130,12 @@ function handleAdminExecuteFactoryReset_(payload, context) {
   var confirmationPhrase = String(req.confirmationPhrase || '').trim();
   var keepCurrentAdmin =
     req.keepCurrentAdmin === undefined ? true : Boolean(req.keepCurrentAdmin);
+  var resolvedSelection = resolveFactoryResetCategoryList_(req.resetMode, req.selectedCategories);
 
   var fieldErrors = {};
+  if (resolvedSelection.mode === 'SELECTIVE' && resolvedSelection.categoryIds.length === 0) {
+    fieldErrors.selectedCategories = 'Select at least one data category to delete.';
+  }
   if (!/^[0-9]{6}$/.test(otpCode)) {
     fieldErrors.otpCode = 'Enter the 6-digit OTP code sent to the designated email address.';
   }
@@ -27952,7 +28149,7 @@ function handleAdminExecuteFactoryReset_(payload, context) {
   if (Object.keys(fieldErrors).length > 0) {
     throw createAppError_(
       PB_ERROR_CODES_.ERR_VALIDATION_FAILED,
-      'Factory reset verification fields are incomplete or invalid.',
+      'System reset verification fields are incomplete or invalid.',
       fieldErrors
     );
   }
@@ -27963,7 +28160,7 @@ function handleAdminExecuteFactoryReset_(payload, context) {
     clearFactoryResetOtpState_();
     throw createAppError_(
       PB_ERROR_CODES_.ERR_VALIDATION_FAILED,
-      'No active Factory Reset OTP found or the 10-minute OTP has expired. Please click "Send 6-Digit OTP to Email" first.',
+      'No active System Reset OTP found or the 10-minute OTP has expired. Please click "Send 6-Digit OTP to Email" first.',
       { otpCode: 'OTP expired or not requested yet.' }
     );
   }
@@ -27972,7 +28169,7 @@ function handleAdminExecuteFactoryReset_(payload, context) {
     clearFactoryResetOtpState_();
     throw createAppError_(
       PB_ERROR_CODES_.ERR_RATE_LIMITED || PB_ERROR_CODES_.ERR_VALIDATION_FAILED,
-      'Maximum OTP verification attempts exceeded. Please request a new Factory Reset OTP.',
+      'Maximum OTP verification attempts exceeded. Please request a new System Reset OTP.',
       { otpCode: 'Too many failed OTP attempts.' }
     );
   }
@@ -28007,6 +28204,9 @@ function handleAdminExecuteFactoryReset_(payload, context) {
   return withScriptLock_(function () {
     var ss = openConfiguredSpreadsheet_();
     ensureAllDatabaseSheets_(ss);
+    if (typeof ensureExamIntegrityPhaseASheetsExist_ === 'function') {
+      ensureExamIntegrityPhaseASheetsExist_(ss);
+    }
 
     var savedAdminRow = keepCurrentAdmin ? Object.assign({}, adminUser) : null;
     var savedActiveSession =
@@ -28014,7 +28214,73 @@ function handleAdminExecuteFactoryReset_(payload, context) {
         ? Object.assign({}, authContext.session)
         : null;
 
-    var sheetNames = Object.keys(PB_SHEET_SCHEMAS_ || {});
+    var selectedCatMap = {};
+    for (var ci = 0; ci < resolvedSelection.categoryIds.length; ci++) {
+      selectedCatMap[resolvedSelection.categoryIds[ci]] = true;
+    }
+
+    var allSchemaNames = Object.keys(PB_SHEET_SCHEMAS_ || {});
+    var targetSheetMap = {};
+    if (resolvedSelection.mode === 'FULL') {
+      for (var si = 0; si < allSchemaNames.length; si++) {
+        targetSheetMap[allSchemaNames[si]] = true;
+      }
+    } else {
+      for (var k = 0; k < PB_FACTORY_RESET_CATEGORIES_.length; k++) {
+        var catDef = PB_FACTORY_RESET_CATEGORIES_[k];
+        if (!selectedCatMap[catDef.id]) continue;
+        for (var sIdx = 0; sIdx < catDef.sheets.length; sIdx++) {
+          targetSheetMap[catDef.sheets[sIdx]] = true;
+        }
+      }
+    }
+
+    var isFullWipeWithoutAdmin =
+      resolvedSelection.mode === 'FULL' && !keepCurrentAdmin;
+    var existingAdminUsers = [];
+    var existingAdminUserIdMap = {};
+    var existingPrivacyChoices = [];
+    var existingSessions = [];
+
+    if (targetSheetMap.Users && !isFullWipeWithoutAdmin) {
+      try {
+        var uRecs = readSheetTable_('Users').records || [];
+        for (var u = 0; u < uRecs.length; u++) {
+          if (String(uRecs[u].role || '').toUpperCase() === 'ADMIN') {
+            if (resolvedSelection.mode === 'SELECTIVE' || (savedAdminRow && uRecs[u].user_id === savedAdminRow.user_id)) {
+              existingAdminUsers.push(Object.assign({}, uRecs[u]));
+              existingAdminUserIdMap[uRecs[u].user_id] = true;
+            }
+          }
+        }
+      } catch (ignoreReadUsersErr) {}
+      if (savedAdminRow && savedAdminRow.user_id && !existingAdminUserIdMap[savedAdminRow.user_id]) {
+        existingAdminUsers.push(savedAdminRow);
+        existingAdminUserIdMap[savedAdminRow.user_id] = true;
+      }
+    }
+    if (targetSheetMap.PrivacyChoices && !isFullWipeWithoutAdmin) {
+      try {
+        existingPrivacyChoices = (readSheetTable_('PrivacyChoices').records || []).filter(function (pc) {
+          return existingAdminUserIdMap[pc.user_id];
+        });
+      } catch (ignoreReadPrivacyErr) {}
+    }
+    if (targetSheetMap.Users && !targetSheetMap.Sessions && !isFullWipeWithoutAdmin) {
+      try {
+        var allSes = readSheetTable_('Sessions').records || [];
+        existingSessions = allSes.filter(function (ses) {
+          return existingAdminUserIdMap[ses.user_id];
+        });
+        if (allSes.length !== existingSessions.length) {
+          targetSheetMap.Sessions = true;
+        }
+      } catch (ignoreReadSesErr) {}
+    }
+
+    var sheetNames = allSchemaNames.filter(function (name) {
+      return Boolean(targetSheetMap[name]);
+    });
     var clearedSheets = [];
     var totalRowsCleared = 0;
 
@@ -28036,15 +28302,32 @@ function handleAdminExecuteFactoryReset_(payload, context) {
       totalRowsCleared += dataRows;
     }
 
-    /* Re-seed default Settings rows so the portal has valid baseline configuration */
-    if (typeof seedDefaultSettingsIdempotent_ === 'function') {
+    /* Re-seed default Settings rows whenever Settings was reset */
+    if (targetSheetMap.Settings && typeof seedDefaultSettingsIdempotent_ === 'function') {
       seedDefaultSettingsIdempotent_(ss);
     }
 
-    /* If keepCurrentAdmin is true, restore the active Admin user and current session so they stay signed in */
-    if (keepCurrentAdmin && savedAdminRow && savedAdminRow.user_id) {
-      insertSheetRecord_('Users', savedAdminRow, { skipLock: true });
-      if (savedActiveSession && savedActiveSession.session_id) {
+    /* Restore preserved Administrator accounts and active Admin session unless full wipe without admin */
+    if (targetSheetMap.Users && !isFullWipeWithoutAdmin) {
+      for (var au = 0; au < existingAdminUsers.length; au++) {
+        insertSheetRecord_('Users', existingAdminUsers[au], { skipLock: true });
+      }
+      if (targetSheetMap.PrivacyChoices) {
+        for (var pcIdx = 0; pcIdx < existingPrivacyChoices.length; pcIdx++) {
+          insertSheetRecord_('PrivacyChoices', existingPrivacyChoices[pcIdx], { skipLock: true });
+        }
+      }
+    }
+    if (targetSheetMap.Sessions && !isFullWipeWithoutAdmin) {
+      var insertedSesIds = {};
+      for (var es = 0; es < existingSessions.length; es++) {
+        var sesRow = existingSessions[es];
+        if (sesRow && sesRow.session_id && !insertedSesIds[sesRow.session_id]) {
+          insertSheetRecord_('Sessions', sesRow, { skipLock: true });
+          insertedSesIds[sesRow.session_id] = true;
+        }
+      }
+      if (keepCurrentAdmin && savedActiveSession && savedActiveSession.session_id && !insertedSesIds[savedActiveSession.session_id]) {
         insertSheetRecord_('Sessions', savedActiveSession, { skipLock: true });
       }
     }
@@ -28056,7 +28339,7 @@ function handleAdminExecuteFactoryReset_(payload, context) {
     try {
       if (typeof CacheService !== 'undefined' && CacheService) {
         var sc = CacheService.getScriptCache();
-        if (sc) {
+        if (sc && targetSheetMap.Users) {
           sc.remove('pb_has_any_user_v1');
         }
       }
@@ -28072,6 +28355,8 @@ function handleAdminExecuteFactoryReset_(payload, context) {
       targetEntityType: 'Spreadsheet',
       targetEntityId: ss.getId(),
       summary: {
+        resetMode: resolvedSelection.mode,
+        selectedCategories: resolvedSelection.categoryIds,
         clearedSheetCount: clearedSheets.length,
         totalRowsCleared: totalRowsCleared,
         keepCurrentAdmin: keepCurrentAdmin,
@@ -28081,6 +28366,8 @@ function handleAdminExecuteFactoryReset_(payload, context) {
 
     return {
       factoryResetCompleted: true,
+      resetMode: resolvedSelection.mode,
+      selectedCategories: resolvedSelection.categoryIds,
       clearedSheetCount: clearedSheets.length,
       totalRowsCleared: totalRowsCleared,
       clearedSheets: clearedSheets,
@@ -28088,16 +28375,19 @@ function handleAdminExecuteFactoryReset_(payload, context) {
       executedAtUtc: executedAtUtc,
       executedAtBangkok: executedAtBangkok,
       message:
-        'Factory reset completed at ' +
+        (resolvedSelection.mode === 'FULL' ? 'Full system reset' : 'Selective data reset') +
+        ' completed at ' +
         executedAtBangkok +
         ': cleared ' +
         String(totalRowsCleared) +
-        ' data row(s) across ' +
+        ' row(s) across ' +
         String(clearedSheets.length) +
         ' worksheet tabs' +
-        (keepCurrentAdmin
-          ? ' (active administrator account & baseline Settings preserved).'
-          : ' (all 16 tabs wiped to blank headers; re-run bootstrap to create an admin).')
+        (isFullWipeWithoutAdmin
+          ? ' (all tabs wiped to blank headers; run bootstrap to create an administrator).'
+          : resolvedSelection.mode === 'SELECTIVE'
+          ? ' (administrator account & unselected data remain intact).'
+          : ' (active administrator account & baseline Settings preserved).')
     };
   });
 }
@@ -29236,7 +29526,7 @@ function validateAndBuildQuestionGradingSpecPhase2_(
     } else if (questionType === 'COMPLEX_MULTIPLE_CHOICE') {
       if (!selectionInstruction) {
         selectionInstruction =
-          'เลือกตอบเชิงซ้อน: พิจารณาข้อความย่อยต่อไปนี้ว่า ใช่ หรือ ไม่ใช่ (ถูกครบ 3 ข้อได้เต็ม, ถูก 2 ข้อได้ 50%, ถูก 0–1 ข้อได้ 0 คะแนน)';
+          'Complex Multiple Choice: Evaluate each sub-statement and select "Yes" or "No" (3/3 correct = 100%, 2/3 correct = 50%, 0–1/3 correct = 0%).';
       }
       gradingSpec.correctOptionIds = correctOptionIds;
       gradingSpec.scoringRule = 'TCAS_COMPLEX_3_TIER';
@@ -34608,10 +34898,10 @@ function validateAndNormalizeStudentResponsePayloadPhase4_(
         );
       }
       var rawChoice = String(rawDec[decKeys[di]] || '').trim().toUpperCase();
-      if (rawChoice === 'YES' || rawChoice === 'TRUE' || rawChoice === 'ใช่') {
+      if (rawChoice === 'YES' || rawChoice === 'TRUE') {
         cleanDec[stmtId] = 'YES';
         decCount += 1;
-      } else if (rawChoice === 'NO' || rawChoice === 'FALSE' || rawChoice === 'ไม่ใช่') {
+      } else if (rawChoice === 'NO' || rawChoice === 'FALSE') {
         cleanDec[stmtId] = 'NO';
         decCount += 1;
       }

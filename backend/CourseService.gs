@@ -4777,6 +4777,7 @@ function handleAdminListAssessmentScoresPhase4_(payload, context) {
 
 var PB_EXAM_QUESTION_TYPES_PHASE2_ = Object.freeze({
   SINGLE_CHOICE: true,
+  COMPLEX_MULTIPLE_CHOICE: true,
   MULTIPLE_SELECT: true,
   TRUE_FALSE: true,
   NUMERIC_RESPONSE: true,
@@ -4968,6 +4969,7 @@ function ensureExamPhase2SchemasRegistered_() {
       enums: Object.freeze({
         question_type: Object.freeze([
           'SINGLE_CHOICE',
+          'COMPLEX_MULTIPLE_CHOICE',
           'MULTIPLE_SELECT',
           'TRUE_FALSE',
           'NUMERIC_RESPONSE',
@@ -5034,6 +5036,7 @@ function ensureExamPhase2SchemasRegistered_() {
       enums: Object.freeze({
         question_type: Object.freeze([
           'SINGLE_CHOICE',
+          'COMPLEX_MULTIPLE_CHOICE',
           'MULTIPLE_SELECT',
           'TRUE_FALSE',
           'NUMERIC_RESPONSE',
@@ -5656,11 +5659,22 @@ function validateAndBuildQuestionGradingSpecPhase2_(
 
   if (
     questionType === 'SINGLE_CHOICE' ||
+    questionType === 'COMPLEX_MULTIPLE_CHOICE' ||
     questionType === 'MULTIPLE_SELECT' ||
     questionType === 'TRUE_FALSE'
   ) {
-    var minOpts = questionType === 'TRUE_FALSE' ? 2 : questionType === 'MULTIPLE_SELECT' ? 3 : 2;
-    var maxOpts = questionType === 'TRUE_FALSE' ? 2 : 10;
+    var minOpts =
+      questionType === 'TRUE_FALSE'
+        ? 2
+        : questionType === 'COMPLEX_MULTIPLE_CHOICE' || questionType === 'MULTIPLE_SELECT'
+        ? 3
+        : 2;
+    var maxOpts =
+      questionType === 'TRUE_FALSE'
+        ? 2
+        : questionType === 'COMPLEX_MULTIPLE_CHOICE'
+        ? 5
+        : 10;
 
     if (questionType === 'TRUE_FALSE' && rawOptions.length === 0) {
       var tfCorrect = String(req.trueFalseCorrect || 'TRUE').trim().toUpperCase();
@@ -5694,6 +5708,8 @@ function validateAndBuildQuestionGradingSpecPhase2_(
           ? i === 0
             ? 'TRUE'
             : 'FALSE'
+          : questionType === 'COMPLEX_MULTIPLE_CHOICE'
+          ? 'S' + (i + 1)
           : String.fromCharCode(65 + i);
 
       var optContentValidated = null;
@@ -5739,7 +5755,7 @@ function validateAndBuildQuestionGradingSpecPhase2_(
           pinPos = i === rawOptions.length - 1 ? 'LAST' : 'FIXED';
         }
       }
-      if (questionType === 'TRUE_FALSE') {
+      if (questionType === 'TRUE_FALSE' || questionType === 'COMPLEX_MULTIPLE_CHOICE') {
         pinPos = 'FIXED';
         lockOptionOrder = true;
       }
@@ -5751,6 +5767,10 @@ function validateAndBuildQuestionGradingSpecPhase2_(
           spoilerStrings.push(optContentValidated.plainTextSummary);
         }
       }
+      if (!gradingSpec.statementTruthMap) {
+        gradingSpec.statementTruthMap = {};
+      }
+      gradingSpec.statementTruthMap[optId] = isCorrect;
 
       normalizedOptions.push({
         option_id: optId,
@@ -5780,6 +5800,13 @@ function validateAndBuildQuestionGradingSpecPhase2_(
       }
       gradingSpec.correctOptionIds = correctOptionIds;
       gradingSpec.scoringRule = 'EXACT_MATCH';
+    } else if (questionType === 'COMPLEX_MULTIPLE_CHOICE') {
+      if (!selectionInstruction) {
+        selectionInstruction =
+          'Complex Multiple Choice: Evaluate each sub-statement and select "Yes" or "No" (3/3 correct = 100%, 2/3 correct = 50%, 0–1/3 correct = 0%).';
+      }
+      gradingSpec.correctOptionIds = correctOptionIds;
+      gradingSpec.scoringRule = 'TCAS_COMPLEX_3_TIER';
     } else if (questionType === 'MULTIPLE_SELECT') {
       if (correctOptionIds.length < 1) {
         fieldErrors.correctOptions =
@@ -6014,6 +6041,7 @@ function handleAdminListQuestionsPhase2_(payload, context) {
   var matchedCandidates = [];
   var countsByType = {
     SINGLE_CHOICE: 0,
+    COMPLEX_MULTIPLE_CHOICE: 0,
     MULTIPLE_SELECT: 0,
     TRUE_FALSE: 0,
     NUMERIC_RESPONSE: 0,
@@ -6151,7 +6179,7 @@ function handleAdminSaveQuestionPhase2_(payload, context) {
   var questionType = String(req.questionType || 'SINGLE_CHOICE').trim().toUpperCase();
   if (!PB_EXAM_QUESTION_TYPES_PHASE2_[questionType]) {
     fieldErrors.questionType =
-      'Question type must be SINGLE_CHOICE, MULTIPLE_SELECT, TRUE_FALSE, NUMERIC_RESPONSE, SHORT_ANSWER, or WRITTEN_RESPONSE.';
+      'Question type must be SINGLE_CHOICE, COMPLEX_MULTIPLE_CHOICE, MULTIPLE_SELECT, TRUE_FALSE, NUMERIC_RESPONSE, SHORT_ANSWER, or WRITTEN_RESPONSE.';
   }
 
   var difficulty = String(req.difficulty || 'MEDIUM').trim().toUpperCase();
@@ -7863,7 +7891,7 @@ function evaluateExamPublicationReadinessPhase3_(
       // Check choice options and answer key completeness
       var qType = qvRec.question_type;
       var opts = optionsByQvId[qvRec.question_version_id] || [];
-      if (qType === 'SINGLE_CHOICE' || qType === 'MULTIPLE_SELECT' || qType === 'TRUE_FALSE') {
+      if (qType === 'SINGLE_CHOICE' || qType === 'COMPLEX_MULTIPLE_CHOICE' || qType === 'MULTIPLE_SELECT' || qType === 'TRUE_FALSE') {
         var correctCount = 0;
         var hasUnpinnedOrderDep = false;
         for (var oc = 0; oc < opts.length; oc++) {
@@ -7881,6 +7909,12 @@ function evaluateExamPublicationReadinessPhase3_(
             code: 'INVALID_CHOICE_ANSWER_KEY',
             field: 'sections[' + sIdx + '].items[' + k + ']',
             message: 'Question "' + qbRec.question_code + '" (' + qType + ') must have exactly 1 correct option.'
+          });
+        } else if (qType === 'COMPLEX_MULTIPLE_CHOICE' && opts.length < 3) {
+          blockingErrors.push({
+            code: 'INVALID_COMPLEX_MC_STATEMENTS',
+            field: 'sections[' + sIdx + '].items[' + k + ']',
+            message: 'Question "' + qbRec.question_code + '" (COMPLEX_MULTIPLE_CHOICE) must have at least 3 sub-statements.'
           });
         } else if (qType === 'MULTIPLE_SELECT' && correctCount < 1) {
           blockingErrors.push({
@@ -11111,6 +11145,36 @@ function validateAndNormalizeStudentResponsePayloadPhase4_(
     };
   }
 
+  if (qType === 'COMPLEX_MULTIPLE_CHOICE') {
+    var rawDec = p.statementDecisions && typeof p.statementDecisions === 'object' ? p.statementDecisions : {};
+    var decKeys = Object.keys(rawDec);
+    var cleanDec = {};
+    var decCount = 0;
+    for (var di = 0; di < decKeys.length && decCount < 10; di++) {
+      var stmtId = sanitizeSingleLineTextStep7_(decKeys[di], 64);
+      if (!stmtId) continue;
+      if (!validOptionIdsMap[stmtId]) {
+        throw createAppError_(
+          PB_ERROR_CODES_.ERR_VALIDATION_FAILED,
+          'Statement "' + stmtId + '" does not belong to question item "' + attemptItemId + '".',
+          { statementDecisions: 'Invalid statement ID in selection.' }
+        );
+      }
+      var rawChoice = String(rawDec[decKeys[di]] || '').trim().toUpperCase();
+      if (rawChoice === 'YES' || rawChoice === 'TRUE') {
+        cleanDec[stmtId] = 'YES';
+        decCount += 1;
+      } else if (rawChoice === 'NO' || rawChoice === 'FALSE') {
+        cleanDec[stmtId] = 'NO';
+        decCount += 1;
+      }
+    }
+    return {
+      isAnswered: decCount > 0,
+      normalizedPayload: { statementDecisions: cleanDec }
+    };
+  }
+
   if (qType === 'MULTIPLE_SELECT') {
     var rawArr = Array.isArray(p.selectedOptionIds) ? p.selectedOptionIds : [];
     var cleanIds = [];
@@ -12304,6 +12368,71 @@ function evaluateSingleAttemptItemScorePhase5_(
       gradingSource: 'AUTO_ENGINE',
       correctnessState: isHit ? 'CORRECT' : 'INCORRECT',
       awardedPointsBp: isHit ? maxBp : (negBp > 0 ? -negBp : 0),
+      maxPointsBp: maxBp,
+      requiresManualReview: false
+    };
+  }
+
+  if (qType === 'COMPLEX_MULTIPLE_CHOICE') {
+    var rawDec = p.statementDecisions && typeof p.statementDecisions === 'object' ? p.statementDecisions : {};
+    var truthMap = spec.statementTruthMap && typeof spec.statementTruthMap === 'object' ? spec.statementTruthMap : null;
+    if (!truthMap) {
+      truthMap = {};
+      var fallbackCorrIds = Array.isArray(spec.correctOptionIds) ? spec.correctOptionIds : [];
+      for (var fc = 0; fc < fallbackCorrIds.length; fc++) {
+        truthMap[fallbackCorrIds[fc]] = true;
+      }
+    }
+    var stmtIds = Object.keys(truthMap);
+    var answeredStmts = 0;
+    var matchedStmts = 0;
+    for (var si = 0; si < stmtIds.length; si++) {
+      var sid = stmtIds[si];
+      var expectedDec = truthMap[sid] ? 'YES' : 'NO';
+      var givenDec = String(rawDec[sid] || '').trim().toUpperCase();
+      if (givenDec === 'YES' || givenDec === 'NO') {
+        answeredStmts += 1;
+        if (givenDec === expectedDec) {
+          matchedStmts += 1;
+        }
+      }
+    }
+    if (answeredStmts === 0) {
+      return {
+        isAnswered: false,
+        gradingSource: 'AUTO_ENGINE',
+        correctnessState: 'UNANSWERED',
+        awardedPointsBp: 0,
+        maxPointsBp: maxBp,
+        requiresManualReview: false
+      };
+    }
+    var totalStmts = stmtIds.length || 3;
+    if (matchedStmts === totalStmts) {
+      return {
+        isAnswered: true,
+        gradingSource: 'AUTO_ENGINE',
+        correctnessState: 'CORRECT',
+        awardedPointsBp: maxBp,
+        maxPointsBp: maxBp,
+        requiresManualReview: false
+      };
+    }
+    if (totalStmts >= 3 && matchedStmts === totalStmts - 1) {
+      return {
+        isAnswered: true,
+        gradingSource: 'AUTO_ENGINE',
+        correctnessState: 'PARTIAL',
+        awardedPointsBp: Math.round(maxBp / 2),
+        maxPointsBp: maxBp,
+        requiresManualReview: false
+      };
+    }
+    return {
+      isAnswered: true,
+      gradingSource: 'AUTO_ENGINE',
+      correctnessState: 'INCORRECT',
+      awardedPointsBp: negBp > 0 ? -negBp : 0,
       maxPointsBp: maxBp,
       requiresManualReview: false
     };
