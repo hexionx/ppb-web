@@ -31584,8 +31584,20 @@ function evaluateStudentExamCatalogEntryPhase3_(
   var effectiveOpenAtUtc = openAtOverrideUtc || examSetRow.open_at_utc || '';
   var effectiveCloseAtUtc = overrideDeadlineUtc || examSetRow.close_at_utc || '';
 
-  var baseMaxAttempts = Number(examSetRow.max_attempts);
-  var isUnlimitedAttempts = baseMaxAttempts === 0 && examSetRow.exam_mode === 'PRACTICE';
+  var rawMaxAttemptsVal =
+    examSetRow.max_attempts !== undefined && examSetRow.max_attempts !== null
+      ? String(examSetRow.max_attempts).trim()
+      : '';
+  var baseMaxAttempts =
+    rawMaxAttemptsVal !== ''
+      ? Number(rawMaxAttemptsVal)
+      : examSetRow.exam_mode === 'PRACTICE'
+      ? 0
+      : 1;
+  if (!isFinite(baseMaxAttempts) || baseMaxAttempts < 0) {
+    baseMaxAttempts = examSetRow.exam_mode === 'PRACTICE' ? 0 : 1;
+  }
+  var isUnlimitedAttempts = baseMaxAttempts === 0;
   var effectiveMaxAttempts = isUnlimitedAttempts
     ? 0
     : Math.max(1, (baseMaxAttempts || 1) + extraAttemptsGranted);
@@ -32132,15 +32144,15 @@ function handleAdminSaveExamDraftPhase3_(payload, context) {
       ? Math.max(0, Math.min(120, parseInt(req.graceSeconds, 10) || 0))
       : 15;
 
-  var maxAttempts =
-    req.maxAttempts !== undefined && req.maxAttempts !== null && req.maxAttempts !== ''
-      ? Math.max(0, Math.min(100, parseInt(req.maxAttempts, 10) || 0))
-      : examMode === 'PRACTICE'
-      ? 0
-      : 1;
-  if (examMode !== 'PRACTICE' && maxAttempts < 1) {
-    maxAttempts = 1;
-  }
+  var parsedReqMaxAttempts =
+    req.maxAttempts !== undefined && req.maxAttempts !== null && String(req.maxAttempts).trim() !== ''
+      ? parseInt(req.maxAttempts, 10)
+      : NaN;
+  var maxAttempts = !isNaN(parsedReqMaxAttempts)
+    ? Math.max(0, Math.min(100, parsedReqMaxAttempts))
+    : examMode === 'PRACTICE'
+    ? 0
+    : 1;
 
   var retakeCooldownMinutes = Math.max(0, Math.min(10080, parseInt(req.retakeCooldownMinutes, 10) || 0));
   var passThresholdPct =

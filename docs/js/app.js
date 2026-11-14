@@ -10192,8 +10192,12 @@
                 var cTypeBadge = document.createElement('span');
                 cTypeBadge.className =
                   crd.cardType === 'ASSESSMENT_LINK_CARD'
-                    ? 'badge pb-exam-badge-assigned'
-                    : 'badge badge-ok';
+                    ? 'badge pb-cat-badge-assessment'
+                    : crd.cardType === 'RECORDING_CARD'
+                    ? 'badge pb-cat-badge-recording'
+                    : crd.cardType === 'READING_CARD'
+                    ? 'badge pb-cat-badge-reading'
+                    : 'badge pb-cat-badge-custom';
                 cTypeBadge.textContent =
                   crd.cardType === 'ASSESSMENT_LINK_CARD'
                     ? 'Assigned Assessment'
@@ -11470,7 +11474,20 @@
           navHost.removeChild(navHost.firstChild);
         }
 
-        function createSectionSelectorCard(filterVal, badgeText, titleText, metaText) {
+        function getSectionToneBadgeClass(toneKey, isSel) {
+          if (isSel) {
+            return 'badge badge-incomplete';
+          }
+          if (toneKey === 'RECORDING') return 'badge pb-cat-badge-recording';
+          if (toneKey === 'READING') return 'badge pb-cat-badge-reading';
+          if (toneKey === 'ASSESSMENT') return 'badge pb-cat-badge-assessment';
+          if (toneKey === 'SCORES') return 'badge pb-cat-badge-scores';
+          if (toneKey === 'CUSTOM') return 'badge pb-cat-badge-custom';
+          return 'badge badge-ok';
+        }
+
+        function createSectionSelectorCard(filterVal, badgeText, titleText, metaText, opt_toneKey) {
+          var toneKey = String(opt_toneKey || filterVal || 'CUSTOM').toUpperCase();
           var btn = document.createElement('button');
           btn.type = 'button';
           var isSelected = activeStudentSectionFilter === filterVal;
@@ -11478,9 +11495,10 @@
             'section-selector-card' + (isSelected ? ' is-active' : '');
           btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
           btn.setAttribute('data-section-card-filter', filterVal);
+          btn.setAttribute('data-category-tone', toneKey);
 
           var topBadge = document.createElement('span');
-          topBadge.className = isSelected ? 'badge badge-incomplete' : 'badge badge-ok';
+          topBadge.className = getSectionToneBadgeClass(toneKey, isSelected);
           topBadge.textContent = badgeText;
           btn.appendChild(topBadge);
 
@@ -11506,7 +11524,8 @@
             'ALL',
             'ALL SECTIONS (' + String(sections.length) + ')',
             'All Course Sections',
-            'Objectives, Scores, Assessment, Reading & Recordings'
+            'Objectives, Scores, Assessment, Reading & Recordings',
+            'ALL'
           )
         );
 
@@ -11516,7 +11535,8 @@
             'PUBLISHED SCORES (' + String(courseScoresList.length) + ')',
             'My Published Assessment Scores',
             String(courseScoresList.length) +
-              ' published score(s) verified for your account'
+              ' published score(s) verified for your account',
+            'SCORES'
           )
         );
 
@@ -11530,7 +11550,8 @@
               (nIdx + 1) + '. ' + sItem.title,
               String(cardCnt) +
                 ' item(s) | Updated: ' +
-                (sItem.updatedAtBangkok || sItem.updatedAtUtc || '-')
+                (sItem.updatedAtBangkok || sItem.updatedAtUtc || '-'),
+              sItem.sectionType || 'CUSTOM'
             )
           );
           if (activeStudentSectionFilter === sItem.sectionId && activeBadge) {
@@ -11634,11 +11655,13 @@
           continue;
         }
 
+        var secTone = String(sec.sectionType || 'CUSTOM').toUpperCase();
         var secCard = document.createElement('section');
         secCard.className =
-          'card course-section-' + String(sec.sectionType || 'custom').toLowerCase();
+          'card course-section-box course-section-' + String(sec.sectionType || 'custom').toLowerCase();
         secCard.setAttribute('data-section-id', sec.sectionId);
         secCard.setAttribute('data-section-type', sec.sectionType || 'CUSTOM');
+        secCard.setAttribute('data-category-tone', secTone);
 
         var secTop = document.createElement('div');
         secTop.style.display = 'flex';
@@ -11652,8 +11675,12 @@
         var secBadge = document.createElement('span');
         secBadge.className =
           sec.sectionType === 'ASSESSMENT'
-            ? 'badge pb-exam-badge-assigned'
-            : 'badge badge-ok';
+            ? 'badge pb-cat-badge-assessment'
+            : sec.sectionType === 'RECORDING'
+            ? 'badge pb-cat-badge-recording'
+            : sec.sectionType === 'READING'
+            ? 'badge pb-cat-badge-reading'
+            : 'badge pb-cat-badge-custom';
         secBadge.textContent =
           sec.sectionType === 'ASSESSMENT'
             ? 'Assigned Assessments'
@@ -11699,11 +11726,11 @@
           secCard.appendChild(asmIntroP);
         } else if (sec.sectionType === 'RECORDING') {
           var recIntroP = document.createElement('p');
-          recIntroP.style.margin = '0 0 10px 0';
+          recIntroP.style.margin = '0 0 12px 0';
           recIntroP.style.fontSize = '0.9rem';
           recIntroP.style.color = 'var(--color-text-secondary)';
           recIntroP.textContent =
-            'Click or press Enter on any class recording card below to open the recording details modal and watch the video. External video-platform permissions are managed separately from this portal.';
+            'Select any class recording episode below to launch the Theater Video Player, view lesson notes, and download PDF handouts.';
           secCard.appendChild(recIntroP);
         }
 
@@ -11715,14 +11742,174 @@
           emptyNote.textContent = 'No published items in this section yet.';
           secCard.appendChild(emptyNote);
         } else {
+          var sectionRecordingCards = cards.filter(function (cItem) {
+            return cItem && (cItem.cardType === 'RECORDING_CARD' || sec.sectionType === 'RECORDING');
+          });
+          var activeVideoGrid = null;
+
           for (var cIdx = 0; cIdx < cards.length; cIdx++) {
-            (function (crd) {
+            (function (crd, cardPositionIndex) {
               var isRecordingCard =
                 crd.cardType === 'RECORDING_CARD' || sec.sectionType === 'RECORDING';
+
+              if (isRecordingCard) {
+                if (!activeVideoGrid) {
+                  activeVideoGrid = document.createElement('div');
+                  activeVideoGrid.className = 'pb-yt-video-grid';
+                  secCard.appendChild(activeVideoGrid);
+                }
+
+                var ytCard = document.createElement('article');
+                ytCard.className = 'pb-yt-card recording-card-clickable';
+                ytCard.setAttribute('data-card-id', crd.cardId);
+                ytCard.setAttribute('tabindex', '0');
+                ytCard.setAttribute('role', 'button');
+                ytCard.setAttribute(
+                  'aria-label',
+                  'Play class recording ' + (crd.title || '')
+                );
+
+                var thumbBox = document.createElement('div');
+                thumbBox.className = 'pb-yt-thumb-box';
+
+                var cardYtMeta = extractAndNormalizeYouTubeUrlClient(crd.recordingUrl || '');
+                var hasLink = Boolean(crd.recordingUrl && isSafeRichTextHref(crd.recordingUrl));
+                var docListCount = Array.isArray(crd.lessonDocuments)
+                  ? crd.lessonDocuments.length
+                  : Array.isArray(crd.pdfAttachments)
+                  ? crd.pdfAttachments.length
+                  : 0;
+
+                var fallbackLayer = document.createElement('div');
+                fallbackLayer.className = 'pb-yt-thumb-fallback';
+                var fbTitle = document.createElement('div');
+                fbTitle.style.fontWeight = '800';
+                fbTitle.style.fontSize = '0.94rem';
+                fbTitle.textContent = hasLink ? 'Recorded Class Stream' : 'Video Pending Upload';
+                var fbSub = document.createElement('div');
+                fbSub.style.fontSize = '0.78rem';
+                fbSub.style.opacity = '0.82';
+                fbSub.textContent = crd.subtitle || crd.title || 'Pattanabhumi Biology';
+                fallbackLayer.appendChild(fbTitle);
+                fallbackLayer.appendChild(fbSub);
+                thumbBox.appendChild(fallbackLayer);
+
+                if (cardYtMeta.isYouTubeVideo && cardYtMeta.youtubeThumbnailUrl) {
+                  var ytThumbImg = document.createElement('img');
+                  ytThumbImg.className = 'pb-yt-thumb-img';
+                  ytThumbImg.src = cardYtMeta.youtubeThumbnailUrl;
+                  ytThumbImg.alt = (crd.title || 'Class Recording') + ' thumbnail';
+                  ytThumbImg.loading = 'lazy';
+                  ytThumbImg.setAttribute('referrerpolicy', 'no-referrer');
+                  fallbackLayer.classList.add('hidden');
+                  ytThumbImg.addEventListener('error', function () {
+                    ytThumbImg.classList.add('hidden');
+                    fallbackLayer.classList.remove('hidden');
+                  });
+                  thumbBox.appendChild(ytThumbImg);
+                } else if (crd.imageFileId && /^fil_[a-z0-9_-]{4,64}$/i.test(crd.imageFileId)) {
+                  var customThumbImg = document.createElement('img');
+                  customThumbImg.className = 'pb-yt-thumb-img hidden';
+                  customThumbImg.alt = crd.imageCaption || crd.title || 'Recording cover';
+                  thumbBox.appendChild(customThumbImg);
+                  PBObjectUrlManager.fetchAndCreateObjectUrl(
+                    crd.imageFileId,
+                    course.courseId
+                  )
+                    .then(function (entry) {
+                      customThumbImg.src = entry.objectUrl;
+                      customThumbImg.classList.remove('hidden');
+                      fallbackLayer.classList.add('hidden');
+                    })
+                    .catch(function () {});
+                }
+
+                var scrim = document.createElement('div');
+                scrim.className = 'pb-yt-thumb-scrim';
+                thumbBox.appendChild(scrim);
+
+                var srcChip = document.createElement('span');
+                srcChip.className = 'pb-yt-source-chip';
+                srcChip.textContent = cardYtMeta.isYouTubeVideo
+                  ? 'YouTube HD'
+                  : hasLink
+                  ? 'External Stream'
+                  : 'Notes Only';
+                thumbBox.appendChild(srcChip);
+
+                var playCircle = document.createElement('div');
+                playCircle.className = 'pb-yt-play-overlay';
+                playCircle.innerHTML =
+                  '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true" focusable="false"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>';
+                thumbBox.appendChild(playCircle);
+
+                var bottomChip = document.createElement('span');
+                bottomChip.className = 'pb-yt-bottom-chip';
+                bottomChip.textContent =
+                  docListCount > 0
+                    ? String(docListCount) + (docListCount === 1 ? ' PDF Handout' : ' PDF Handouts')
+                    : 'Episode ' + String(cardPositionIndex + 1);
+                thumbBox.appendChild(bottomChip);
+
+                ytCard.appendChild(thumbBox);
+
+                var cardFooter = document.createElement('div');
+                cardFooter.className = 'pb-yt-card-footer';
+
+                var avatar = document.createElement('div');
+                avatar.className = 'pb-yt-avatar-badge';
+                avatar.textContent = 'E' + String(cardPositionIndex + 1);
+                cardFooter.appendChild(avatar);
+
+                var cardTextWrap = document.createElement('div');
+                cardTextWrap.className = 'pb-yt-card-text';
+
+                var cardTitleEl = document.createElement('h3');
+                cardTitleEl.className = 'pb-yt-card-title';
+                cardTitleEl.textContent = crd.title || 'Class Recording';
+                cardTextWrap.appendChild(cardTitleEl);
+
+                if (crd.subtitle) {
+                  var cardSubEl = document.createElement('p');
+                  cardSubEl.className = 'pb-yt-card-subtitle';
+                  cardSubEl.textContent = crd.subtitle;
+                  cardTextWrap.appendChild(cardSubEl);
+                }
+
+                var cardMetaEl = document.createElement('div');
+                cardMetaEl.className = 'pb-yt-card-meta';
+                var rawUploadDt =
+                  crd.recordingUploadedAtBangkok ||
+                  crd.recordingUploadedAtUtc ||
+                  crd.updatedAtBangkok ||
+                  '-';
+                cardMetaEl.textContent =
+                  rawUploadDt +
+                  (docListCount > 0
+                    ? ' • ' + String(docListCount) + ' PDF(s)'
+                    : ' • Click to Watch');
+                cardTextWrap.appendChild(cardMetaEl);
+
+                cardFooter.appendChild(cardTextWrap);
+                ytCard.appendChild(cardFooter);
+
+                ytCard.addEventListener('click', function () {
+                  openRecordingDetailModal(crd, sectionRecordingCards);
+                });
+                ytCard.addEventListener('keydown', function (evt) {
+                  if (evt.key === 'Enter' || evt.key === ' ') {
+                    evt.preventDefault();
+                    openRecordingDetailModal(crd, sectionRecordingCards);
+                  }
+                });
+
+                activeVideoGrid.appendChild(ytCard);
+                return;
+              }
+
+              activeVideoGrid = null;
               var itemBox = document.createElement('article');
-              itemBox.className =
-                'course-card-item' +
-                (isRecordingCard ? ' recording-card-clickable' : '');
+              itemBox.className = 'course-card-item';
               itemBox.setAttribute('data-card-id', crd.cardId);
 
               /* Top Row: Card Title & Upload / Updated Date */
@@ -11751,58 +11938,12 @@
               }
               topHeaderRow.appendChild(titleCol);
 
-              if (isRecordingCard) {
-                var recBadgeWrap = document.createElement('div');
-                recBadgeWrap.style.display = 'flex';
-                recBadgeWrap.style.flexDirection = 'column';
-                recBadgeWrap.style.alignItems = 'flex-end';
-                recBadgeWrap.style.gap = '4px';
-
-                var hasLink = Boolean(
-                  crd.recordingUrl && isSafeRichTextHref(crd.recordingUrl)
-                );
-                var ytCheck = extractAndNormalizeYouTubeUrlClient(crd.recordingUrl || '');
-                var linkStatusBadge = document.createElement('span');
-                linkStatusBadge.className = hasLink
-                  ? 'badge badge-ok'
-                  : 'badge badge-incomplete';
-                linkStatusBadge.textContent = ytCheck.isYouTubeVideo
-                  ? 'YouTube 16:9 Video Ready'
-                  : hasLink
-                  ? 'Video Link Ready'
-                  : 'Video Link Not Added Yet';
-                recBadgeWrap.appendChild(linkStatusBadge);
-
-                var docListCount = Array.isArray(crd.lessonDocuments)
-                  ? crd.lessonDocuments.length
-                  : Array.isArray(crd.pdfAttachments)
-                  ? crd.pdfAttachments.length
-                  : 0;
-                var docBadge = document.createElement('span');
-                docBadge.className = 'badge badge-ok';
-                docBadge.textContent =
-                  'Lesson documents: ' + String(docListCount) + ' PDF(s)';
-                recBadgeWrap.appendChild(docBadge);
-
-                var upDateSpan = document.createElement('span');
-                upDateSpan.style.fontSize = '0.82rem';
-                upDateSpan.style.color = 'var(--color-text-muted)';
-                upDateSpan.textContent =
-                  'Upload Date (Asia/Bangkok): ' +
-                  (crd.recordingUploadedAtBangkok ||
-                    crd.recordingUploadedAtUtc ||
-                    crd.updatedAtBangkok ||
-                    '-');
-                recBadgeWrap.appendChild(upDateSpan);
-                topHeaderRow.appendChild(recBadgeWrap);
-              } else {
-                var cardUpdSpan = document.createElement('span');
-                cardUpdSpan.style.fontSize = '0.8rem';
-                cardUpdSpan.style.color = 'var(--color-text-muted)';
-                cardUpdSpan.textContent =
-                  'Updated: ' + (crd.updatedAtBangkok || crd.updatedAtUtc || '-');
-                topHeaderRow.appendChild(cardUpdSpan);
-              }
+              var cardUpdSpan = document.createElement('span');
+              cardUpdSpan.style.fontSize = '0.8rem';
+              cardUpdSpan.style.color = 'var(--color-text-muted)';
+              cardUpdSpan.textContent =
+                'Updated: ' + (crd.updatedAtBangkok || crd.updatedAtUtc || '-');
+              topHeaderRow.appendChild(cardUpdSpan);
 
               itemBox.appendChild(topHeaderRow);
 
@@ -12048,76 +12189,8 @@
                 itemBox.appendChild(asmBox);
               }
 
-              /* Recording View: Inline 16:9 YouTube Player + Whole-Card Click & Keyboard Modal Trigger */
-              if (isRecordingCard) {
-                var cardYtMeta = extractAndNormalizeYouTubeUrlClient(crd.recordingUrl || '');
-                if (cardYtMeta.isYouTubeVideo && cardYtMeta.youtubeEmbedUrl) {
-                  var inlineYtBox = document.createElement('div');
-                  inlineYtBox.className = 'pb-inline-youtube-card-player';
-                  var fTag = 'ifr' + 'ame';
-                  var inlineFrame = document.createElement(fTag);
-                  inlineFrame.className = 'pb-youtube-embed-iframe';
-                  inlineFrame.setAttribute('src', cardYtMeta.youtubeEmbedUrl);
-                  inlineFrame.setAttribute(
-                    'title',
-                    (crd.title || 'Class Recording') + ' - Embedded YouTube Video'
-                  );
-                  inlineFrame.setAttribute(
-                    'allow',
-                    'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'
-                  );
-                  inlineFrame.setAttribute('allowfullscreen', 'true');
-                  inlineFrame.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
-                  inlineYtBox.appendChild(inlineFrame);
-                  itemBox.appendChild(inlineYtBox);
-                }
-                itemBox.setAttribute('tabindex', '0');
-                itemBox.setAttribute('role', 'button');
-                itemBox.setAttribute(
-                  'aria-label',
-                  'Open recording modal for ' + crd.title
-                );
-
-                var recFooter = document.createElement('div');
-                recFooter.style.display = 'flex';
-                recFooter.style.alignItems = 'center';
-                recFooter.style.justifyContent = 'space-between';
-                recFooter.style.flexWrap = 'wrap';
-                recFooter.style.gap = '10px';
-                recFooter.style.marginTop = '10px';
-
-                var clickHintSpan = document.createElement('span');
-                clickHintSpan.style.fontSize = '0.84rem';
-                clickHintSpan.style.color = 'var(--color-text-secondary)';
-                clickHintSpan.textContent =
-                  'Click card or press Enter to open recording modal';
-                recFooter.appendChild(clickHintSpan);
-
-                var openRecModalBtn = document.createElement('button');
-                openRecModalBtn.type = 'button';
-                openRecModalBtn.className = 'btn btn-primary btn-sm';
-                openRecModalBtn.textContent = 'Open Recording Modal';
-                openRecModalBtn.addEventListener('click', function (evt) {
-                  evt.stopPropagation();
-                  openRecordingDetailModal(crd);
-                });
-                recFooter.appendChild(openRecModalBtn);
-
-                itemBox.appendChild(recFooter);
-
-                itemBox.addEventListener('click', function () {
-                  openRecordingDetailModal(crd);
-                });
-                itemBox.addEventListener('keydown', function (evt) {
-                  if (evt.key === 'Enter' || evt.key === ' ') {
-                    evt.preventDefault();
-                    openRecordingDetailModal(crd);
-                  }
-                });
-              }
-
               secCard.appendChild(itemBox);
-            })(cards[cIdx]);
+            })(cards[cIdx], cIdx);
           }
         }
 
@@ -18229,7 +18302,12 @@ var qrcode = (function() {
 
                   var left = document.createElement('div');
                   var modeBadge = document.createElement('span');
-                  modeBadge.className = 'badge badge-ok';
+                  modeBadge.className =
+                    ex.examMode === 'PRACTICE'
+                      ? 'badge pb-exam-badge-practice'
+                      : ex.examMode === 'MOCK_EXAM'
+                      ? 'badge pb-exam-badge-mock'
+                      : 'badge pb-exam-badge-assigned';
                   modeBadge.style.marginRight = '6px';
                   modeBadge.textContent =
                     ex.examMode === 'PRACTICE'
@@ -18571,6 +18649,7 @@ var qrcode = (function() {
           youtubeEmbedUrl:
             'https://www.youtube-nocookie.com/embed/' + videoId + '?rel=0',
           youtubeWatchUrl: 'https://www.youtube.com/watch?v=' + videoId,
+          youtubeThumbnailUrl: 'https://i.ytimg.com/vi/' + videoId + '/hqdefault.jpg',
           normalizedUrl: 'https://www.youtube.com/watch?v=' + videoId
         };
       }
@@ -18579,6 +18658,7 @@ var qrcode = (function() {
         youtubeVideoId: '',
         youtubeEmbedUrl: '',
         youtubeWatchUrl: '',
+        youtubeThumbnailUrl: '',
         normalizedUrl: trimmed
       };
     }
@@ -18846,17 +18926,105 @@ var qrcode = (function() {
       return docs;
     }
 
-    function openRecordingDetailModal(cardObj) {
+    function renderRecordingModalPlaylistSidebar(activeCardObj, playlistCards) {
+      var cardPanel = document.getElementById('recording-modal-playlist-card');
+      var listHost = document.getElementById('recording-modal-playlist-list');
+      var countBadge = document.getElementById('recording-modal-playlist-count');
+      if (!cardPanel || !listHost) return;
+
+      while (listHost.firstChild) {
+        listHost.removeChild(listHost.firstChild);
+      }
+
+      var items = Array.isArray(playlistCards) ? playlistCards : [];
+      if (items.length === 0 && typeof currentStudentCourseDetailBundle === 'object' && currentStudentCourseDetailBundle && Array.isArray(currentStudentCourseDetailBundle.sections)) {
+        var secs = currentStudentCourseDetailBundle.sections;
+        for (var si = 0; si < secs.length; si++) {
+          var scCards = Array.isArray(secs[si].cards) ? secs[si].cards : [];
+          for (var ci = 0; ci < scCards.length; ci++) {
+            var candidate = scCards[ci];
+            if (candidate && (candidate.cardType === 'RECORDING_CARD' || secs[si].sectionType === 'RECORDING')) {
+              items.push(candidate);
+            }
+          }
+        }
+      }
+
+      if (items.length === 0 && activeCardObj) {
+        items = [activeCardObj];
+      }
+
+      if (countBadge) {
+        countBadge.textContent = String(items.length) + (items.length === 1 ? ' video' : ' videos');
+      }
+
+      if (items.length <= 0) {
+        cardPanel.classList.add('hidden');
+        return;
+      }
+
+      cardPanel.classList.remove('hidden');
+      for (var i = 0; i < items.length; i++) {
+        (function (itemCrd, epIdx) {
+          var isPlaying = activeCardObj && itemCrd.cardId === activeCardObj.cardId;
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'pb-yt-playlist-item' + (isPlaying ? ' is-playing' : '');
+          btn.setAttribute('aria-current', isPlaying ? 'true' : 'false');
+
+          var thumbWrap = document.createElement('div');
+          thumbWrap.className = 'pb-yt-playlist-thumb';
+          var ytItemMeta = extractAndNormalizeYouTubeUrlClient(itemCrd.recordingUrl || '');
+          if (ytItemMeta.isYouTubeVideo && ytItemMeta.youtubeThumbnailUrl) {
+            var thImg = document.createElement('img');
+            thImg.src = ytItemMeta.youtubeThumbnailUrl;
+            thImg.alt = '';
+            thImg.setAttribute('referrerpolicy', 'no-referrer');
+            thumbWrap.appendChild(thImg);
+          }
+          var epBadge = document.createElement('span');
+          epBadge.className = 'pb-yt-playlist-thumb-badge';
+          epBadge.textContent = isPlaying ? 'Playing' : 'Ep ' + String(epIdx + 1);
+          thumbWrap.appendChild(epBadge);
+          btn.appendChild(thumbWrap);
+
+          var infoCol = document.createElement('div');
+          infoCol.style.minWidth = '0';
+          var ttl = document.createElement('div');
+          ttl.className = 'pb-yt-playlist-item-title';
+          ttl.textContent = itemCrd.title || 'Class Recording #' + String(epIdx + 1);
+          infoCol.appendChild(ttl);
+
+          var metaEl = document.createElement('div');
+          metaEl.className = 'pb-yt-playlist-item-meta';
+          metaEl.textContent =
+            itemCrd.recordingUploadedAtBangkok ||
+            itemCrd.updatedAtBangkok ||
+            (ytItemMeta.isYouTubeVideo ? 'YouTube HD' : 'Class Session');
+          infoCol.appendChild(metaEl);
+
+          btn.appendChild(infoCol);
+          btn.addEventListener('click', function () {
+            if (isPlaying) return;
+            openRecordingDetailModal(itemCrd, items, true);
+          });
+          listHost.appendChild(btn);
+        })(items[i], i);
+      }
+    }
+
+    function openRecordingDetailModal(cardObj, opt_playlistCards, opt_switchInPlace) {
       if (!cardObj) {
         return;
       }
+      var uploadStr =
+        cardObj.recordingUploadedAtBangkok ||
+        cardObj.recordingUploadedAtUtc ||
+        cardObj.updatedAtBangkok ||
+        '-';
       setText(
         'recording-modal-upload-date',
-        'Upload Date (Asia/Bangkok): ' +
-          (cardObj.recordingUploadedAtBangkok ||
-            cardObj.recordingUploadedAtUtc ||
-            cardObj.updatedAtBangkok ||
-            '-')
+        'Upload Date (Asia/Bangkok): ' + uploadStr
       );
       setText('recording-modal-title', cardObj.title || 'Class Recording');
       setText('recording-modal-subtitle', cardObj.subtitle || '');
@@ -18868,6 +19036,13 @@ var qrcode = (function() {
       var ytMeta = extractAndNormalizeYouTubeUrlClient(cardObj.recordingUrl || '');
       var hasValidUrl = Boolean(
         cardObj.recordingUrl && isSafeRichTextHref(cardObj.recordingUrl)
+      );
+
+      setText(
+        'recording-modal-channel-meta',
+        'Uploaded: ' +
+          uploadStr +
+          (ytMeta.isYouTubeVideo ? ' • HD 16:9 Stream' : hasValidUrl ? ' • External Stream' : '')
       );
 
       var sourceBadge = document.getElementById('recording-modal-source-badge');
@@ -18898,6 +19073,8 @@ var qrcode = (function() {
         unavailableBox.classList.toggle('hidden', hasValidUrl);
       }
 
+      renderRecordingModalPlaylistSidebar(cardObj, opt_playlistCards);
+
       renderRecordingLessonDocumentsList(
         cardObj,
         cardObj.courseId || currentStudentCourseId
@@ -18925,10 +19102,12 @@ var qrcode = (function() {
         }
       }
 
-      openModalDialog(
-        'modal-recording-detail',
-        hasValidUrl ? 'link-modal-watch-recording' : 'btn-close-recording-modal-footer'
-      );
+      if (!opt_switchInPlace) {
+        openModalDialog(
+          'modal-recording-detail',
+          hasValidUrl ? 'link-modal-watch-recording' : 'btn-close-recording-modal-footer'
+        );
+      }
     }
 
     function setMobileMenuOpen(isOpen, opt_restoreFocusToButton) {
@@ -20683,6 +20862,129 @@ var qrcode = (function() {
       renderExamEditorSelectedImagesGalleryPhase3();
     }
 
+    function syncExamAttemptPolicyPairFromCount(policySelId, countInpId, pairWrapId, rawCount) {
+      var policySel = document.getElementById(policySelId);
+      var countInp = document.getElementById(countInpId);
+      var pairWrap = document.getElementById(pairWrapId);
+      var n = parseInt(rawCount, 10);
+      if (isNaN(n) || n < 0) n = 1;
+      if (n > 100) n = 100;
+
+      if (policySel) {
+        if (n === 0) {
+          policySel.value = 'MULTIPLE_UNLIMITED';
+        } else if (n === 1) {
+          policySel.value = 'SINGLE';
+        } else {
+          policySel.value = 'MULTIPLE_LIMITED';
+        }
+      }
+      if (countInp) {
+        countInp.value = String(n);
+        var isLimited = n >= 2;
+        countInp.classList.toggle('hidden', !isLimited);
+        countInp.disabled = !isLimited;
+      }
+      if (pairWrap) {
+        pairWrap.classList.toggle('is-fixed-count', n < 2);
+      }
+    }
+
+    function readExamAttemptPolicyCountValue(policySelId, countInpId, examMode) {
+      var policySel = document.getElementById(policySelId);
+      var countInp = document.getElementById(countInpId);
+      var pol = policySel ? policySel.value : '';
+      if (pol === 'SINGLE') {
+        return '1';
+      }
+      if (pol === 'MULTIPLE_UNLIMITED') {
+        return '0';
+      }
+      if (pol === 'MULTIPLE_LIMITED') {
+        var lim = parseInt(countInp ? countInp.value : '2', 10);
+        if (isNaN(lim) || lim < 2) lim = 2;
+        if (lim > 100) lim = 100;
+        return String(lim);
+      }
+      if (countInp && String(countInp.value).trim() !== '') {
+        return String(countInp.value);
+      }
+      return examMode === 'PRACTICE' ? '0' : '1';
+    }
+
+    function bindExamAttemptPolicyPair(policySelId, countInpId, pairWrapId, modeSelId, examIdInputId) {
+      var policySel = document.getElementById(policySelId);
+      var countInp = document.getElementById(countInpId);
+      var modeSel = document.getElementById(modeSelId);
+      var pairWrap = document.getElementById(pairWrapId);
+
+      if (policySel && !(policySel.dataset && policySel.dataset.boundAttPol)) {
+        if (policySel.dataset) policySel.dataset.boundAttPol = '1';
+        policySel.addEventListener('change', function () {
+          if (policySel.dataset) policySel.dataset.userTouched = '1';
+          var pol = policySel.value;
+          if (pol === 'SINGLE') {
+            if (countInp) countInp.value = '1';
+            syncExamAttemptPolicyPairFromCount(policySelId, countInpId, pairWrapId, 1);
+          } else if (pol === 'MULTIPLE_UNLIMITED') {
+            if (countInp) countInp.value = '0';
+            syncExamAttemptPolicyPairFromCount(policySelId, countInpId, pairWrapId, 0);
+          } else {
+            var cur = parseInt(countInp ? countInp.value : '3', 10);
+            var target = !isNaN(cur) && cur >= 2 ? cur : 3;
+            if (countInp) countInp.value = String(target);
+            syncExamAttemptPolicyPairFromCount(policySelId, countInpId, pairWrapId, target);
+            if (countInp && !countInp.disabled) {
+              try {
+                countInp.focus();
+                countInp.select();
+              } catch (e) {}
+            }
+          }
+        });
+      }
+
+      if (countInp && !(countInp.dataset && countInp.dataset.boundAttCnt)) {
+        if (countInp.dataset) countInp.dataset.boundAttCnt = '1';
+        countInp.addEventListener('blur', function () {
+          if (policySel && policySel.value === 'MULTIPLE_LIMITED') {
+            var v = parseInt(countInp.value, 10);
+            if (isNaN(v) || v < 2) v = 2;
+            if (v > 100) v = 100;
+            countInp.value = String(v);
+          }
+        });
+        countInp.addEventListener('input', function () {
+          if (policySel && policySel.dataset) policySel.dataset.userTouched = '1';
+        });
+      }
+
+      if (modeSel && !(modeSel.dataset && modeSel.dataset.boundAttMode)) {
+        if (modeSel.dataset) modeSel.dataset.boundAttMode = '1';
+        modeSel.addEventListener('change', function () {
+          var existingId = ((document.getElementById(examIdInputId) || {}).value || '').trim();
+          var userTouched = policySel && policySel.dataset && policySel.dataset.userTouched === '1';
+          if (existingId || userTouched) {
+            return;
+          }
+          if (modeSel.value === 'PRACTICE') {
+            syncExamAttemptPolicyPairFromCount(policySelId, countInpId, pairWrapId, 0);
+          } else {
+            syncExamAttemptPolicyPairFromCount(policySelId, countInpId, pairWrapId, 1);
+          }
+        });
+      }
+
+      if (pairWrap && policySel) {
+        syncExamAttemptPolicyPairFromCount(
+          policySelId,
+          countInpId,
+          pairWrapId,
+          countInp ? countInp.value : 1
+        );
+      }
+    }
+
     function resetAdminExamEditorFormPhase3() {
       populateAdminExamBuilderCourseAndStudentDropdownsPhase3();
       var idEl = document.getElementById('input-exam-editor-id');
@@ -20721,6 +21023,14 @@ var qrcode = (function() {
       if (modeEl) modeEl.value = 'MOCK_EXAM';
       if (durEl) durEl.value = '45';
       if (maxAttEl) maxAttEl.value = '1';
+      var edAttPol = document.getElementById('select-exam-editor-attempt-policy');
+      if (edAttPol && edAttPol.dataset) edAttPol.dataset.userTouched = '';
+      syncExamAttemptPolicyPairFromCount(
+        'select-exam-editor-attempt-policy',
+        'input-exam-editor-max-attempts',
+        'wrap-exam-editor-attempt-pair',
+        1
+      );
       if (openEl) openEl.value = '';
       if (closeEl) closeEl.value = '';
       if (scPolEl) scPolEl.value = 'IMMEDIATE_AUTO';
@@ -20779,7 +21089,21 @@ var qrcode = (function() {
       if (crsEl) crsEl.value = examDto.courseId || '';
       if (modeEl) modeEl.value = examDto.examMode || 'MOCK_EXAM';
       if (durEl) durEl.value = String(examDto.durationMinutes || 0);
-      if (maxAttEl) maxAttEl.value = String(examDto.maxAttempts || 0);
+      var resolvedEditorMaxAtt =
+        examDto.maxAttempts !== undefined && examDto.maxAttempts !== null
+          ? Number(examDto.maxAttempts)
+          : examDto.examMode === 'PRACTICE'
+          ? 0
+          : 1;
+      if (maxAttEl) maxAttEl.value = String(resolvedEditorMaxAtt);
+      var edAttPolEdit = document.getElementById('select-exam-editor-attempt-policy');
+      if (edAttPolEdit && edAttPolEdit.dataset) edAttPolEdit.dataset.userTouched = '1';
+      syncExamAttemptPolicyPairFromCount(
+        'select-exam-editor-attempt-policy',
+        'input-exam-editor-max-attempts',
+        'wrap-exam-editor-attempt-pair',
+        resolvedEditorMaxAtt
+      );
       if (openEl) openEl.value = examDto.openAtUtc || '';
       if (closeEl) closeEl.value = examDto.closeAtUtc || '';
       if (scPolEl) scPolEl.value = examDto.scoreReleasePolicy || 'MANUAL_ADMIN';
@@ -20927,7 +21251,12 @@ var qrcode = (function() {
 
           var tdMode = document.createElement('td');
           var mBadge = document.createElement('span');
-          mBadge.className = 'badge badge-ok';
+          mBadge.className =
+            ex.examMode === 'PRACTICE'
+              ? 'badge pb-exam-badge-practice'
+              : ex.examMode === 'MOCK_EXAM'
+              ? 'badge pb-exam-badge-mock'
+              : 'badge pb-exam-badge-assigned';
           mBadge.textContent = ex.examModeLabel || ex.examMode;
           tdMode.appendChild(mBadge);
           var crsDiv = document.createElement('div');
@@ -20948,10 +21277,24 @@ var qrcode = (function() {
           tr.appendChild(tdStruct);
 
           var tdTime = document.createElement('td');
-          tdTime.textContent =
-            ex.durationLabel +
-            ' | Attempts: ' +
-            (ex.maxAttempts === 0 ? 'Unlimited' : ex.maxAttempts);
+          var durDiv = document.createElement('div');
+          durDiv.style.fontSize = '0.84rem';
+          durDiv.textContent = ex.durationLabel || 'Untimed';
+          tdTime.appendChild(durDiv);
+          var attBadge = document.createElement('span');
+          var maxA = Number(ex.maxAttempts);
+          if (maxA === 0 || ex.allowedAttempts === 'UNLIMITED') {
+            attBadge.className = 'badge pb-cat-attempt-unlimited';
+            attBadge.textContent = 'Unlimited Retakes';
+          } else if (maxA === 1) {
+            attBadge.className = 'badge pb-cat-attempt-single';
+            attBadge.textContent = 'Single Attempt (1)';
+          } else {
+            attBadge.className = 'badge pb-cat-attempt-multi';
+            attBadge.textContent = 'Multiple (' + String(maxA || 1) + ' Attempts)';
+          }
+          attBadge.style.marginTop = '4px';
+          tdTime.appendChild(attBadge);
           tr.appendChild(tdTime);
 
           var tdStatus = document.createElement('td');
@@ -21202,6 +21545,24 @@ var qrcode = (function() {
             ? 'Timed Mock Exam'
             : 'Assigned Assessment';
           leftBadges.appendChild(modeBadge);
+
+          var attemptPolicyBadge = document.createElement('span');
+          var isUnlimCard =
+            exam.allowedAttempts === 'UNLIMITED' ||
+            exam.allowedAttemptsDisplay === 'Unlimited' ||
+            Number(exam.allowedAttempts) === 0;
+          if (isUnlimCard) {
+            attemptPolicyBadge.className = 'badge pb-cat-attempt-unlimited';
+            attemptPolicyBadge.textContent = 'Unlimited Retakes';
+          } else if (Number(exam.allowedAttempts) === 1) {
+            attemptPolicyBadge.className = 'badge pb-cat-attempt-single';
+            attemptPolicyBadge.textContent = 'Single Attempt';
+          } else {
+            attemptPolicyBadge.className = 'badge pb-cat-attempt-multi';
+            attemptPolicyBadge.textContent =
+              String(exam.allowedAttempts || 2) + ' Attempts Max';
+          }
+          leftBadges.appendChild(attemptPolicyBadge);
 
           var rightBadges = document.createElement('div');
           rightBadges.style.display = 'flex';
@@ -21575,6 +21936,16 @@ var qrcode = (function() {
           'exam-inst-mode-badge',
           ex.examModeLabel ? formatFriendlyPolicyLabel(ex.examModeLabel) : formatFriendlyPolicyLabel(ex.examMode || 'Assigned Assessment')
         );
+        var instModeBadgeEl = document.getElementById('exam-inst-mode-badge');
+        if (instModeBadgeEl) {
+          instModeBadgeEl.className =
+            'badge ' +
+            (ex.examMode === 'PRACTICE'
+              ? 'pb-exam-badge-practice'
+              : ex.examMode === 'MOCK_EXAM'
+              ? 'pb-exam-badge-mock'
+              : 'pb-exam-badge-assigned');
+        }
         setText('exam-inst-code-badge', ex.examCode || 'ASSESSMENT');
         setText(
           'exam-inst-availability-badge',
@@ -23315,6 +23686,14 @@ var qrcode = (function() {
       if (durEl) durEl.value = '45';
       if (passEl) passEl.value = '60';
       if (attEl) attEl.value = '1';
+      var fmAttPol = document.getElementById('select-forms-exam-attempt-policy');
+      if (fmAttPol && fmAttPol.dataset) fmAttPol.dataset.userTouched = '';
+      syncExamAttemptPolicyPairFromCount(
+        'select-forms-exam-attempt-policy',
+        'input-forms-exam-attempts',
+        'wrap-forms-exam-attempt-pair',
+        1
+      );
       if (scEl) scEl.value = 'IMMEDIATE_AUTO';
       if (exEl) exEl.value = 'WITH_SCORE';
       if (openEl) openEl.value = '';
@@ -23375,7 +23754,21 @@ var qrcode = (function() {
       if (modeEl) modeEl.value = examDto.examMode || 'MOCK_EXAM';
       if (durEl) durEl.value = String(examDto.durationMinutes !== undefined ? examDto.durationMinutes : 45);
       if (passEl) passEl.value = String(examDto.passThresholdPct || 60);
-      if (attEl) attEl.value = String(examDto.maxAttempts !== undefined ? examDto.maxAttempts : 1);
+      var resolvedFormsMaxAtt =
+        examDto.maxAttempts !== undefined && examDto.maxAttempts !== null
+          ? Number(examDto.maxAttempts)
+          : examDto.examMode === 'PRACTICE'
+          ? 0
+          : 1;
+      if (attEl) attEl.value = String(resolvedFormsMaxAtt);
+      var fmAttPolEdit = document.getElementById('select-forms-exam-attempt-policy');
+      if (fmAttPolEdit && fmAttPolEdit.dataset) fmAttPolEdit.dataset.userTouched = '1';
+      syncExamAttemptPolicyPairFromCount(
+        'select-forms-exam-attempt-policy',
+        'input-forms-exam-attempts',
+        'wrap-forms-exam-attempt-pair',
+        resolvedFormsMaxAtt
+      );
       if (scEl) scEl.value = examDto.scoreReleasePolicy || 'IMMEDIATE_AUTO';
       if (exEl) exEl.value = examDto.explanationReleasePolicy || 'WITH_SCORE';
       if (openEl) openEl.value = examDto.openAtUtc || '';
@@ -23717,7 +24110,11 @@ var qrcode = (function() {
           courseId: courseId,
           examMode: examMode,
           durationMinutes: String(durVal),
-          maxAttempts: (document.getElementById('input-forms-exam-attempts') || {}).value || (examMode === 'PRACTICE' ? '0' : '1'),
+          maxAttempts: readExamAttemptPolicyCountValue(
+            'select-forms-exam-attempt-policy',
+            'input-forms-exam-attempts',
+            examMode
+          ),
           openAtUtc: (document.getElementById('input-forms-open-at') || {}).value || '',
           closeAtUtc: (document.getElementById('input-forms-close-at') || {}).value || '',
           scoreReleasePolicy: (document.getElementById('select-forms-score-policy') || {}).value || 'IMMEDIATE_AUTO',
@@ -24003,6 +24400,21 @@ var qrcode = (function() {
     }
 
     function initExamPhase3BuilderAndCatalogBindings() {
+      bindExamAttemptPolicyPair(
+        'select-exam-editor-attempt-policy',
+        'input-exam-editor-max-attempts',
+        'wrap-exam-editor-attempt-pair',
+        'select-exam-editor-mode',
+        'input-exam-editor-id'
+      );
+      bindExamAttemptPolicyPair(
+        'select-forms-exam-attempt-policy',
+        'input-forms-exam-attempts',
+        'wrap-forms-exam-attempt-pair',
+        'select-forms-exam-mode',
+        'input-forms-exam-id'
+      );
+
       // Admin Exam Builder modal trigger
       var openBuilderBtn = document.getElementById('btn-admin-open-exam-builder-modal');
       if (openBuilderBtn) {
@@ -24109,7 +24521,11 @@ var qrcode = (function() {
           courseId: (document.getElementById('select-exam-editor-course') || {}).value || '',
           examMode: (document.getElementById('select-exam-editor-mode') || {}).value || 'MOCK_EXAM',
           durationMinutes: (document.getElementById('input-exam-editor-duration') || {}).value || '0',
-          maxAttempts: (document.getElementById('input-exam-editor-max-attempts') || {}).value || '1',
+          maxAttempts: readExamAttemptPolicyCountValue(
+            'select-exam-editor-attempt-policy',
+            'input-exam-editor-max-attempts',
+            (document.getElementById('select-exam-editor-mode') || {}).value || 'MOCK_EXAM'
+          ),
           openAtUtc: (document.getElementById('input-exam-editor-open-at') || {}).value || '',
           closeAtUtc: (document.getElementById('input-exam-editor-close-at') || {}).value || '',
           scoreReleasePolicy: (document.getElementById('select-exam-editor-score-policy') || {}).value || 'MANUAL_ADMIN',
@@ -25612,7 +26028,16 @@ var qrcode = (function() {
           for (var i = 0; i < items.length; i++) {
             var it = items[i];
             var box = document.createElement('div');
-            box.className = 'status-item';
+            var cState = String(it.correctnessState || '').toUpperCase();
+            var gradeStateClass =
+              cState === 'CORRECT'
+                ? 'is-grade-correct'
+                : cState === 'INCORRECT'
+                ? 'is-grade-incorrect'
+                : cState === 'PARTIAL'
+                ? 'is-grade-partial'
+                : 'is-grade-pending';
+            box.className = 'status-item pb-grading-item-card ' + gradeStateClass;
 
             var headDiv = document.createElement('div');
             headDiv.style.fontWeight = '700';

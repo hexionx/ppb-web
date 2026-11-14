@@ -1481,16 +1481,20 @@
     <!-- Quick Mode Category Tabs -->
     <div class="pb-exam-mode-QuickTabs" id="student-exam-mode-quick-tabs" role="tablist" aria-label="Filter by quiz or exam type">
       <button type="button" class="pb-exam-mode-tab is-active" data-exam-quick-mode="ALL" role="tab" aria-selected="true">
-        All Quizzes &amp; Exams
+        <span class="pb-cat-dot tone-all" aria-hidden="true"></span>
+        <span>All Quizzes &amp; Exams</span>
       </button>
       <button type="button" class="pb-exam-mode-tab" data-exam-quick-mode="PRACTICE" role="tab" aria-selected="false">
-        Practice Quizzes
+        <span class="pb-cat-dot tone-practice" aria-hidden="true"></span>
+        <span>Practice Quizzes</span>
       </button>
       <button type="button" class="pb-exam-mode-tab" data-exam-quick-mode="MOCK_EXAM" role="tab" aria-selected="false">
-        Timed Mock Exams
+        <span class="pb-cat-dot tone-mock" aria-hidden="true"></span>
+        <span>Timed Mock Exams</span>
       </button>
       <button type="button" class="pb-exam-mode-tab" data-exam-quick-mode="ASSIGNED_ASSESSMENT" role="tab" aria-selected="false">
-        Assigned Assessments
+        <span class="pb-cat-dot tone-assigned" aria-hidden="true"></span>
+        <span>Assigned Assessments</span>
       </button>
     </div>
 
@@ -6948,14 +6952,17 @@
           </p>
         </div>
         <div class="admin-subnav pb-admin-category-pills" id="admin-assessments-subnav" role="tablist" aria-label="Assessment Categories" style="margin: 0;">
-          <button type="button" class="admin-subnav-btn is-active" id="btn-assessments-subtab-library" data-assessments-subtab="library" role="tab" aria-selected="true">
-            1. Assessment Library
+          <button type="button" class="admin-subnav-btn is-active" id="btn-assessments-subtab-library" data-assessments-subtab="library" role="tab" aria-selected="true" style="display:inline-flex;align-items:center;gap:7px;">
+            <span class="pb-cat-dot tone-mock" aria-hidden="true"></span>
+            <span>1. Assessment Library</span>
           </button>
-          <button type="button" class="admin-subnav-btn" id="btn-assessments-subtab-attempts" data-assessments-subtab="attempts" role="tab" aria-selected="false">
-            2. Exam Attempts &amp; Manual Grading
+          <button type="button" class="admin-subnav-btn" id="btn-assessments-subtab-attempts" data-assessments-subtab="attempts" role="tab" aria-selected="false" style="display:inline-flex;align-items:center;gap:7px;">
+            <span class="pb-cat-dot tone-assigned" aria-hidden="true"></span>
+            <span>2. Exam Attempts &amp; Manual Grading</span>
           </button>
-          <button type="button" class="admin-subnav-btn" id="btn-assessments-subtab-scores" data-assessments-subtab="scores" role="tab" aria-selected="false">
-            3. Student Score Publishing
+          <button type="button" class="admin-subnav-btn" id="btn-assessments-subtab-scores" data-assessments-subtab="scores" role="tab" aria-selected="false" style="display:inline-flex;align-items:center;gap:7px;">
+            <span class="pb-cat-dot tone-practice" aria-hidden="true"></span>
+            <span>3. Student Score Publishing</span>
           </button>
         </div>
       </div>
@@ -7466,7 +7473,7 @@
         <input type="hidden" id="input-manual-grading-attempt-id" value="" />
         <input type="hidden" id="input-manual-grading-expected-version" value="" />
 
-        <div id="admin-manual-grading-items-container" style="display: flex; flex-direction: column; gap: 12px; max-height: 55vh; overflow-y: auto; padding-right: 4px;"></div>
+        <div id="admin-manual-grading-items-container" style="display: flex; flex-direction: column; gap: 14px;"></div>
 
         <div style="display: flex; gap: 16px; flex-wrap: wrap; margin: 12px 0;">
           <label style="display: flex; align-items: center; gap: 6px; font-size: 0.86rem; font-weight: 600;">
@@ -7720,6 +7727,17 @@
             <label for="input-forms-exam-pass-pct" class="form-label" style="font-size: 0.78rem;">Pass Threshold (%)</label>
             <input type="number" id="input-forms-exam-pass-pct" class="form-input" min="0" max="100" value="60" />
           </div>
+          <div class="form-group" style="margin: 0;">
+            <label for="select-forms-exam-attempt-policy" class="form-label" style="font-size: 0.78rem;">Attempts (Single vs. Multiple)</label>
+            <div class="pb-attempt-policy-pair" id="wrap-forms-exam-attempt-pair">
+              <select id="select-forms-exam-attempt-policy" class="form-select">
+                <option value="SINGLE">Single Attempt (1 only)</option>
+                <option value="MULTIPLE_LIMITED">Multiple Attempts (Set limit)</option>
+                <option value="MULTIPLE_UNLIMITED">Multiple Attempts (Unlimited)</option>
+              </select>
+              <input type="number" id="input-forms-exam-attempts" class="form-input" min="0" max="100" value="1" aria-label="Allowed attempts count" />
+            </div>
+          </div>
         </div>
 
         <!-- Collapsible Advanced Exam Policies Drawer -->
@@ -7732,10 +7750,6 @@
               <div class="form-group">
                 <label for="input-forms-exam-code" class="form-label">Exam Code (Auto-generated if left blank)</label>
                 <input type="text" id="input-forms-exam-code" class="form-input" placeholder="Auto-generated e.g. BIO-EXAM-..." />
-              </div>
-              <div class="form-group">
-                <label for="input-forms-exam-attempts" class="form-label">Allowed Attempts (0 = Unlimited in Practice)</label>
-                <input type="number" id="input-forms-exam-attempts" class="form-input" min="0" max="100" value="1" />
               </div>
               <div class="form-group">
                 <label for="select-forms-score-policy" class="form-label">Score Release Policy</label>
@@ -8004,8 +8018,15 @@
             <input type="number" id="input-exam-editor-duration" class="form-input" min="0" max="600" value="45" />
           </div>
           <div class="form-group">
-            <label for="input-exam-editor-max-attempts" class="form-label">Allowed Attempts (0 = Unlimited in Practice)</label>
-            <input type="number" id="input-exam-editor-max-attempts" class="form-input" min="0" max="100" value="1" />
+            <label for="select-exam-editor-attempt-policy" class="form-label">Attempt Allowance (Single vs. Multiple)</label>
+            <div class="pb-attempt-policy-pair" id="wrap-exam-editor-attempt-pair">
+              <select id="select-exam-editor-attempt-policy" class="form-select">
+                <option value="SINGLE">Single Attempt (1 attempt only)</option>
+                <option value="MULTIPLE_LIMITED">Multiple Attempts (Set limit)</option>
+                <option value="MULTIPLE_UNLIMITED">Multiple Attempts (Unlimited retakes)</option>
+              </select>
+              <input type="number" id="input-exam-editor-max-attempts" class="form-input" min="0" max="100" value="1" aria-label="Maximum allowed attempts" />
+            </div>
           </div>
         </div>
 
@@ -10031,7 +10052,7 @@
   </div>
 </div>
 
-<!-- 3. Accessible Class Recording Detail Modal (#modal-recording-detail) -->
+<!-- 3. Streaming Theater Class Recording Watch Modal (#modal-recording-detail) -->
 <div
   id="modal-recording-detail"
   class="modal-backdrop hidden"
@@ -10041,22 +10062,22 @@
   aria-labelledby="recording-modal-title"
   aria-describedby="recording-modal-subtitle"
 >
-  <div class="modal-dialog modal-dialog-lg" id="modal-recording-detail-dialog" role="document">
-    <div class="modal-header">
-      <div>
+  <div class="modal-dialog modal-dialog-lg pb-yt-theater-dialog" id="modal-recording-detail-dialog" role="document">
+    <div class="modal-header pb-yt-modal-header">
+      <div style="min-width: 0;">
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-          <span class="badge badge-ok" id="recording-modal-upload-date">Class Recording</span>
-          <span class="badge badge-ok hidden" id="recording-modal-source-badge">YouTube 16:9 Player</span>
+          <span class="badge pb-cat-badge-recording" id="recording-modal-upload-date">Class Recording</span>
+          <span class="badge pb-cat-badge-custom hidden" id="recording-modal-source-badge">YouTube 16:9 Player</span>
         </div>
         <h2
           id="recording-modal-title"
-          style="margin: 8px 0 4px 0; font-size: 1.38rem; color: var(--color-brand-deep);"
+          style="margin: 6px 0 2px 0; font-size: 1.25rem; color: #0F172A; line-height: 1.3;"
         >
           Class Recording Details
         </h2>
         <p
           id="recording-modal-subtitle"
-          style="margin: 0; font-size: 0.92rem; color: var(--color-text-secondary);"
+          style="margin: 0; font-size: 0.88rem; color: var(--color-text-secondary);"
         ></p>
       </div>
       <button
@@ -10069,84 +10090,116 @@
       </button>
     </div>
 
-    <!-- 16:9 Recorded Lesson Video Player Section -->
-    <div id="recording-modal-video-section" style="margin-bottom: 14px;">
-      <div
-        id="recording-modal-video-player-wrap"
-        class="pb-video-player-16x9"
-        role="region"
-        aria-label="Recorded lesson 16:9 video player"
-      ></div>
-    </div>
+    <div class="pb-yt-watch-body">
+      <div class="pb-yt-watch-grid">
+        <!-- Left Primary Watch Stage & Lesson Overview -->
+        <div class="pb-yt-primary-col">
+          <div class="pb-yt-stage-bezel">
+            <div id="recording-modal-video-section">
+              <div
+                id="recording-modal-video-player-wrap"
+                class="pb-video-player-16x9"
+                role="region"
+                aria-label="Recorded lesson 16:9 video player"
+              ></div>
+            </div>
+          </div>
 
-    <!-- Clear Unavailable Message Shown When Recording Link Has Not Been Added Yet -->
-    <div
-      id="recording-modal-unavailable-notice"
-      class="banner banner-warning hidden"
-      role="status"
-      aria-live="polite"
-      style="margin-bottom: 14px;"
-    >
-      <p class="banner-title">Recording Video Link Not Added Yet</p>
-      <p class="banner-text" id="recording-modal-unavailable-text">
-        The instructor has not added the video recording link for this class session yet.
-        Please check back after the recording finishes processing, or contact the school if you need assistance.
-      </p>
-    </div>
+          <div
+            id="recording-modal-unavailable-notice"
+            class="banner banner-warning hidden"
+            role="status"
+            aria-live="polite"
+            style="margin: 0;"
+          >
+            <p class="banner-title">Recording Video Link Not Added Yet</p>
+            <p class="banner-text" id="recording-modal-unavailable-text">
+              The instructor has not added the video recording link for this class session yet.
+              Please check back after the recording finishes processing, or contact the school if you need assistance.
+            </p>
+          </div>
 
-    <!-- "Lesson documents" Section Placed Directly Below the Video Player -->
-    <section
-      id="recording-modal-lesson-documents-section"
-      class="pb-lesson-documents-panel"
-      aria-labelledby="recording-modal-lesson-documents-heading"
-    >
-      <div class="pb-lesson-documents-header">
-        <h3 id="recording-modal-lesson-documents-heading" class="pb-lesson-documents-heading">
-          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-          <span>Lesson documents</span>
-        </h3>
-        <span class="badge badge-ok" id="recording-modal-lesson-documents-count">0 PDFs</span>
+          <div class="pb-yt-watch-info-card">
+            <div class="pb-yt-watch-meta-row" style="padding-top: 0; border-top: none;">
+              <div class="pb-yt-channel-chip">
+                <div class="pb-yt-avatar-badge" aria-hidden="true">PB</div>
+                <div>
+                  <div style="font-size: 0.9rem; font-weight: 800; color: #0F172A;">Pattanabhumi Biology Classroom</div>
+                  <div style="font-size: 0.78rem; color: #64748B;" id="recording-modal-channel-meta">HD Lesson Stream &amp; Session Handouts</div>
+                </div>
+              </div>
+              <a
+                id="link-modal-watch-recording"
+                class="btn btn-primary btn-sm"
+                href="https://www.youtube.com"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span>Open on YouTube</span>
+                <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+              </a>
+            </div>
+
+            <div
+              id="recording-modal-caption-box"
+              style="padding: 10px 12px; border-radius: 12px; background: #FFF1F2; border: 1px solid #FECDD3;"
+            >
+              <div class="status-label" style="color: #9F1239; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em;">Session Highlight</div>
+              <div id="recording-modal-caption" style="font-size: 0.9rem; color: #0F172A; margin-top: 2px;">-</div>
+            </div>
+          </div>
+
+          <div class="pb-yt-watch-desc-card">
+            <div class="status-label" style="margin-bottom: 6px;">Session Outline &amp; Notes</div>
+            <div id="recording-modal-content-box" class="pb-rt-rendered"></div>
+          </div>
+        </div>
+
+        <!-- Right Streaming Sidebar: Up Next Playlist & Lesson Documents -->
+        <aside class="pb-yt-sidebar-col" aria-label="Course recordings queue and lesson documents">
+          <section class="pb-yt-playlist-card hidden" id="recording-modal-playlist-card" aria-labelledby="recording-modal-playlist-heading">
+            <div class="pb-yt-playlist-header">
+              <h3 id="recording-modal-playlist-heading" style="margin: 0; font-size: 0.96rem; font-weight: 800; color: #0F172A;">
+                Course Recording Playlist
+              </h3>
+              <span class="badge pb-cat-badge-recording" id="recording-modal-playlist-count">0 videos</span>
+            </div>
+            <div id="recording-modal-playlist-list" class="pb-yt-playlist-list"></div>
+          </section>
+
+          <section
+            id="recording-modal-lesson-documents-section"
+            class="pb-lesson-documents-panel"
+            style="margin-bottom: 0;"
+            aria-labelledby="recording-modal-lesson-documents-heading"
+          >
+            <div class="pb-lesson-documents-header">
+              <h3 id="recording-modal-lesson-documents-heading" class="pb-lesson-documents-heading">
+                <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                <span>Lesson documents</span>
+              </h3>
+              <span class="badge pb-cat-badge-reading" id="recording-modal-lesson-documents-count">0 PDFs</span>
+            </div>
+            <div id="recording-modal-lesson-documents-list" class="pb-lesson-documents-list">
+              <p style="margin: 0; font-size: 0.88rem; color: var(--color-text-secondary);">
+                No lesson documents are attached to this recording.
+              </p>
+            </div>
+          </section>
+        </aside>
       </div>
-      <div id="recording-modal-lesson-documents-list" class="pb-lesson-documents-list">
-        <p style="margin: 0; font-size: 0.88rem; color: var(--color-text-secondary);">
-          No lesson documents are attached to this recording.
-        </p>
-      </div>
-    </section>
-
-    <div
-      id="recording-modal-caption-box"
-      class="status-item"
-      style="margin-bottom: 14px;"
-    >
-      <div class="status-label">Diagram / Session Caption</div>
-      <div id="recording-modal-caption" style="font-size: 0.92rem; color: var(--color-text-primary);">-</div>
-    </div>
-
-    <div class="status-item" style="margin-bottom: 16px;">
-      <div class="status-label">Session Outline &amp; Notes (Structured Rich Text)</div>
-      <div id="recording-modal-content-box" class="pb-rt-rendered" style="margin-top: 8px;"></div>
     </div>
 
     <div
-      style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;"
+      class="pb-yt-modal-footer"
+      style="display: flex; align-items: center; justify-content: flex-end; gap: 12px;"
     >
-      <a
-        id="link-modal-watch-recording"
-        class="btn btn-primary"
-        href="https://www.youtube.com"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <span>Open Video in New Tab</span>
-        <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-      </a>
       <button
         type="button"
         class="btn btn-outline"
         id="btn-close-recording-modal-footer"
       >
-        Close
+        Close Player
       </button>
     </div>
   </div>
