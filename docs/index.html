@@ -106,7 +106,7 @@
             id="nav-desktop-payments"
             data-nav-view="payments"
           >
-            Payments
+            <span id="nav-desktop-payments-label">Payments</span>
           </button>
           <button
             type="button"
@@ -161,8 +161,10 @@
             type="button"
             class="btn btn-secondary btn-sm hidden"
             id="btn-header-logout"
+            title="Sign out of your account"
           >
-            Log out
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            <span class="pb-logout-btn-label">Log out</span>
           </button>
         </nav>
 
@@ -272,7 +274,7 @@
             id="nav-mobile-payments"
             data-nav-view="payments"
           >
-            Payments
+            <span id="nav-mobile-payments-label">Payments</span>
           </button>
           <button
             type="button"
@@ -314,14 +316,16 @@
             aria-haspopup="dialog"
             aria-controls="modal-login"
           >
-            Log in
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+            <span>Log in</span>
           </button>
           <button
             type="button"
             class="btn btn-secondary btn-block hidden"
             id="btn-mobile-logout"
           >
-            Log out
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            <span class="pb-logout-btn-label">Log out</span>
           </button>
         </div>
       </nav>
@@ -330,7 +334,7 @@
     <!-- Phase 2 Non-Blocking Toast Notification Region -->
     <div id="pb-toast-region" class="pb-toast-region" role="status" aria-live="polite" aria-atomic="false"></div>
 
-    <!-- Full-Screen Logout Loading Spinner Overlay ("Logging out...") -->
+    <!-- Full-Screen Multi-Stage Animated Logout Overlay -->
     <div
       id="pb-logout-loading-overlay"
       class="pb-logout-loading-overlay hidden"
@@ -338,12 +342,32 @@
       aria-live="assertive"
       aria-hidden="true"
     >
-      <div class="pb-logout-loading-card">
-        <div class="pb-logout-spinner-ring" aria-hidden="true">
-          <div class="pb-logout-spinner-core"></div>
+      <div class="pb-logout-loading-card" id="pb-logout-loading-card">
+        <div class="pb-logout-orb-stage" aria-hidden="true">
+          <span class="pb-logout-orbit-ring pb-logout-orbit-outer"></span>
+          <span class="pb-logout-orbit-ring pb-logout-orbit-inner"></span>
+          <div class="pb-logout-spinner-ring" id="pb-logout-spinner-ring">
+            <div class="pb-logout-spinner-core">
+              <!-- Active Revoking Icon (Shield Lock) -->
+              <svg id="pb-logout-icon-lock" class="pb-logout-stage-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                <rect x="9" y="9" width="6" height="5" rx="1"></rect>
+                <path d="M10 9V7a2 2 0 0 1 4 0v2"></path>
+              </svg>
+              <!-- Completed Sign-Out Icon (Verified Checkmark) -->
+              <svg id="pb-logout-icon-check" class="pb-logout-stage-icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+            </div>
+          </div>
         </div>
-        <p class="pb-logout-loading-title" id="pb-logout-loading-text">Logging out...</p>
-        <p class="pb-logout-loading-subtitle">Securing your session and returning to the home page&hellip;</p>
+        <span class="badge badge-ok pb-logout-step-chip" id="pb-logout-step-chip">Signing Out Safely</span>
+        <p class="pb-logout-loading-title" id="pb-logout-loading-text">Signing out of your workspace&hellip;</p>
+        <p class="pb-logout-loading-subtitle" id="pb-logout-loading-subtitle">Securing your session and returning to the home page&hellip;</p>
+        <div class="pb-logout-progress-track" aria-hidden="true">
+          <div class="pb-logout-progress-fill" id="pb-logout-progress-fill"></div>
+        </div>
       </div>
     </div>
 
@@ -2459,7 +2483,7 @@
 
 </section>
 
-<!-- 6. Payments View — Step 11 Complete Student Payment Interface Using Real Backend -->
+<!-- 6. Payments View — Role-Separated Student Tuition Checkout & Admin Billing Studio -->
 <section
   id="view-payments"
   class="hidden"
@@ -2476,1042 +2500,1486 @@
     <button type="button" class="pb-inpage-toc-pill" data-toc-jump="student-all-invoices-card">All Assigned Installments</button>
   </nav>
 
-  <div class="card" id="payments-overview-header-card">
-  <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
-    <div>
-      <span class="badge badge-ok">Tuition &amp; Installment Portal</span>
-      <span class="badge badge-ok">PromptPay QR &amp; Bank Transfer</span>
-      <h1
-        id="payments-view-heading"
-        style="margin: 10px 0 6px 0; font-size: 1.5rem; color: var(--color-brand-deep);"
-      >
-        Tuition Payments &amp; Installment Checkout
-      </h1>
-      <p style="margin: 0; font-size: 0.93rem; color: var(--color-text-secondary);">
-        Select your tuition installments, pay via <strong>PromptPay QR</strong> or <strong>Bank Transfer</strong>, and upload your transfer slip.
-      </p>
-    </div>
-
-    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
-      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <button
-          type="button"
-          class="btn btn-secondary btn-sm"
-          id="btn-student-payment-refresh"
-        >
-          Refresh Payment Status
-        </button>
-        <button
-          type="button"
-          class="btn btn-outline btn-sm"
-          id="btn-student-seed-sample-invoices"
-          style="display: none !important;"
-          aria-hidden="true"
-          title="Creates 2 fresh UNPAID sample installments for testing single/multi/all selection and checkout"
-        >
-          + Seed Sample Unpaid Installments
-        </button>
-      </div>
-      <span
-        id="student-payment-refresh-cooldown"
-        class="hidden pb-public-launch-hidden"
-        style="display: none !important;"
-      >
-        Bounded status refresh ready (10s minimum interval — no background polling)
-      </span>
-    </div>
-  </div>
-
-  <!-- Inline Alert Banner for Student Payments -->
-  <div
-    id="student-payments-alert-box"
-    class="banner banner-warning hidden"
-    role="status"
-    aria-live="polite"
-    style="margin-bottom: 16px;"
-  >
-    <p class="banner-title" id="student-payments-alert-title">Payment Notice</p>
-    <p class="banner-text" id="student-payments-alert-message"></p>
-  </div>
-
-  <!-- Active Session Resume Banner (Shown when an active 15-minute reservation exists) -->
-  <div
-    id="student-payment-resume-banner"
-    class="banner banner-warning hidden"
-    role="region"
-    aria-label="Active Payment Session Available to Resume"
-    style="margin-bottom: 16px; border-width: 2px;"
-  >
-    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
-      <div>
-        <p class="banner-title" style="margin: 0 0 4px 0;">
-          Active 15-Minute Payment Session (<span id="resume-banner-payment-id">...</span>)
-        </p>
-        <p class="banner-text" style="margin: 0; font-size: 0.9rem;">
-          Method: <strong id="resume-banner-method">PROMPTPAY_QR</strong> |
-          Reserved Total: <strong id="resume-banner-amount">0.00 THB</strong> |
-          Status: <strong id="resume-banner-status">PENDING_TRANSFER</strong> |
-          Expires (Bangkok): <span id="resume-banner-expires-bkk">-</span>
-          (<strong id="resume-banner-countdown">--:--</strong> remaining)
-        </p>
-      </div>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <button
-          type="button"
-          class="btn btn-primary btn-sm"
-          id="btn-student-resume-active-session"
-        >
-          Resume Existing Session
-        </button>
-        <button
-          type="button"
-          class="btn btn-danger btn-sm"
-          id="btn-student-banner-cancel-session"
-        >
-          Cancel Reservation
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Overview Metrics Grid -->
-  <div class="status-grid" style="margin-bottom: 18px;" aria-label="Student Payment Overview">
-    <div class="status-item">
-      <div class="status-label">Outstanding Balance (Unpaid / Eligible)</div>
-      <div
-        class="status-value"
-        id="student-payment-outstanding-balance"
-        style="font-size: 1.25rem; color: var(--color-brand-deep);"
-      >
-        0.00 THB
-      </div>
-      <div
-        id="student-payment-outstanding-satang"
-        class="hidden pb-public-launch-hidden"
-        style="display: none !important;"
-        aria-hidden="true"
-      ></div>
-    </div>
-
-    <div class="status-item">
-      <div class="status-label">Unpaid Eligible Installments</div>
-      <div class="status-value" id="student-payment-unpaid-count">0 installments</div>
-      <div
-        id="student-payment-server-clock-bkk"
-        style="font-size: 0.78rem; color: var(--color-text-secondary); margin-top: 2px;"
-      >
-        Server Clock (BKK): -
-      </div>
-    </div>
-
-    <div class="status-item">
-      <div class="status-label">Awaiting Verification</div>
-      <div class="status-value" id="student-payment-awaiting-total">0.00 THB</div>
-      <div style="font-size: 0.78rem; color: var(--color-text-secondary); margin-top: 2px;">
-        Submitted &amp; pending admin review
-      </div>
-    </div>
-
-    <div class="status-item">
-      <div class="status-label">Verified Paid Total</div>
-      <div class="status-value" id="student-payment-paid-total" style="color: #1B5E20;">
-        0.00 THB
-      </div>
-      <div style="font-size: 0.78rem; color: var(--color-text-secondary); margin-top: 2px;">
-        Confirmed tuition payments
-      </div>
-    </div>
-  </div>
-  </div>
-
-  <!-- 5-Step Checkout Workspace: Vertical Connected Stepper Card (Left) + Active Step Panel (Right) -->
-  <div class="pb-payment-checkout-workspace">
-    <nav class="pb-payment-stepper-sidebar-card" aria-label="Student Payment Progress Stepper">
-      <div class="pb-stepper-sidebar-header">
-        <span class="pb-stepper-brand-ring" aria-hidden="true"></span>
-        <div>
-          <span class="pb-stepper-sidebar-overline" id="payment-stepper-progress-label">STEP 1 OF 5</span>
-          <div class="pb-stepper-sidebar-heading">Checkout Progress</div>
-        </div>
-      </div>
-      <div class="pb-stepper-progress-bar-track" aria-hidden="true">
-        <div class="pb-stepper-progress-bar-fill" id="payment-stepper-progress-fill" style="width: 20%;"></div>
-      </div>
-
-      <ol class="payment-stepper" id="student-payment-stepper">
-        <li>
-          <button
-            type="button"
-            class="payment-stepper-step is-active"
-            id="stepper-node-select"
-            data-step-key="select"
-            aria-current="step"
-            style="width: 100%;"
-          >
-            <span class="payment-stepper-top-row">
-              <span class="pb-stepper-circle" aria-hidden="true">1</span>
-              <span class="payment-stepper-badge">STEP 1</span>
-            </span>
-            <span class="pb-stepper-body-col">
-              <span class="pb-stepper-step-kicker">STEP 1</span>
-              <span class="payment-stepper-title"><span class="pb-sr-only">Step 1: </span>Select Details</span>
-              <span class="payment-stepper-desc">Installments &amp; method</span>
-            </span>
-            <span class="pb-stepper-status-pill is-in-progress" id="stepper-status-pill-select">In Progress</span>
-          </button>
-        </li>
-        <li>
-          <button
-            type="button"
-            class="payment-stepper-step"
-            id="stepper-node-transfer"
-            data-step-key="transfer"
-            style="width: 100%;"
-          >
-            <span class="payment-stepper-top-row">
-              <span class="pb-stepper-circle" aria-hidden="true">2</span>
-              <span class="payment-stepper-badge">STEP 2</span>
-            </span>
-            <span class="pb-stepper-body-col">
-              <span class="pb-stepper-step-kicker">STEP 2</span>
-              <span class="payment-stepper-title"><span class="pb-sr-only">Step 2: </span>Transfer Funds</span>
-              <span class="payment-stepper-desc">PromptPay QR or Bank (15m)</span>
-            </span>
-            <span class="pb-stepper-status-pill is-pending" id="stepper-status-pill-transfer">Pending</span>
-          </button>
-        </li>
-        <li>
-          <button
-            type="button"
-            class="payment-stepper-step"
-            id="stepper-node-upload"
-            data-step-key="upload"
-            style="width: 100%;"
-          >
-            <span class="payment-stepper-top-row">
-              <span class="pb-stepper-circle" aria-hidden="true">3</span>
-              <span class="payment-stepper-badge">STEP 3</span>
-            </span>
-            <span class="pb-stepper-body-col">
-              <span class="pb-stepper-step-kicker">STEP 3</span>
-              <span class="payment-stepper-title"><span class="pb-sr-only">Step 3: </span>Upload Slip</span>
-              <span class="payment-stepper-desc">Receipt &amp; confirm</span>
-            </span>
-            <span class="pb-stepper-status-pill is-pending" id="stepper-status-pill-upload">Pending</span>
-          </button>
-        </li>
-        <li>
-          <button
-            type="button"
-            class="payment-stepper-step"
-            id="stepper-node-review"
-            data-step-key="review"
-            style="width: 100%;"
-          >
-            <span class="payment-stepper-top-row">
-              <span class="pb-stepper-circle" aria-hidden="true">4</span>
-              <span class="payment-stepper-badge">STEP 4</span>
-            </span>
-            <span class="pb-stepper-body-col">
-              <span class="pb-stepper-step-kicker">STEP 4</span>
-              <span class="payment-stepper-title"><span class="pb-sr-only">Step 4: </span>Form Review</span>
-              <span class="payment-stepper-desc">Awaiting verification</span>
-            </span>
-            <span class="pb-stepper-status-pill is-pending" id="stepper-status-pill-review">Pending</span>
-          </button>
-        </li>
-        <li>
-          <button
-            type="button"
-            class="payment-stepper-step"
-            id="stepper-node-paid"
-            data-step-key="paid"
-            style="width: 100%;"
-          >
-            <span class="payment-stepper-top-row">
-              <span class="pb-stepper-circle" aria-hidden="true">5</span>
-              <span class="payment-stepper-badge">STEP 5</span>
-            </span>
-            <span class="pb-stepper-body-col">
-              <span class="pb-stepper-step-kicker">STEP 5</span>
-              <span class="payment-stepper-title"><span class="pb-sr-only">Step 5: </span>Payment Verified</span>
-              <span class="payment-stepper-desc">Payment confirmed</span>
-            </span>
-            <span class="pb-stepper-status-pill is-pending" id="stepper-status-pill-paid">Pending</span>
-          </button>
-        </li>
-      </ol>
-
-      <button type="button" class="pb-stepper-help-contact-box" data-nav-view="contact">
-        <span class="pb-stepper-help-q-circle" aria-hidden="true">?</span>
-        <span class="pb-stepper-help-text-col">
-          <span class="pb-stepper-help-small">Having troubles?</span>
-          <span class="pb-stepper-help-bold">Contact Us</span>
-        </span>
-      </button>
-    </nav>
-
-    <div class="pb-payment-step-panels-col">
-
   <!-- ======================================================================
-       STEPPER PANEL 1: SELECT (Select Installments & Payment Method)
+       PART A: ADMIN BILLING & PAYMENT VERIFICATION STUDIO (#admin-panel-invoices)
+       Strictly separated from Student Checkout so Admins never see "Make a Payment"
        ====================================================================== -->
-  <div id="payment-step-panel-select" class="card" style="margin-bottom: 18px; border: 2px solid var(--color-brand-border);">
-    <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
-      <div>
-        <span class="badge badge-ok">Step 1 of 5: Select Installments &amp; Method</span>
-        <h2 style="margin: 6px 0 4px 0; font-size: 1.22rem; color: var(--color-brand-deep);">
-          1. Select One, Multiple, or All Eligible Unpaid Installments
-        </h2>
-        <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
-          Select the tuition installments you would like to pay.
-        </p>
-      </div>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <button type="button" class="btn btn-outline btn-sm" id="btn-payment-select-first">
-          Select First Eligible
-        </button>
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-payment-select-all">
-          Select All Eligible
-        </button>
-        <button type="button" class="btn btn-outline btn-sm" id="btn-payment-clear-selection">
-          Clear Selection
-        </button>
-      </div>
-    </div>
-
-    <!-- Eligible Unpaid Installments Table -->
-    <div class="table-responsive" style="margin-bottom: 16px;">
-      <table class="data-table" aria-label="Eligible Unpaid Tuition Installments">
-        <thead>
-          <tr>
-            <th style="width: 48px; text-align: center;">
-              <input
-                type="checkbox"
-                id="chk-payment-select-all"
-                aria-label="Select all eligible unpaid installments"
-              />
-            </th>
-            <th>Installment Label &amp; Invoice ID</th>
-            <th>Course</th>
-            <th>Due Date (BKK)</th>
-            <th>Status</th>
-            <th style="text-align: right;">Amount (THB)</th>
-          </tr>
-        </thead>
-        <tbody id="student-unpaid-installments-tbody">
-<tr><td colspan="6"><div class="pb-table-skeleton-stack" aria-hidden="true"><div class="pb-skeleton-line" style="width: 100%; height: 38px; border-radius: 10px;"></div><div class="pb-skeleton-line" style="width: 94%; height: 38px; border-radius: 10px;"></div><div class="pb-skeleton-line" style="width: 88%; height: 38px; border-radius: 10px;"></div></div></td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Live Selected Total Summary Bar -->
-    <div
-      style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 14px 16px; background: var(--color-brand-tint); border: 1px solid var(--color-brand-border); border-radius: var(--radius-md); margin-bottom: 16px;"
-    >
-      <div>
-        <span class="badge badge-ok" id="payment-selected-count-badge">0 installments selected</span>
-        <div style="font-size: 0.88rem; color: var(--color-text-secondary); margin-top: 4px;">
-          Selected Total:
-        </div>
-      </div>
-      <div style="text-align: right;">
-        <div
-          id="payment-selected-total-thb"
-          style="font-size: 1.4rem; font-weight: 800; color: var(--color-brand-deep);"
-        >
-          0.00 THB
-        </div>
-        <div
-          id="payment-selected-total-satang"
-          class="hidden pb-public-launch-hidden"
-          style="display: none !important;"
-          aria-hidden="true"
-        ></div>
-      </div>
-    </div>
-
-    <!-- Payment Method Selection -->
-    <h3 style="margin: 0 0 8px 0; font-size: 1.05rem; color: var(--color-brand-deep);">
-      Choose Payment Method
-    </h3>
-    <div class="payment-method-grid" role="radiogroup" aria-label="Choose Payment Method">
-      <label class="payment-method-card is-selected" id="card-method-promptpay" for="radio-payment-method-promptpay">
-        <input
-          type="radio"
-          name="student-payment-method"
-          id="radio-payment-method-promptpay"
-          value="PROMPTPAY_QR"
-          checked
-          style="margin-top: 4px;"
-        />
-        <div class="pb-payment-method-content">
-          <img
-            src="https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c5/PromptPay-logo.png/500px-PromptPay-logo.png?utm_source=th.wikipedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
-            alt="PromptPay"
-            class="pb-promptpay-method-logo"
-            width="120"
-            height="40"
-            loading="lazy"
-          />
-          <div style="font-weight: 800; font-size: 0.98rem; color: var(--color-brand-deep);">
-            PromptPay QR
+  <div
+    id="admin-panel-invoices"
+    class="pb-admin-billing-studio hidden"
+    role="region"
+    aria-label="Administrator Billing and Payment Verification Studio"
+  >
+    <!-- Studio Hero Header & Financial KPIs Card -->
+    <div class="card pb-pay-studio-hero-card">
+      <div class="pb-pay-studio-top-row">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span class="badge badge-ok">Admin Billing Studio</span>
+            <span class="badge badge-ok">Receipt Verification &amp; Invoices</span>
           </div>
-          <span style="font-size: 0.8rem; color: var(--color-text-secondary);">
-            Scan QR in any banking app
-          </span>
+          <h1 style="margin: 10px 0 6px 0; font-size: 1.52rem; color: var(--color-brand-deep);">
+            Tuition Billing &amp; Payment Verification
+          </h1>
+          <p style="margin: 0; font-size: 0.92rem; color: var(--color-text-secondary);">
+            Review and verify student transfer slips, assign tuition installments, and track school billing records.
+          </p>
         </div>
-      </label>
 
-      <label class="payment-method-card" id="card-method-bank" for="radio-payment-method-bank">
-        <input
-          type="radio"
-          name="student-payment-method"
-          id="radio-payment-method-bank"
-          value="BANK_TRANSFER"
-          style="margin-top: 4px;"
-        />
-        <div class="pb-payment-method-content">
-          <div class="pb-bank-method-icon-badge" aria-hidden="true">
-            <svg class="pb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="22" x2="21" y2="22"></line><line x1="6" y1="18" x2="6" y2="11"></line><line x1="10" y1="18" x2="10" y2="11"></line><line x1="14" y1="18" x2="14" y2="11"></line><line x1="18" y1="18" x2="18" y2="11"></line><polygon points="12 2 20 7 4 7"></polygon></svg>
-          </div>
-          <div style="font-weight: 800; font-size: 0.98rem; color: var(--color-brand-deep);">
-            Bank Transfer
-          </div>
-          <span style="font-size: 0.8rem; color: var(--color-text-secondary);">
-            Transfer to school account
-          </span>
+        <div class="pb-pay-studio-actions">
+          <button
+            type="button"
+            class="btn btn-primary btn-sm"
+            id="btn-admin-run-step10-suite"
+            style="display: none !important;"
+            aria-hidden="true"
+          >
+            Run All 7 Step 10 Payment &amp; Concurrency Tests
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary btn-sm"
+            id="btn-admin-run-step11-suite"
+            style="display: none !important;"
+            aria-hidden="true"
+          >
+            Run Step 11 Checkout, QR &amp; Conflict Suite
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline btn-sm"
+            id="btn-admin-test-invoice-edit-guard"
+            style="display: none !important;"
+            aria-hidden="true"
+          >
+            Test Blocked Invoice Edit / Refund Guard
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary btn-sm"
+            id="btn-admin-open-invoice-modal"
+            title="Assign a new unpaid tuition installment to a student"
+          >
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <span>Assign Invoice</span>
+          </button>
+          <button
+            type="button"
+            class="btn btn-secondary btn-sm"
+            id="btn-admin-reload-invoices"
+            title="Refresh invoices and verification queue"
+          >
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            <span>Refresh</span>
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline btn-sm"
+            id="btn-admin-toggle-student-pay-preview"
+            title="Preview the student tuition checkout interface"
+          >
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            <span id="label-admin-toggle-student-pay-preview">Student View</span>
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline btn-sm hidden"
+            id="btn-admin-jump-pending-payments"
+            style="display: none !important;"
+            aria-hidden="true"
+          >
+            Verification Queue
+          </button>
         </div>
-      </label>
-    </div>
+      </div>
 
-    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px;">
-      <button
-        type="button"
-        class="btn btn-primary"
-        id="btn-payment-create-reservation"
-      >
-        Start 15-Minute Payment Session (Proceed to Step 2: Transfer)
-      </button>
-      <span
-        id="payment-create-reservation-status"
+      <!-- Inline Alert Banner for Admin Invoices -->
+      <div
+        id="admin-invoices-alert-box"
+        class="banner banner-success hidden"
         role="status"
         aria-live="polite"
-        style="font-size: 0.9rem; font-weight: 600; color: var(--color-brand-medium);"
-      ></span>
-    </div>
-  </div>
-
-  <!-- ======================================================================
-       STEPPER PANEL 2: TRANSFER (PromptPay QR or Bank Transfer + 15m Timer)
-       ====================================================================== -->
-  <div id="payment-step-panel-transfer" class="card hidden" style="margin-bottom: 18px; border: 2px solid var(--color-brand-deep);">
-    <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
-      <div>
-        <span class="badge badge-ok" id="payment-transfer-method-badge">PROMPTPAY_QR</span>
-        <span class="badge badge-ok" id="payment-transfer-status-badge">PENDING_TRANSFER</span>
-        <h2 style="margin: 6px 0 4px 0; font-size: 1.24rem; color: var(--color-brand-deep);">
-          2. Complete Your Transfer Within the 15-Minute Reservation Window
-        </h2>
-        <p style="margin: 0; font-size: 0.88rem; color: var(--color-text-secondary);">
-          Session ID: <code id="payment-transfer-session-id">pay_...</code> |
-          Server Created (BKK): <span id="payment-transfer-server-now-bkk">-</span> |
-          Server Expires (BKK): <strong id="payment-transfer-expires-bkk">-</strong>
-        </p>
+        style="margin-bottom: 16px;"
+      >
+        <p class="banner-title" id="admin-invoices-alert-title">Billing Notice</p>
+        <p class="banner-text" id="admin-invoices-alert-message"></p>
       </div>
 
-      <!-- Authoritative Server-Synchronized Countdown Timer -->
-      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-        <div class="payment-countdown-pill" id="payment-transfer-countdown-pill" role="timer" aria-live="off">
-          <span>Time Remaining:</span>
-          <span id="payment-transfer-countdown-clock">15:00</span>
-        </div>
-        <span style="font-size: 0.75rem; color: var(--color-text-secondary);">
-          Synced with school clock (refreshing will not reset your timer)
-        </span>
-      </div>
-    </div>
-
-    <!-- Authoritative Amount Banner -->
-    <div
-      style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 12px 16px; background: var(--color-bg-subtle); border: 1px solid var(--color-brand-border); border-radius: var(--radius-md); margin-bottom: 16px;"
-    >
-      <div>
-        <div style="font-size: 0.82rem; font-weight: 700; color: var(--color-text-secondary); text-transform: uppercase;">
-          Total Amount to Transfer
-        </div>
-        <div id="payment-transfer-invoices-summary" style="font-size: 0.88rem; color: var(--color-text-primary); margin-top: 2px;">
-          -
-        </div>
-      </div>
-      <div style="text-align: right;">
-        <div id="payment-transfer-amount-thb" style="font-size: 1.45rem; font-weight: 800; color: var(--color-brand-deep);">
-          0.00 THB
-        </div>
-        <div id="payment-transfer-amount-satang" class="hidden pb-public-launch-hidden" style="display: none !important;" aria-hidden="true"></div>
-      </div>
-    </div>
-
-    <!-- Expired Reservation Warning Box (Shown when timer hits 00:00; hides QR and never marks paid) -->
-    <div
-      id="payment-transfer-expired-notice"
-      class="banner banner-danger hidden"
-      role="alert"
-      style="margin-bottom: 16px;"
-    >
-      <p class="banner-title">
-        15-Minute Payment Session Expired
-      </p>
-      <p class="banner-text" style="margin-bottom: 8px;">
-        The 15-minute payment window for this session has ended. The PromptPay QR code has been hidden so you do not accidentally make a late transfer.
-      </p>
-      <p class="banner-text" style="margin: 0; font-size: 0.86rem;">
-        <strong>Already transferred?</strong> If you already completed the transfer in your banking app, <strong>please do not transfer again</strong>. Simply start a new payment session for the installment and upload your transfer slip, or contact us with your Session ID.
-      </p>
-    </div>
-
-    <!-- PROMPTPAY QR VIEW -->
-    <div id="payment-method-view-promptpay" style="margin-bottom: 16px;">
-      <!-- QR Container (Automatically hidden on expiry!) -->
-      <div id="payment-promptpay-qr-container">
-        <div class="payment-qr-frame">
-          <div class="payment-qr-header-band pb-promptpay-qr-banner">
-            <img
-              src="https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c5/PromptPay-logo.png/500px-PromptPay-logo.png?utm_source=th.wikipedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
-              alt="PromptPay Logo"
-              class="pb-promptpay-qr-header-logo"
-              width="148"
-              height="50"
-            />
+      <!-- Admin Billing 4-Card KPI Strip -->
+      <div class="pb-pay-kpi-grid" aria-label="Administrator Billing Metrics">
+        <div class="pb-pay-kpi-card is-amber">
+          <div class="pb-pay-kpi-icon" aria-hidden="true">
+            <svg class="pb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
           </div>
-          <div
-            class="payment-qr-svg-box"
-            id="payment-promptpay-qr-svg-box"
-            role="img"
-            aria-label="PromptPay QR Code generated from server-authorized payment details"
+          <div class="pb-pay-kpi-body">
+            <div class="pb-pay-kpi-label">Pending Verification</div>
+            <div class="pb-pay-kpi-value" id="admin-queue-count-awaiting">0</div>
+            <div class="pb-pay-kpi-sub">Slips awaiting review (<span id="admin-invoices-count-awaiting">0</span> inv)</div>
+          </div>
+        </div>
+
+        <div class="pb-pay-kpi-card is-cyan">
+          <div class="pb-pay-kpi-icon" aria-hidden="true">
+            <svg class="pb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+          </div>
+          <div class="pb-pay-kpi-body">
+            <div class="pb-pay-kpi-label">Unpaid / Active</div>
+            <div class="pb-pay-kpi-value" id="admin-invoices-count-unpaid">0 (0.00 THB)</div>
+            <div class="pb-pay-kpi-sub">Assigned unpaid installments</div>
+          </div>
+        </div>
+
+        <div class="pb-pay-kpi-card is-emerald">
+          <div class="pb-pay-kpi-icon" aria-hidden="true">
+            <svg class="pb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          </div>
+          <div class="pb-pay-kpi-body">
+            <div class="pb-pay-kpi-label">Verified Paid Total</div>
+            <div class="pb-pay-kpi-value" id="admin-invoices-count-paid">0 (0.00 THB)</div>
+            <div class="pb-pay-kpi-sub"><span id="admin-queue-count-paid">0</span> confirmed sessions</div>
+          </div>
+        </div>
+
+        <div class="pb-pay-kpi-card is-slate">
+          <div class="pb-pay-kpi-icon" aria-hidden="true">
+            <svg class="pb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          </div>
+          <div class="pb-pay-kpi-body">
+            <div class="pb-pay-kpi-label">Total Invoices Issued</div>
+            <div class="pb-pay-kpi-value" id="admin-invoices-count-total">0</div>
+            <div class="pb-pay-kpi-sub">
+              <span id="admin-queue-count-rejected-halted">0 Rejected</span>
+              <span id="admin-queue-count-approving" class="hidden" style="display: none !important;">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Segmented Sub-View Switcher for Admin Billing Studio -->
+      <div class="pb-pay-subview-tabs" id="admin-billing-subview-tabs" role="tablist" aria-label="Administrator Billing Views">
+        <button
+          type="button"
+          class="pb-pay-subview-tab is-active"
+          id="btn-admin-billing-tab-queue"
+          data-admin-billing-tab="queue"
+          role="tab"
+          aria-selected="true"
+        >
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+          <span>1. Receipt Verification Queue</span>
+        </button>
+        <button
+          type="button"
+          class="pb-pay-subview-tab"
+          id="btn-admin-billing-tab-invoices"
+          data-admin-billing-tab="invoices"
+          role="tab"
+          aria-selected="false"
+        >
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+          <span>2. Student Tuition Invoices</span>
+        </button>
+        <button
+          type="button"
+          class="pb-pay-subview-tab"
+          id="btn-admin-billing-tab-all"
+          data-admin-billing-tab="all"
+          role="tab"
+          aria-selected="false"
+        >
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          <span>All-in-One View</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Admin Tab 1: Payment Session Review & Receipt Verification Queue -->
+    <div class="card" id="admin-payment-verification-card" style="margin-bottom: 18px;">
+      <div class="pb-pay-card-header-row">
+        <div>
+          <span class="badge badge-ok">Step-by-Step Slip Verification</span>
+          <h2 style="margin: 6px 0 4px 0; font-size: 1.2rem; color: var(--color-brand-deep);">
+            Student Payment Submissions &amp; Receipt Review
+          </h2>
+          <p style="margin: 0; font-size: 0.88rem; color: var(--color-text-secondary);">
+            Inspect the uploaded transfer slip, confirm the credit in the school bank account, and click <strong>Approve</strong> or <strong>Reject</strong>.
+          </p>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+          <button
+            type="button"
+            class="btn btn-primary btn-sm"
+            id="btn-admin-run-step12-suite"
+            style="display: none !important;"
+            aria-hidden="true"
           >
-            <!-- SVG QR rendered here by vendored qrcode-generator v1.4.4 -->
-          </div>
-          <div style="margin-top: 12px; width: 100%;">
-            <div style="font-size: 0.82rem; color: var(--color-text-secondary); font-weight: 700;">
-              Recipient: <span id="payment-promptpay-school-display">Pattanabhumi Biology</span>
-            </div>
-            <div style="font-size: 0.88rem; color: var(--color-brand-deep); font-weight: 700; margin-top: 2px;">
-              PromptPay ID: <code id="payment-promptpay-target-display">-</code>
-            </div>
-            <div
-              id="payment-promptpay-amount-display"
-              style="font-size: 1.35rem; font-weight: 800; color: #003D6B; margin-top: 6px;"
-            >
-              0.00 THB
-            </div>
-            <div style="margin-top: 6px;">
-              <span class="badge badge-ok" id="payment-promptpay-crc-badge" style="font-size: 0.72rem;">
-                Verified PromptPay QR
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div class="hidden pb-public-launch-hidden" style="display: none !important;" aria-hidden="true">
-          <code id="payment-promptpay-emvco-string">-</code>
-        </div>
-      </div>
-
-      <!-- Mandatory PromptPay Notices (Always visible in PromptPay mode) -->
-      <div class="status-item" style="margin-top: 12px;">
-        <div class="status-label">Helpful Payment Reminders</div>
-        <ul style="margin: 6px 0 0 18px; padding: 0; font-size: 0.86rem; color: var(--color-text-secondary); line-height: 1.5;">
-          <li>
-            <strong>Upload Your Slip After Paying:</strong> Scanning this QR code in your banking app does not automatically confirm your payment on the website. After transferring, please click <em>&ldquo;I have paid&rdquo;</em> and upload your transfer slip so we can verify your payment.
-          </li>
-          <li>
-            <strong>Avoid Paying From Old Screenshots:</strong> Please complete your transfer before the 15-minute timer ends, and avoid paying from an old saved QR screenshot later.
-          </li>
-        </ul>
-      </div>
-    </div>
-
-    <!-- BANK TRANSFER VIEW -->
-    <div id="payment-method-view-bank" class="hidden" style="margin-bottom: 16px;">
-      <div class="status-item" style="margin-bottom: 12px;">
-        <div class="status-label">School Bank Account Details</div>
-        <p style="margin: 4px 0 12px 0; font-size: 0.86rem; color: var(--color-text-secondary);">
-          Please transfer the exact THB amount below to the school’s bank account (<span id="payment-bank-snapshot-time">-</span>), then click <em>&ldquo;I have paid&rdquo;</em> to upload your transfer slip.
-        </p>
-
-        <div class="bank-detail-row">
-          <div>
-            <div class="bank-detail-label">Bank Name</div>
-            <div class="bank-detail-value" id="payment-bank-name-display" style="font-family: inherit;">-</div>
-          </div>
-        </div>
-
-        <div class="bank-detail-row">
-          <div>
-            <div class="bank-detail-label">Account Name</div>
-            <div class="bank-detail-value" id="payment-bank-account-name-display" style="font-family: inherit;">-</div>
-          </div>
-        </div>
-
-        <div class="bank-detail-row">
-          <div>
-            <div class="bank-detail-label">Account Number</div>
-            <div class="bank-detail-value" id="payment-bank-account-number-display">-</div>
-          </div>
-          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-            <button
-              type="button"
-              class="btn btn-secondary btn-sm"
-              id="btn-copy-bank-account-number"
-            >
-              Copy Account Number
-            </button>
-          </div>
-        </div>
-
-        <div class="bank-detail-row">
-          <div>
-            <div class="bank-detail-label">Exact Transfer Amount (THB)</div>
-            <div class="bank-detail-value" id="payment-bank-amount-display">0.00 THB</div>
-          </div>
-          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-            <button
-              type="button"
-              class="btn btn-secondary btn-sm"
-              id="btn-copy-bank-amount"
-            >
-              Copy Amount
+            Run All 7 Step 12 Verification &amp; Recovery Tests
+          </button>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <select class="form-input" id="select-admin-payments-filter-status" aria-label="Filter queue by payment status" style="width: auto; min-width: 210px; padding: 6px 10px; font-size: 0.85rem;">
+              <option value="ALL">All Submissions (Pending First)</option>
+              <option value="AWAITING_VERIFICATION">Awaiting Verification Only</option>
+              <option value="APPROVING">Approving Only</option>
+              <option value="PAID">Verified Paid Only</option>
+              <option value="REJECTED">Rejected Only</option>
+              <option value="PENDING_TRANSFER">Active 15m Transfer Only</option>
+              <option value="EXPIRED">Expired Only</option>
+            </select>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-admin-payments-apply-filter" title="Apply status filter">
+              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+              <span>Filter</span>
             </button>
             <button
               type="button"
               class="btn btn-outline btn-sm"
-              id="btn-toggle-bank-manual-copy"
+              id="btn-admin-reload-pending-payments"
+              title="Reload verification queue"
             >
-              Manual-Copy Fallback
+              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+              <span>Reload</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bank Credit Verification Reminder Banner -->
+      <div
+        id="admin-payment-verification-reminder-banner"
+        class="banner banner-warning"
+        style="margin-bottom: 14px;"
+        role="note"
+      >
+        <p class="banner-title">Bank Statement Verification Reminder</p>
+        <p class="banner-text" id="admin-payment-verification-reminder-text" style="margin-bottom: 0;">
+          Before clicking <strong>Approve</strong>, please confirm in the school’s bank or PromptPay statement that the exact amount was credited.
+        </p>
+      </div>
+
+      <!-- Halted / Inconsistent Journal Alert Banner -->
+      <div
+        id="admin-payment-halted-journals-box"
+        class="banner banner-error hidden"
+        style="margin-bottom: 14px;"
+        role="alert"
+      >
+        <p class="banner-title">Financial Journal Recovery Halted</p>
+        <p class="banner-text" id="admin-payment-halted-journals-text" style="margin-bottom: 0;"></p>
+      </div>
+
+      <div class="table-responsive" aria-live="polite">
+        <table class="data-table" aria-label="Administrator Payment Verification Queue">
+          <thead>
+            <tr>
+              <th>Student &amp; Reference</th>
+              <th>Method &amp; Installments</th>
+              <th>Amount</th>
+              <th>Submitted &amp; Status</th>
+              <th>Transfer Slip</th>
+              <th>Verification Decision</th>
+            </tr>
+          </thead>
+          <tbody id="admin-pending-payments-tbody">
+            <tr>
+              <td colspan="6" style="text-align: center; padding: 18px; color: var(--color-text-secondary);">
+                Click "Refresh" to inspect student payment submissions.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Admin Tab 2: Student Invoices Management & History Card -->
+    <div class="card hidden" id="admin-invoices-management-card" style="margin-bottom: 18px;">
+      <div class="pb-pay-card-header-row">
+        <div>
+          <span class="badge badge-ok">Installment Ledger</span>
+          <h2 style="margin: 6px 0 4px 0; font-size: 1.2rem; color: var(--color-brand-deep);">
+            Assigned Student Tuition Invoices
+          </h2>
+          <p style="margin: 0; font-size: 0.88rem; color: var(--color-text-secondary);">
+            Filter invoices by student or payment status, or click <strong>Assign Invoice</strong> to bill a new installment.
+          </p>
+        </div>
+
+        <!-- Invoice History Filter Bar -->
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+          <select class="form-input" id="select-admin-invoices-filter-student" aria-label="Filter by student" style="width: auto; min-width: 180px; padding: 6px 10px; font-size: 0.85rem;">
+            <option value="ALL">All Students</option>
+          </select>
+
+          <select class="form-input" id="select-admin-invoices-filter-status" aria-label="Filter by invoice status" style="width: auto; min-width: 170px; padding: 6px 10px; font-size: 0.85rem;">
+            <option value="ALL">All Statuses</option>
+            <option value="UNPAID">Unpaid</option>
+            <option value="RESERVED">Reserved (15m)</option>
+            <option value="AWAITING_VERIFICATION">Awaiting Verification</option>
+            <option value="APPROVING">Approving</option>
+            <option value="PAID">Paid</option>
+            <option value="REJECTED">Rejected</option>
+            <option value="CANCELLED">Cancelled</option>
+          </select>
+
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-admin-invoices-apply-filter" title="Apply invoice filter">
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+            <span>Filter</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Create Unpaid Invoice Form (Opens in Modal via PBAdminActionModal) -->
+      <form
+        id="form-admin-create-invoice"
+        class="pb-admin-modal-target"
+        novalidate
+        style="padding: 16px; background: var(--color-bg-subtle); border: 1px solid var(--color-brand-border); border-radius: var(--radius-md); margin-bottom: 18px;"
+      >
+        <h3 style="margin: 0 0 12px 0; font-size: 1.1rem; color: var(--color-brand-deep);">
+          Assign Unpaid Student Invoice
+        </h3>
+
+        <div class="form-grid-2col">
+          <div class="form-group">
+            <label class="form-label" for="select-admin-invoice-student">Student Account *</label>
+            <select class="form-input" id="select-admin-invoice-student" required>
+              <option value="">-- Select a Student --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="select-admin-invoice-course">Associated Course (Optional)</label>
+            <select class="form-input" id="select-admin-invoice-course">
+              <option value="">-- General Tuition / No Specific Course --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="input-admin-invoice-label">Installment Label *</label>
+            <input
+              type="text"
+              class="form-input"
+              id="input-admin-invoice-label"
+              placeholder="e.g. Term 1 — Installment 1 of 2"
+              maxlength="160"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="input-admin-invoice-amount-thb">Amount (THB) *</label>
+            <input
+              type="text"
+              class="form-input"
+              id="input-admin-invoice-amount-thb"
+              placeholder="e.g. 3500.00"
+              maxlength="20"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="input-admin-invoice-due-date">Due Date *</label>
+            <input
+              type="date"
+              class="form-input"
+              id="input-admin-invoice-due-date"
+              value="2026-11-30"
+              required
+            />
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px;">
+          <button type="submit" class="btn btn-primary" id="btn-admin-create-invoice-submit">
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span>Create Invoice</span>
+          </button>
+          <span
+            id="admin-create-invoice-status"
+            role="status"
+            aria-live="polite"
+            style="font-size: 0.9rem; font-weight: 600; color: var(--color-brand-medium);"
+          ></span>
+        </div>
+      </form>
+
+      <!-- Invoice History Table -->
+      <div class="table-responsive" aria-live="polite">
+        <table class="data-table" aria-label="Administrator Invoice History">
+          <thead>
+            <tr>
+              <th>Invoice &amp; Student</th>
+              <th>Installment &amp; Course</th>
+              <th>Amount</th>
+              <th>Due Date</th>
+              <th>Status</th>
+              <th>Payment Session &amp; Notes</th>
+            </tr>
+          </thead>
+          <tbody id="admin-invoices-table-tbody">
+            <tr>
+              <td colspan="6" style="text-align: center; padding: 20px; color: var(--color-text-secondary);">
+                Click "Refresh" to view student tuition invoices.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Hidden Maintenance Card (Preserved for DOM compatibility) -->
+    <div class="card hidden pb-public-launch-hidden" id="admin-payment-maintenance-card" style="display: none !important;" aria-hidden="true">
+      <button type="button" id="btn-admin-run-payment-maintenance">Run Maintenance</button>
+      <button type="button" id="btn-admin-configure-maintenance-trigger">Configure Trigger</button>
+      <div id="admin-payment-maintenance-status"></div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       PART B: STUDENT TUITION & INSTALLMENT CHECKOUT (#student-payments-workspace)
+       Shown by default to Students; hidden for Admins unless previewing
+       ====================================================================== -->
+  <div id="student-payments-workspace" class="pb-student-payments-workspace">
+    <!-- Banner shown when Admin is previewing Student Checkout -->
+    <div id="admin-previewing-student-pay-banner" class="banner banner-warning hidden" style="margin-bottom: 14px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <p class="banner-title" style="margin: 0 0 2px 0;">Previewing Student Tuition Checkout Interface</p>
+          <p class="banner-text" style="margin: 0; font-size: 0.86rem;">
+            You are viewing the student-facing payment page as an Administrator. Admins do not need to make payments here.
+          </p>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-return-admin-billing-studio">
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          <span>Back to Admin Billing Studio</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="card pb-pay-studio-hero-card" id="payments-overview-header-card">
+      <div class="pb-pay-studio-top-row">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span class="badge badge-ok">Tuition &amp; Installment Portal</span>
+            <span class="badge badge-ok">PromptPay QR &amp; Bank Transfer</span>
+          </div>
+          <h1
+            id="payments-view-heading"
+            style="margin: 10px 0 6px 0; font-size: 1.52rem; color: var(--color-brand-deep);"
+          >
+            Tuition Payments &amp; Installment Checkout
+          </h1>
+          <p style="margin: 0; font-size: 0.92rem; color: var(--color-text-secondary);">
+            Select your tuition installments, transfer via <strong>PromptPay QR</strong> or <strong>Bank Account</strong>, and upload your slip for verification.
+          </p>
+        </div>
+
+        <div class="pb-pay-studio-actions">
+          <button
+            type="button"
+            class="btn btn-secondary btn-sm"
+            id="btn-student-payment-refresh"
+            title="Refresh your payment and installment status"
+          >
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            <span>Refresh</span>
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline btn-sm"
+            id="btn-student-seed-sample-invoices"
+            style="display: none !important;"
+            aria-hidden="true"
+          >
+            + Seed Sample Unpaid Installments
+          </button>
+          <span
+            id="student-payment-refresh-cooldown"
+            class="hidden pb-public-launch-hidden"
+            style="display: none !important;"
+          ></span>
+        </div>
+      </div>
+
+      <!-- Inline Alert Banner for Student Payments -->
+      <div
+        id="student-payments-alert-box"
+        class="banner banner-warning hidden"
+        role="status"
+        aria-live="polite"
+        style="margin-bottom: 16px;"
+      >
+        <p class="banner-title" id="student-payments-alert-title">Payment Notice</p>
+        <p class="banner-text" id="student-payments-alert-message"></p>
+      </div>
+
+      <!-- Active Session Resume Banner (Shown when an active 15-minute reservation exists) -->
+      <div
+        id="student-payment-resume-banner"
+        class="banner banner-warning hidden"
+        role="region"
+        aria-label="Active Payment Session Available to Resume"
+        style="margin-bottom: 16px; border-width: 2px;"
+      >
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <p class="banner-title" style="margin: 0 0 4px 0;">
+              Active 15-Minute Payment Session (<span id="resume-banner-payment-id">...</span>)
+            </p>
+            <p class="banner-text" style="margin: 0; font-size: 0.88rem;">
+              Method: <strong id="resume-banner-method">PROMPTPAY_QR</strong> &bull;
+              Total: <strong id="resume-banner-amount">0.00 THB</strong> &bull;
+              Status: <strong id="resume-banner-status">PENDING_TRANSFER</strong> &bull;
+              Expires: <span id="resume-banner-expires-bkk">-</span>
+              (<strong id="resume-banner-countdown">--:--</strong> left)
+            </p>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button
+              type="button"
+              class="btn btn-primary btn-sm"
+              id="btn-student-resume-active-session"
+              title="Resume your active payment session"
+            >
+              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <span>Resume</span>
+            </button>
+            <button
+              type="button"
+              class="btn btn-danger btn-sm"
+              id="btn-student-banner-cancel-session"
+              title="Cancel this reservation and release installments"
+            >
+              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              <span>Cancel</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Student Payment 4-Card KPI Strip -->
+      <div class="pb-pay-kpi-grid" aria-label="Student Payment Overview">
+        <div class="pb-pay-kpi-card is-cyan">
+          <div class="pb-pay-kpi-icon" aria-hidden="true">
+            <svg class="pb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+          </div>
+          <div class="pb-pay-kpi-body">
+            <div class="pb-pay-kpi-label">Balance Due</div>
+            <div class="pb-pay-kpi-value" id="student-payment-outstanding-balance">0.00 THB</div>
+            <div class="pb-pay-kpi-sub">Eligible unpaid balance</div>
+            <div id="student-payment-outstanding-satang" class="hidden pb-public-launch-hidden" style="display: none !important;" aria-hidden="true"></div>
+          </div>
+        </div>
+
+        <div class="pb-pay-kpi-card is-slate">
+          <div class="pb-pay-kpi-icon" aria-hidden="true">
+            <svg class="pb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          </div>
+          <div class="pb-pay-kpi-body">
+            <div class="pb-pay-kpi-label">Unpaid Installments</div>
+            <div class="pb-pay-kpi-value" id="student-payment-unpaid-count">0 installments</div>
+            <div class="pb-pay-kpi-sub" id="student-payment-server-clock-bkk">Bangkok Time: -</div>
+          </div>
+        </div>
+
+        <div class="pb-pay-kpi-card is-amber">
+          <div class="pb-pay-kpi-icon" aria-hidden="true">
+            <svg class="pb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </div>
+          <div class="pb-pay-kpi-body">
+            <div class="pb-pay-kpi-label">Pending Review</div>
+            <div class="pb-pay-kpi-value" id="student-payment-awaiting-total">0.00 THB</div>
+            <div class="pb-pay-kpi-sub">Awaiting school verification</div>
+          </div>
+        </div>
+
+        <div class="pb-pay-kpi-card is-emerald">
+          <div class="pb-pay-kpi-icon" aria-hidden="true">
+            <svg class="pb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          </div>
+          <div class="pb-pay-kpi-body">
+            <div class="pb-pay-kpi-label">Verified Paid</div>
+            <div class="pb-pay-kpi-value" id="student-payment-paid-total" style="color: #059669;">0.00 THB</div>
+            <div class="pb-pay-kpi-sub">Confirmed tuition payments</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Segmented Sub-View Tabs for Student Payments -->
+      <div class="pb-pay-subview-tabs" id="student-payment-subview-tabs" role="tablist" aria-label="Student Payment Sections">
+        <button
+          type="button"
+          class="pb-pay-subview-tab is-active"
+          id="btn-student-pay-tab-checkout"
+          data-student-pay-tab="checkout"
+          role="tab"
+          aria-selected="true"
+        >
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+          <span>Pay Tuition (Checkout)</span>
+        </button>
+        <button
+          type="button"
+          class="pb-pay-subview-tab"
+          id="btn-student-pay-tab-invoices"
+          data-student-pay-tab="invoices"
+          role="tab"
+          aria-selected="false"
+        >
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          <span>My Installments (<code id="student-all-invoices-count">0</code>)</span>
+        </button>
+        <button
+          type="button"
+          class="pb-pay-subview-tab"
+          id="btn-student-pay-tab-history"
+          data-student-pay-tab="history"
+          role="tab"
+          aria-selected="false"
+        >
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span>Payment History (<code id="student-payment-history-count">0</code>)</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 5-Step Checkout Workspace: Vertical Connected Stepper Card (Left) + Active Step Panel (Right) -->
+    <div class="pb-payment-checkout-workspace" id="student-payment-checkout-workspace-box">
+      <nav class="pb-payment-stepper-sidebar-card" aria-label="Student Payment Progress Stepper">
+        <div class="pb-stepper-sidebar-header">
+          <span class="pb-stepper-brand-ring" aria-hidden="true"></span>
+          <div>
+            <span class="pb-stepper-sidebar-overline" id="payment-stepper-progress-label">STEP 1 OF 5</span>
+            <div class="pb-stepper-sidebar-heading">Checkout Progress</div>
+          </div>
+        </div>
+        <div class="pb-stepper-progress-bar-track" aria-hidden="true">
+          <div class="pb-stepper-progress-bar-fill" id="payment-stepper-progress-fill" style="width: 20%;"></div>
+        </div>
+
+        <ol class="payment-stepper" id="student-payment-stepper">
+          <li>
+            <button
+              type="button"
+              class="payment-stepper-step is-active"
+              id="stepper-node-select"
+              data-step-key="select"
+              aria-current="step"
+              style="width: 100%;"
+            >
+              <span class="payment-stepper-top-row">
+                <span class="pb-stepper-circle" aria-hidden="true">1</span>
+                <span class="payment-stepper-badge">STEP 1</span>
+              </span>
+              <span class="pb-stepper-body-col">
+                <span class="pb-stepper-step-kicker">STEP 1</span>
+                <span class="payment-stepper-title"><span class="pb-sr-only">Step 1: </span>Select Details</span>
+                <span class="payment-stepper-desc">Installments &amp; method</span>
+              </span>
+              <span class="pb-stepper-status-pill is-in-progress" id="stepper-status-pill-select">Active</span>
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              class="payment-stepper-step"
+              id="stepper-node-transfer"
+              data-step-key="transfer"
+              style="width: 100%;"
+            >
+              <span class="payment-stepper-top-row">
+                <span class="pb-stepper-circle" aria-hidden="true">2</span>
+                <span class="payment-stepper-badge">STEP 2</span>
+              </span>
+              <span class="pb-stepper-body-col">
+                <span class="pb-stepper-step-kicker">STEP 2</span>
+                <span class="payment-stepper-title"><span class="pb-sr-only">Step 2: </span>Transfer Funds</span>
+                <span class="payment-stepper-desc">PromptPay QR or Bank</span>
+              </span>
+              <span class="pb-stepper-status-pill is-pending" id="stepper-status-pill-transfer">Pending</span>
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              class="payment-stepper-step"
+              id="stepper-node-upload"
+              data-step-key="upload"
+              style="width: 100%;"
+            >
+              <span class="payment-stepper-top-row">
+                <span class="pb-stepper-circle" aria-hidden="true">3</span>
+                <span class="payment-stepper-badge">STEP 3</span>
+              </span>
+              <span class="pb-stepper-body-col">
+                <span class="pb-stepper-step-kicker">STEP 3</span>
+                <span class="payment-stepper-title"><span class="pb-sr-only">Step 3: </span>Upload Slip</span>
+                <span class="payment-stepper-desc">Attach transfer receipt</span>
+              </span>
+              <span class="pb-stepper-status-pill is-pending" id="stepper-status-pill-upload">Pending</span>
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              class="payment-stepper-step"
+              id="stepper-node-review"
+              data-step-key="review"
+              style="width: 100%;"
+            >
+              <span class="payment-stepper-top-row">
+                <span class="pb-stepper-circle" aria-hidden="true">4</span>
+                <span class="payment-stepper-badge">STEP 4</span>
+              </span>
+              <span class="pb-stepper-body-col">
+                <span class="pb-stepper-step-kicker">STEP 4</span>
+                <span class="payment-stepper-title"><span class="pb-sr-only">Step 4: </span>In Review</span>
+                <span class="payment-stepper-desc">School verification</span>
+              </span>
+              <span class="pb-stepper-status-pill is-pending" id="stepper-status-pill-review">Pending</span>
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              class="payment-stepper-step"
+              id="stepper-node-paid"
+              data-step-key="paid"
+              style="width: 100%;"
+            >
+              <span class="payment-stepper-top-row">
+                <span class="pb-stepper-circle" aria-hidden="true">5</span>
+                <span class="payment-stepper-badge">STEP 5</span>
+              </span>
+              <span class="pb-stepper-body-col">
+                <span class="pb-stepper-step-kicker">STEP 5</span>
+                <span class="payment-stepper-title"><span class="pb-sr-only">Step 5: </span>Verified Paid</span>
+                <span class="payment-stepper-desc">Payment confirmed</span>
+              </span>
+              <span class="pb-stepper-status-pill is-pending" id="stepper-status-pill-paid">Pending</span>
+            </button>
+          </li>
+        </ol>
+
+        <button type="button" class="pb-stepper-help-contact-box" data-nav-view="contact">
+          <span class="pb-stepper-help-q-circle" aria-hidden="true">?</span>
+          <span class="pb-stepper-help-text-col">
+            <span class="pb-stepper-help-small">Need help with billing?</span>
+            <span class="pb-stepper-help-bold">Contact School</span>
+          </span>
+        </button>
+      </nav>
+
+      <div class="pb-payment-step-panels-col">
+
+        <!-- STEPPER PANEL 1: SELECT (Select Installments & Payment Method) -->
+        <div id="payment-step-panel-select" class="card" style="margin-bottom: 18px; border: 2px solid var(--color-brand-border);">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+            <div>
+              <span class="badge badge-ok">Step 1 of 5</span>
+              <h2 style="margin: 6px 0 4px 0; font-size: 1.22rem; color: var(--color-brand-deep);">
+                1. Choose Installments &amp; Payment Method
+              </h2>
+              <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
+                Check the tuition installments you wish to pay today.
+              </p>
+            </div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-outline btn-sm" id="btn-payment-select-first" title="Select first due installment">
+                <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>First</span>
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-payment-select-all" title="Select all eligible unpaid installments">
+                <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 7 17l-5-5"></path><path d="m22 10-7.5 7.5L13 16"></path></svg>
+                <span>All</span>
+              </button>
+              <button type="button" class="btn btn-outline btn-sm" id="btn-payment-clear-selection" title="Clear selection">
+                <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                <span>Clear</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Eligible Unpaid Installments Table -->
+          <div class="table-responsive" style="margin-bottom: 16px;">
+            <table class="data-table" aria-label="Eligible Unpaid Tuition Installments">
+              <thead>
+                <tr>
+                  <th style="width: 48px; text-align: center;">
+                    <input
+                      type="checkbox"
+                      id="chk-payment-select-all"
+                      aria-label="Select all eligible unpaid installments"
+                    />
+                  </th>
+                  <th>Installment &amp; Invoice ID</th>
+                  <th>Course</th>
+                  <th>Due Date</th>
+                  <th>Status</th>
+                  <th style="text-align: right;">Amount</th>
+                </tr>
+              </thead>
+              <tbody id="student-unpaid-installments-tbody">
+                <tr><td colspan="6"><div class="pb-table-skeleton-stack" aria-hidden="true"><div class="pb-skeleton-line" style="width: 100%; height: 38px; border-radius: 10px;"></div><div class="pb-skeleton-line" style="width: 94%; height: 38px; border-radius: 10px;"></div><div class="pb-skeleton-line" style="width: 88%; height: 38px; border-radius: 10px;"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Live Selected Total Summary Bar -->
+          <div class="pb-pay-selected-summary-bar">
+            <div>
+              <span class="badge badge-ok" id="payment-selected-count-badge">0 installments selected</span>
+              <div style="font-size: 0.86rem; color: var(--color-text-secondary); margin-top: 4px;">
+                Selected Total to Pay:
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <div
+                id="payment-selected-total-thb"
+                style="font-size: 1.45rem; font-weight: 800; color: var(--color-brand-deep);"
+              >
+                0.00 THB
+              </div>
+              <div
+                id="payment-selected-total-satang"
+                class="hidden pb-public-launch-hidden"
+                style="display: none !important;"
+                aria-hidden="true"
+              ></div>
+            </div>
+          </div>
+
+          <!-- Payment Method Selection -->
+          <h3 style="margin: 0 0 8px 0; font-size: 1.02rem; color: var(--color-brand-deep);">
+            Select Payment Method
+          </h3>
+          <div class="payment-method-grid" role="radiogroup" aria-label="Choose Payment Method">
+            <label class="payment-method-card is-selected" id="card-method-promptpay" for="radio-payment-method-promptpay">
+              <input
+                type="radio"
+                name="student-payment-method"
+                id="radio-payment-method-promptpay"
+                value="PROMPTPAY_QR"
+                checked
+                style="margin-top: 4px;"
+              />
+              <div class="pb-payment-method-content">
+                <img
+                  src="https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c5/PromptPay-logo.png/500px-PromptPay-logo.png?utm_source=th.wikipedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                  alt="PromptPay"
+                  class="pb-promptpay-method-logo"
+                  width="120"
+                  height="40"
+                  loading="lazy"
+                />
+                <div style="font-weight: 800; font-size: 0.98rem; color: var(--color-brand-deep);">
+                  PromptPay QR
+                </div>
+                <span style="font-size: 0.8rem; color: var(--color-text-secondary);">
+                  Scan QR in any mobile banking app
+                </span>
+              </div>
+            </label>
+
+            <label class="payment-method-card" id="card-method-bank" for="radio-payment-method-bank">
+              <input
+                type="radio"
+                name="student-payment-method"
+                id="radio-payment-method-bank"
+                value="BANK_TRANSFER"
+                style="margin-top: 4px;"
+              />
+              <div class="pb-payment-method-content">
+                <div class="pb-bank-method-icon-badge" aria-hidden="true">
+                  <svg class="pb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="22" x2="21" y2="22"></line><line x1="6" y1="18" x2="6" y2="11"></line><line x1="10" y1="18" x2="10" y2="11"></line><line x1="14" y1="18" x2="14" y2="11"></line><line x1="18" y1="18" x2="18" y2="11"></line><polygon points="12 2 20 7 4 7"></polygon></svg>
+                </div>
+                <div style="font-weight: 800; font-size: 0.98rem; color: var(--color-brand-deep);">
+                  Bank Transfer
+                </div>
+                <span style="font-size: 0.8rem; color: var(--color-text-secondary);">
+                  Transfer directly to school account
+                </span>
+              </div>
+            </label>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px;">
+            <button
+              type="button"
+              class="btn btn-primary"
+              id="btn-payment-create-reservation"
+            >
+              <span>Continue to Payment</span>
+              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+            </button>
+            <span
+              id="payment-create-reservation-status"
+              role="status"
+              aria-live="polite"
+              style="font-size: 0.9rem; font-weight: 600; color: var(--color-brand-medium);"
+            ></span>
+          </div>
+        </div>
+
+        <!-- STEPPER PANEL 2: TRANSFER (PromptPay QR or Bank Transfer + 15m Timer) -->
+        <div id="payment-step-panel-transfer" class="card hidden" style="margin-bottom: 18px; border: 2px solid var(--color-brand-deep);">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                <span class="badge badge-ok" id="payment-transfer-method-badge">PROMPTPAY_QR</span>
+                <span class="badge badge-ok" id="payment-transfer-status-badge">PENDING_TRANSFER</span>
+              </div>
+              <h2 style="margin: 6px 0 4px 0; font-size: 1.24rem; color: var(--color-brand-deep);">
+                2. Complete Your Transfer
+              </h2>
+              <p style="margin: 0; font-size: 0.86rem; color: var(--color-text-secondary);">
+                Ref: <code id="payment-transfer-session-id">pay_...</code> &bull;
+                Expires: <strong id="payment-transfer-expires-bkk">-</strong>
+                <span id="payment-transfer-server-now-bkk" class="hidden" style="display: none !important;">-</span>
+              </p>
+            </div>
+
+            <!-- Countdown Timer -->
+            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+              <div class="payment-countdown-pill" id="payment-transfer-countdown-pill" role="timer" aria-live="off">
+                <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                <span id="payment-transfer-countdown-clock">15:00</span>
+              </div>
+              <span style="font-size: 0.74rem; color: var(--color-text-secondary);">
+                15-minute payment window
+              </span>
+            </div>
+          </div>
+
+          <!-- Amount Banner -->
+          <div class="pb-pay-selected-summary-bar" style="margin-bottom: 16px;">
+            <div>
+              <div style="font-size: 0.78rem; font-weight: 800; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.04em;">
+                Exact Amount to Transfer
+              </div>
+              <div id="payment-transfer-invoices-summary" style="font-size: 0.88rem; color: var(--color-text-primary); margin-top: 2px;">
+                -
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <div id="payment-transfer-amount-thb" style="font-size: 1.48rem; font-weight: 800; color: var(--color-brand-deep);">
+                0.00 THB
+              </div>
+              <div id="payment-transfer-amount-satang" class="hidden pb-public-launch-hidden" style="display: none !important;" aria-hidden="true"></div>
+            </div>
+          </div>
+
+          <!-- Expired Reservation Warning Box -->
+          <div
+            id="payment-transfer-expired-notice"
+            class="banner banner-danger hidden"
+            role="alert"
+            style="margin-bottom: 16px;"
+          >
+            <p class="banner-title">15-Minute Payment Session Expired</p>
+            <p class="banner-text" style="margin-bottom: 6px;">
+              This payment window has ended and the QR code has been hidden so you don’t make a late transfer.
+            </p>
+            <p class="banner-text" style="margin: 0; font-size: 0.85rem;">
+              <strong>Already transferred?</strong> Do not transfer again—simply start a new session to upload your slip, or contact us with your Payment ID.
+            </p>
+          </div>
+
+          <!-- PROMPTPAY QR VIEW -->
+          <div id="payment-method-view-promptpay" style="margin-bottom: 16px;">
+            <div id="payment-promptpay-qr-container">
+              <div class="payment-qr-frame">
+                <div class="payment-qr-header-band pb-promptpay-qr-banner">
+                  <img
+                    src="https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c5/PromptPay-logo.png/500px-PromptPay-logo.png?utm_source=th.wikipedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                    alt="PromptPay Logo"
+                    class="pb-promptpay-qr-header-logo"
+                    width="148"
+                    height="50"
+                  />
+                </div>
+                <div
+                  class="payment-qr-svg-box"
+                  id="payment-promptpay-qr-svg-box"
+                  role="img"
+                  aria-label="PromptPay QR Code"
+                ></div>
+                <div style="margin-top: 12px; width: 100%;">
+                  <div style="font-size: 0.84rem; color: var(--color-text-secondary); font-weight: 700;">
+                    Recipient: <span id="payment-promptpay-school-display">Pattanabhumi Biology</span>
+                  </div>
+                  <div style="font-size: 0.88rem; color: var(--color-brand-deep); font-weight: 700; margin-top: 2px;">
+                    PromptPay ID: <code id="payment-promptpay-target-display">-</code>
+                  </div>
+                  <div
+                    id="payment-promptpay-amount-display"
+                    style="font-size: 1.38rem; font-weight: 800; color: #003D6B; margin-top: 6px;"
+                  >
+                    0.00 THB
+                  </div>
+                  <div style="margin-top: 6px;">
+                    <span class="badge badge-ok" id="payment-promptpay-crc-badge" style="font-size: 0.72rem;">
+                      Verified PromptPay QR
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="hidden pb-public-launch-hidden" style="display: none !important;" aria-hidden="true">
+                <code id="payment-promptpay-emvco-string">-</code>
+              </div>
+            </div>
+
+            <div class="status-item" style="margin-top: 12px;">
+              <div class="status-label">Next Step After Scanning</div>
+              <p style="margin: 4px 0 0 0; font-size: 0.86rem; color: var(--color-text-secondary); line-height: 1.5;">
+                After completing your transfer in your banking app, click <strong>I've Transferred — Upload Slip</strong> below to attach your receipt image.
+              </p>
+            </div>
+          </div>
+
+          <!-- BANK TRANSFER VIEW -->
+          <div id="payment-method-view-bank" class="hidden" style="margin-bottom: 16px;">
+            <div class="status-item" style="margin-bottom: 12px;">
+              <div class="status-label">School Bank Account Details</div>
+              <p style="margin: 4px 0 12px 0; font-size: 0.86rem; color: var(--color-text-secondary);">
+                Transfer the exact amount below to the school’s bank account, then click <strong>I've Transferred — Upload Slip</strong>.
+                <span id="payment-bank-snapshot-time" class="hidden" style="display: none !important;">-</span>
+              </p>
+
+              <div class="bank-detail-row">
+                <div>
+                  <div class="bank-detail-label">Bank Name</div>
+                  <div class="bank-detail-value" id="payment-bank-name-display" style="font-family: inherit;">-</div>
+                </div>
+              </div>
+
+              <div class="bank-detail-row">
+                <div>
+                  <div class="bank-detail-label">Account Name</div>
+                  <div class="bank-detail-value" id="payment-bank-account-name-display" style="font-family: inherit;">-</div>
+                </div>
+              </div>
+
+              <div class="bank-detail-row">
+                <div>
+                  <div class="bank-detail-label">Account Number</div>
+                  <div class="bank-detail-value" id="payment-bank-account-number-display">-</div>
+                </div>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-sm"
+                    id="btn-copy-bank-account-number"
+                    title="Copy bank account number"
+                  >
+                    <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    <span>Copy</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="bank-detail-row">
+                <div>
+                  <div class="bank-detail-label">Exact Transfer Amount</div>
+                  <div class="bank-detail-value" id="payment-bank-amount-display">0.00 THB</div>
+                </div>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-sm"
+                    id="btn-copy-bank-amount"
+                    title="Copy exact transfer amount"
+                  >
+                    <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    <span>Copy</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-outline btn-sm"
+                    id="btn-toggle-bank-manual-copy"
+                    title="Show selectable text fields for manual copy"
+                  >
+                    <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+                    <span>Select Text</span>
+                  </button>
+                </div>
+              </div>
+
+              <div
+                id="payment-bank-copy-status"
+                role="status"
+                aria-live="polite"
+                style="font-size: 0.85rem; font-weight: 700; color: var(--color-brand-medium); margin-top: 6px;"
+              ></div>
+
+              <!-- Manual-Copy Fallback Box -->
+              <div
+                id="payment-bank-manual-copy-box"
+                class="hidden"
+                style="margin-top: 12px; padding: 12px 14px; background: #F0FDFA; border: 1px solid #99F6E4; border-radius: var(--radius-sm);"
+              >
+                <div style="font-size: 0.84rem; font-weight: 800; color: #0F766E; margin-bottom: 6px;">
+                  Selectable Bank Details
+                </div>
+                <div class="form-grid-2col">
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" for="input-bank-manual-copy-account" style="font-size: 0.78rem;">Account Number</label>
+                    <input type="text" class="form-input" id="input-bank-manual-copy-account" readonly value="" style="font-family: monospace; font-weight: 700;" />
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" for="input-bank-manual-copy-amount" style="font-size: 0.78rem;">Amount (THB)</label>
+                    <input type="text" class="form-input" id="input-bank-manual-copy-amount" readonly value="" style="font-family: monospace; font-weight: 700;" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2 Action Footer -->
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding-top: 12px; border-top: 1px solid var(--color-brand-border);">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <button
+                type="button"
+                class="btn btn-outline btn-sm"
+                id="btn-payment-back-to-select"
+                title="Return to Step 1"
+              >
+                <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                <span>Back</span>
+              </button>
+              <button
+                type="button"
+                class="btn btn-primary"
+                id="btn-payment-i-have-paid"
+              >
+                <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                <span>I've Transferred &mdash; Upload Slip</span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              class="btn btn-danger btn-sm"
+              id="btn-payment-cancel-reservation"
+              title="Cancel this reservation and release installments"
+            >
+              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              <span>Cancel Session</span>
             </button>
           </div>
         </div>
 
-        <div
-          id="payment-bank-copy-status"
-          role="status"
-          aria-live="polite"
-          style="font-size: 0.85rem; font-weight: 700; color: var(--color-brand-medium); margin-top: 6px;"
-        ></div>
-
-        <!-- Manual-Copy Fallback Box (Shown automatically if navigator.clipboard is blocked by browser/iframe policy, or on toggle) -->
-        <div
-          id="payment-bank-manual-copy-box"
-          class="hidden"
-          style="margin-top: 12px; padding: 12px 14px; background: #FFF8E1; border: 1px solid #F57F17; border-radius: var(--radius-sm);"
-        >
-          <div style="font-size: 0.84rem; font-weight: 800; color: #E65100; margin-bottom: 6px;">
-            Manual-Copy Fallback (For Sandboxed Iframes / Restricted Clipboard Permissions)
-          </div>
-          <p style="margin: 0 0 8px 0; font-size: 0.82rem; color: var(--color-text-secondary);">
-            Click either field below to highlight the value, then press <kbd>Ctrl+C</kbd> (Windows/Linux)
-            or <kbd>Cmd+C</kbd> (Mac) to copy manually:
-          </p>
-          <div class="form-grid-2col">
-            <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label" for="input-bank-manual-copy-account" style="font-size: 0.78rem;">
-                Bank Account Number (Read-Only Selectable)
-              </label>
-              <input
-                type="text"
-                class="form-input"
-                id="input-bank-manual-copy-account"
-                readonly
-                value=""
-                style="font-family: monospace; font-weight: 700;"
-              />
+        <!-- STEPPER PANEL 3: UPLOAD (Authorized Receipt Upload, Thumbnail & Confirm) -->
+        <div id="payment-step-panel-upload" class="card hidden" style="margin-bottom: 18px; border: 2px solid var(--color-brand-deep);">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+            <div>
+              <span class="badge badge-ok">Step 3 of 5</span>
+              <h2 style="margin: 6px 0 4px 0; font-size: 1.22rem; color: var(--color-brand-deep);">
+                3. Upload Your Transfer Slip
+              </h2>
+              <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
+                Attach your PromptPay or bank transfer slip image, preview it, and click <strong>Submit for Verification</strong>.
+              </p>
             </div>
-            <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label" for="input-bank-manual-copy-amount" style="font-size: 0.78rem;">
-                Transfer Amount in THB (Read-Only Selectable)
-              </label>
-              <input
-                type="text"
-                class="form-input"
-                id="input-bank-manual-copy-amount"
-                readonly
-                value=""
-                style="font-family: monospace; font-weight: 700;"
-              />
+            <button
+              type="button"
+              class="btn btn-outline btn-sm"
+              id="btn-payment-upload-back-transfer"
+              title="Return to transfer details"
+            >
+              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+              <span>Back</span>
+            </button>
+          </div>
+
+          <!-- Session Summary Bar in Step 3 -->
+          <div class="pb-pay-selected-summary-bar" style="margin-bottom: 14px; padding: 10px 14px;">
+            <div style="font-size: 0.88rem;">
+              Session: <code id="payment-upload-session-id">pay_...</code> &bull;
+              Method: <strong id="payment-upload-method">PROMPTPAY_QR</strong> &bull;
+              Amount: <strong id="payment-upload-amount">0.00 THB</strong>
+            </div>
+            <div>
+              <span class="badge badge-incomplete" id="payment-uploaded-receipt-id-badge">
+                No receipt uploaded yet
+              </span>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Step 2 Action Footer: "I have paid" -> Step 3 Upload, or Cancel Reservation -->
-    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-top: 12px; border-top: 1px solid var(--color-brand-border);">
-      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-        <button
-          type="button"
-          class="btn btn-primary"
-          id="btn-payment-i-have-paid"
-        >
-          I have paid (Proceed to Step 3: Upload Receipt)
-        </button>
-        <button
-          type="button"
-          class="btn btn-outline btn-sm"
-          id="btn-payment-back-to-select"
-        >
-          Back to Step 1: Installment Selection
-        </button>
-      </div>
+          <!-- Upload Form + Authorized Thumbnail Grid -->
+          <div class="form-grid-2col" style="margin-bottom: 16px;">
+            <div class="pb-pay-upload-dropzone-card">
+              <label class="form-label" for="input-payment-receipt-file">
+                Transfer Receipt Image (PNG, JPEG, or WebP) *
+              </label>
+              <input
+                type="file"
+                class="form-input"
+                id="input-payment-receipt-file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                style="margin-bottom: 10px;"
+              />
+              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm pb-btn-upload-animated"
+                  id="btn-payment-upload-receipt"
+                >
+                  <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                  <span>Upload Slip</span>
+                </button>
+                <span
+                  id="payment-receipt-upload-status"
+                  role="status"
+                  aria-live="polite"
+                  style="font-size: 0.85rem; font-weight: 600; color: var(--color-brand-medium);"
+                ></span>
+              </div>
+              <p style="margin: 10px 0 0 0; font-size: 0.79rem; color: var(--color-text-secondary);">
+                Stored privately for school verification.
+              </p>
+            </div>
 
-      <button
-        type="button"
-        class="btn btn-danger btn-sm"
-        id="btn-payment-cancel-reservation"
-      >
-        Cancel Reservation &amp; Release Invoices
-      </button>
-    </div>
-  </div>
+            <!-- Authorized Thumbnail Preview Box -->
+            <div>
+              <div class="form-label" style="margin-bottom: 6px;">Receipt Preview</div>
+              <div class="receipt-thumbnail-container" id="payment-receipt-thumbnail-box">
+                <span style="font-size: 0.85rem; color: var(--color-text-secondary);">
+                  Upload your transfer slip on the left to preview it here.
+                </span>
+              </div>
+            </div>
+          </div>
 
-  <!-- ======================================================================
-       STEPPER PANEL 3: UPLOAD (Authorized Receipt Upload, Thumbnail & Confirm)
-       ====================================================================== -->
-  <div id="payment-step-panel-upload" class="card hidden" style="margin-bottom: 18px; border: 2px solid var(--color-brand-deep);">
-    <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
-      <div>
-        <span class="badge badge-ok">Step 3 of 5: Upload Receipt &amp; Confirm Submission</span>
-        <h2 style="margin: 6px 0 4px 0; font-size: 1.22rem; color: var(--color-brand-deep);">
-          3. Upload Your Transfer Slip &amp; Confirm Payment Submission
-        </h2>
-        <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
-          Upload a clear image of your bank or PromptPay transfer slip (PNG, JPEG, or WebP). Once your receipt preview appears below, click <strong>Confirm Payment Submission</strong> so our team can verify your payment.
-        </p>
-      </div>
-      <button
-        type="button"
-        class="btn btn-outline btn-sm"
-        id="btn-payment-upload-back-transfer"
-      >
-        Back to Step 2: Transfer Details
-      </button>
-    </div>
-
-    <!-- Session Summary Bar in Step 3 -->
-    <div
-      style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 10px 14px; background: var(--color-bg-subtle); border: 1px solid var(--color-brand-border); border-radius: var(--radius-sm); margin-bottom: 14px; font-size: 0.88rem;"
-    >
-      <div>
-        Session: <code id="payment-upload-session-id">pay_...</code> |
-        Method: <strong id="payment-upload-method">PROMPTPAY_QR</strong> |
-        Amount: <strong id="payment-upload-amount">0.00 THB</strong>
-      </div>
-      <div>
-        Receipt Status:
-        <span class="badge badge-incomplete" id="payment-uploaded-receipt-id-badge">
-          No receipt uploaded yet
-        </span>
-      </div>
-    </div>
-
-    <!-- Upload Form + Authorized Thumbnail Grid -->
-    <div class="form-grid-2col" style="margin-bottom: 16px;">
-      <div style="padding: 14px; background: var(--color-bg-surface); border: 1px solid var(--color-brand-border); border-radius: var(--radius-md);">
-        <label class="form-label" for="input-payment-receipt-file">
-          Select Transfer Receipt Image (<code>PNG</code>, <code>JPEG</code>, or <code>WebP</code> &le; 200 MB) *
-        </label>
-        <input
-          type="file"
-          class="form-input"
-          id="input-payment-receipt-file"
-          accept="image/png,image/jpeg,image/webp,image/gif"
-          style="margin-bottom: 10px;"
-        />
-        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-          <button
-            type="button"
-            class="btn btn-secondary btn-sm pb-btn-upload-animated"
-            id="btn-payment-upload-receipt"
+          <!-- Conflict Support Banner -->
+          <div
+            id="payment-conflict-support-banner"
+            class="banner banner-danger hidden"
+            role="alert"
+            style="margin-bottom: 16px; border-width: 2px;"
           >
-            Upload Receipt Image (&le; 200 MB)
-          </button>
-          <span
-            id="payment-receipt-upload-status"
-            role="status"
-            aria-live="polite"
-            style="font-size: 0.85rem; font-weight: 600; color: var(--color-brand-medium);"
-          ></span>
-        </div>
-        <p style="margin: 10px 0 0 0; font-size: 0.8rem; color: var(--color-text-secondary);">
-          Your transfer slip is stored securely in the school’s private folder for verification.
-        </p>
-      </div>
+            <p class="banner-title" id="payment-conflict-support-title">
+              Session Expired or Updated
+            </p>
+            <p class="banner-text" id="payment-conflict-support-message" style="margin-bottom: 8px;"></p>
+            <div style="padding: 10px 12px; background: #FFFFFF; border: 1px solid #C62828; border-radius: var(--radius-sm); font-size: 0.84rem; color: var(--color-text-primary);">
+              <div style="font-family: monospace;" id="payment-conflict-reference-summary">-</div>
+              <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-copy-conflict-support-ref">
+                  <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                  <span>Copy Ref</span>
+                </button>
+                <input type="text" class="form-input" id="input-conflict-support-manual-copy" readonly value="" aria-label="Support reference" style="flex: 1; min-width: 200px; font-family: monospace; font-size: 0.8rem; padding: 6px 8px;" />
+              </div>
+            </div>
+          </div>
 
-      <!-- Authorized Thumbnail Preview Box -->
-      <div>
-        <div class="form-label" style="margin-bottom: 6px;">
-          Authorized Receipt Thumbnail Preview
-        </div>
-        <div class="receipt-thumbnail-container" id="payment-receipt-thumbnail-box">
-          <span style="font-size: 0.86rem; color: var(--color-text-secondary);">
-            No receipt image uploaded yet. Upload a transfer slip on the left to preview its
-            authorized thumbnail here.
-          </span>
-        </div>
-      </div>
-    </div>
+          <!-- Confirm Submission Bar -->
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-top: 12px; border-top: 1px solid var(--color-brand-border);">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <button
+                type="button"
+                class="btn btn-primary"
+                id="btn-payment-confirm-submission"
+                disabled
+              >
+                <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                <span>Submit for Verification</span>
+              </button>
+              <span
+                id="payment-confirm-submission-status"
+                role="status"
+                aria-live="polite"
+                style="font-size: 0.88rem; font-weight: 600; color: var(--color-brand-medium);"
+              >
+                Upload a receipt image above to enable submission.
+              </span>
+            </div>
 
-    <!-- Reservation-Ownership Conflict / Expiry Support Path Banner (Shown when another session owns reservation or session expired) -->
-    <div
-      id="payment-conflict-support-banner"
-      class="banner banner-danger hidden"
-      role="alert"
-      style="margin-bottom: 16px; border-width: 2px;"
-    >
-      <p class="banner-title" id="payment-conflict-support-title">
-        Reservation Ownership Conflict — Submission Blocked to Prevent Double-Applying Payment
-      </p>
-      <p class="banner-text" id="payment-conflict-support-message" style="margin-bottom: 8px;"></p>
-      <div
-        style="padding: 10px 12px; background: #FFFFFF; border: 1px solid #C62828; border-radius: var(--radius-sm); font-size: 0.84rem; color: var(--color-text-primary); margin-bottom: 8px;"
-      >
-        <div><strong>Support &amp; Reconciliation Reference Details (Preserved on Server):</strong></div>
-        <div style="margin-top: 4px; font-family: monospace;" id="payment-conflict-reference-summary">
-          -
+            <button
+              type="button"
+              class="btn btn-outline btn-sm"
+              id="btn-payment-test-conflict-support"
+              style="display: none !important;"
+              aria-hidden="true"
+            >
+              Test Conflict
+            </button>
+          </div>
         </div>
-        <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-          <button
-            type="button"
-            class="btn btn-secondary btn-sm"
-            id="btn-copy-conflict-support-ref"
+
+        <!-- STEPPER PANEL 4: REVIEW (Submitted State = Awaiting verification) -->
+        <div id="payment-step-panel-review" class="card hidden" style="margin-bottom: 18px; border: 2px solid var(--color-brand-deep);">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+            <div>
+              <span class="badge badge-incomplete">Step 4 of 5: In Review</span>
+              <h2 style="margin: 6px 0 4px 0; font-size: 1.22rem; color: var(--color-brand-deep);">
+                4. Payment Submitted &mdash; Awaiting School Verification
+              </h2>
+              <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
+                We have received your transfer slip. Our team will verify your payment and update your balance automatically.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              class="btn btn-secondary btn-sm"
+              id="btn-payment-review-bounded-refresh"
+              title="Refresh verification status"
+            >
+              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+              <span>Refresh</span>
+            </button>
+          </div>
+
+          <div
+            class="banner banner-warning"
+            style="margin-bottom: 12px;"
+            id="payment-awaiting-no-retransfer-notice"
           >
-            Copy Support Reference
-          </button>
-          <input
-            type="text"
-            class="form-input"
-            id="input-conflict-support-manual-copy"
-            readonly
-            value=""
-            aria-label="Manual copy support reference details"
-            style="flex: 1; min-width: 220px; font-family: monospace; font-size: 0.8rem; padding: 6px 8px;"
-          />
+            <p class="banner-title">No Duplicate Transfer Needed</p>
+            <p class="banner-text" style="margin-bottom: 0;">
+              Your slip is being reviewed. Please do not transfer a second time while verification is in progress.
+            </p>
+          </div>
+
+          <div id="payment-review-sessions-container">
+            <div class="status-item">
+              <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
+                No payments are currently awaiting verification.
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Defined Policy for Transfers Made Before or After Expiry & Reservation Conflicts -->
-    <div class="status-item" style="margin-bottom: 16px;">
-      <div class="status-label">
-        What If My 15-Minute Timer Runs Out After I Paid?
-      </div>
-      <ul style="margin: 6px 0 0 18px; padding: 0; font-size: 0.84rem; color: var(--color-text-secondary); line-height: 1.5;">
-        <li>
-          <strong>Paid Before the Timer Ended:</strong> Please upload your slip and click <em>Confirm Payment Submission</em> before the 15-minute timer runs out. If the timer expired right after you transferred, <strong>do not pay a second time</strong>—simply start a new session for the installment and upload your transfer slip.
-        </li>
-        <li>
-          <strong>Paid After the Timer Ended:</strong> If you transferred after the 15-minute window ended, your transfer still reaches the school’s bank account. Do not transfer again—start a new payment session if the installment is still unpaid, or contact us with your Payment ID if you need assistance.
-        </li>
-      </ul>
-    </div>
-
-    <!-- Confirm Submission Bar -->
-    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-top: 12px; border-top: 1px solid var(--color-brand-border);">
-      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-        <button
-          type="button"
-          class="btn btn-primary"
-          id="btn-payment-confirm-submission"
-          disabled
+        <!-- STUDENT REJECTED PAYMENT NOTICE -->
+        <div
+          id="payment-rejected-sessions-banner"
+          class="card hidden"
+          style="margin-bottom: 18px; border: 2px solid #C62828; background: #FFEBEE;"
+          role="region"
+          aria-labelledby="payment-rejected-heading"
         >
-          Confirm Payment Submission (Submit for Verification)
+          <div style="margin-bottom: 10px;">
+            <span class="badge badge-danger">Action Needed</span>
+            <h2 id="payment-rejected-heading" style="margin: 6px 0 4px 0; font-size: 1.18rem; color: #B71C1C;">
+              Receipt Needs Attention &mdash; Please Review Note Below
+            </h2>
+            <p style="margin: 0; font-size: 0.88rem; color: #4E342E;">
+              If your transfer already went through, <strong>do not transfer again</strong>—simply re-select the installment to upload a clearer slip image.
+            </p>
+          </div>
+          <div id="payment-rejected-sessions-container"></div>
+        </div>
+
+        <!-- STEPPER PANEL 5: PAID -->
+        <div id="payment-step-panel-paid" class="card hidden" style="margin-bottom: 18px; border: 2px solid #1B5E20;">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+            <div>
+              <span class="badge badge-ok">Step 5 of 5: Verified Paid</span>
+              <h2 style="margin: 6px 0 4px 0; font-size: 1.22rem; color: #1B5E20;">
+                5. Confirmed Tuition Payments
+              </h2>
+              <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
+                Your tuition payment sessions below have been verified and marked as <strong>Paid</strong>.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              class="btn btn-outline btn-sm"
+              id="btn-payment-paid-back-select"
+            >
+              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+              <span>Back to Step 1</span>
+            </button>
+          </div>
+
+          <div id="payment-paid-sessions-container">
+            <div class="status-item">
+              <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
+                No completed payments recorded yet.
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- MY INSTALLMENTS LEDGER (Shown when "My Installments" tab is active) -->
+    <div class="card hidden" id="student-all-invoices-card" style="margin-bottom: 16px;">
+      <div class="pb-pay-card-header-row">
+        <div>
+          <span class="badge badge-ok">Installment Schedule</span>
+          <h2 style="margin: 6px 0 4px 0; font-size: 1.18rem; color: var(--color-brand-deep);">
+            All Assigned Tuition Installments
+          </h2>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-student-invoices-go-checkout">
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+          <span>Go to Checkout</span>
         </button>
-        <span
-          id="payment-confirm-submission-status"
-          role="status"
-          aria-live="polite"
-          style="font-size: 0.88rem; font-weight: 600; color: var(--color-brand-medium);"
-        >
-          Upload a valid receipt image above to enable Confirm Submission.
-        </span>
       </div>
-
-      <button
-        type="button"
-        class="btn btn-outline btn-sm"
-        id="btn-payment-test-conflict-support"
-        style="display: none !important;"
-        aria-hidden="true"
-        title="Runs a real backend scenario where Session 1 expires after receipt upload and Session 2 claims the invoice, demonstrating the Support Path banner"
-      >
-        Test Another-Session Reservation Conflict Support Path
-      </button>
-    </div>
-  </div>
-
-  <!-- ======================================================================
-       STEPPER PANEL 4: REVIEW (Submitted State = Awaiting verification)
-       ====================================================================== -->
-  <div id="payment-step-panel-review" class="card hidden" style="margin-bottom: 18px; border: 2px solid var(--color-brand-deep);">
-    <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
-      <div>
-        <span class="badge badge-incomplete">Step 4 of 5: Awaiting Verification</span>
-        <h2 style="margin: 6px 0 4px 0; font-size: 1.22rem; color: var(--color-brand-deep);">
-          4. Payment Submitted — Awaiting Administrator Verification
-        </h2>
-        <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
-          Your transfer slip has been received and is now <strong>awaiting verification</strong>. Our team will verify your transfer and update your status to <strong>Paid</strong> (or let you know if a clearer slip image is needed).
-        </p>
-      </div>
-
-      <button
-        type="button"
-        class="btn btn-secondary btn-sm"
-        id="btn-payment-review-bounded-refresh"
-      >
-        Refresh Verification Status
-      </button>
-    </div>
-
-    <div
-      class="banner banner-warning"
-      style="margin-bottom: 12px;"
-      id="payment-awaiting-no-retransfer-notice"
-    >
-      <p class="banner-title">Please Do Not Transfer Again While Verification Is In Progress</p>
-      <p class="banner-text" style="margin-bottom: 0;">
-        Your transfer slip has been submitted for review. Please <strong>do not make another bank or PromptPay transfer</strong> while your payment is being verified. Once confirmed, your <strong>Outstanding Balance</strong> will update automatically.
-      </p>
-    </div>
-
-    <div id="payment-review-sessions-container">
-      <div class="status-item">
-        <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
-          No payments are currently awaiting verification.
-        </p>
+      <div class="table-responsive" aria-live="polite">
+        <table class="data-table" aria-label="All Student Tuition Installments">
+          <thead>
+            <tr>
+              <th>Invoice ID</th>
+              <th>Installment &amp; Course</th>
+              <th>Amount</th>
+              <th>Due Date</th>
+              <th>Status</th>
+              <th>Payment Reference</th>
+            </tr>
+          </thead>
+          <tbody id="student-all-invoices-tbody">
+            <tr>
+              <td colspan="6" style="text-align: center; padding: 16px; color: var(--color-text-secondary);">
+                No tuition installments assigned yet.
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
-  </div>
 
-  <!-- ======================================================================
-       STEP 12 STUDENT REJECTED PAYMENT NOTICE & RESOLUTION GUIDANCE
-       ====================================================================== -->
-  <div
-    id="payment-rejected-sessions-banner"
-    class="card hidden"
-    style="margin-bottom: 18px; border: 2px solid #C62828; background: #FFEBEE;"
-    role="region"
-    aria-labelledby="payment-rejected-heading"
-  >
-    <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 10px;">
-      <div>
-        <span class="badge badge-danger">Administrator Verification Outcome: REJECTED</span>
-        <h2 id="payment-rejected-heading" style="margin: 6px 0 4px 0; font-size: 1.2rem; color: #B71C1C;">
-          Payment Verification Rejected — Review Reason Before Taking Action
-        </h2>
-        <p style="margin: 0; font-size: 0.9rem; color: #4E342E;">
-          <strong>Important — Do NOT transfer money again before resolving your original transfer:</strong>
-          If you already transferred funds via PromptPay or bank transfer and your submission was rejected
-          due to an unreadable, wrong, or mismatched receipt image, <strong>do not send a duplicate bank transfer</strong>.
-          Instead, review the administrator reason below and either upload the clear receipt slip for your original
-          transfer or contact school support with your Payment ID.
-        </p>
-      </div>
-    </div>
-    <div id="payment-rejected-sessions-container"></div>
-  </div>
-
-  <!-- ======================================================================
-       STEPPER PANEL 5: PAID (Authoritative Database Verified Paid State)
-       ====================================================================== -->
-  <div id="payment-step-panel-paid" class="card hidden" style="margin-bottom: 18px; border: 2px solid #1B5E20;">
-    <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
-      <div>
-        <span class="badge badge-ok">Step 5 of 5: Payment Verified (PAID)</span>
-        <h2 style="margin: 6px 0 4px 0; font-size: 1.22rem; color: #1B5E20;">
-          5. Verified Paid Tuition Sessions
-        </h2>
-        <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
-          The payment sessions and installments below have been verified and confirmed as <strong>Paid</strong>.
-        </p>
+    <!-- PAYMENT HISTORY LEDGER (Shown when "Payment History" tab is active) -->
+    <div class="card hidden" id="student-payment-history-card" style="margin-bottom: 16px;">
+      <div class="pb-pay-card-header-row">
+        <div>
+          <span class="badge badge-ok">Session Log</span>
+          <h2 style="margin: 6px 0 4px 0; font-size: 1.18rem; color: var(--color-brand-deep);">
+            Payment Session History
+          </h2>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-student-history-go-checkout">
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+          <span>Go to Checkout</span>
+        </button>
       </div>
 
-      <button
-        type="button"
-        class="btn btn-outline btn-sm"
-        id="btn-payment-paid-back-select"
-      >
-        Return to Step 1: Select Remaining Installments
-      </button>
-    </div>
-
-    <div id="payment-paid-sessions-container">
-      <div class="status-item">
-        <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
-          No completed payments recorded yet.
-        </p>
+      <div class="table-responsive" aria-live="polite">
+        <table class="data-table" aria-label="Student Payment Session History">
+          <thead>
+            <tr>
+              <th>Payment ID &amp; Method</th>
+              <th>Installments</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Receipt &amp; Date</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="student-payment-history-tbody">
+            <tr>
+              <td colspan="6" style="text-align: center; padding: 16px; color: var(--color-text-secondary);">
+                No payment sessions recorded yet.
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-    </div>
-  </div>
-
-    </div>
-  </div>
-
-  <!-- ======================================================================
-       PAYMENT HISTORY & ALL INSTALLMENTS LEDGER
-       ====================================================================== -->
-  <div class="card" id="student-payment-history-card" style="margin-bottom: 16px;">
-    <h2 style="margin: 0 0 6px 0; font-size: 1.18rem; color: var(--color-brand-deep);">
-      Payment Session History (<code id="student-payment-history-count">0</code> sessions)
-    </h2>
-
-    <div class="table-responsive" aria-live="polite">
-      <table class="data-table" aria-label="Student Payment Session History">
-        <thead>
-          <tr>
-            <th>Payment ID &amp; Method</th>
-            <th>Included Installments</th>
-            <th>Total Amount (THB)</th>
-            <th>Database Status</th>
-            <th>Receipt &amp; Timestamps (BKK)</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="student-payment-history-tbody">
-          <tr>
-            <td colspan="6" style="text-align: center; padding: 16px; color: var(--color-text-secondary);">
-              No payment sessions recorded yet.
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="card" id="student-all-invoices-card">
-    <h2 style="margin: 0 0 6px 0; font-size: 1.18rem; color: var(--color-brand-deep);">
-      All Assigned Tuition Installments (<code id="student-all-invoices-count">0</code> total)
-    </h2>
-    <div class="table-responsive" aria-live="polite">
-      <table class="data-table" aria-label="All Student Tuition Installments">
-        <thead>
-          <tr>
-            <th>Invoice ID</th>
-            <th>Installment Label &amp; Course</th>
-            <th>Amount (THB)</th>
-            <th>Due Date (BKK)</th>
-            <th>Authoritative Status</th>
-            <th>Active Payment / Paid At</th>
-          </tr>
-        </thead>
-        <tbody id="student-all-invoices-tbody">
-          <tr>
-            <td colspan="6" style="text-align: center; padding: 16px; color: var(--color-text-secondary);">
-              No tuition installments assigned yet.
-            </td>
-          </tr>
-        </tbody>
-      </table>
     </div>
   </div>
 </section>
@@ -3561,11 +4029,14 @@
           id="btn-calendar-open-unavailability-modal"
           aria-haspopup="dialog"
           aria-controls="modal-report-unavailability"
+          title="Report Unavailability / Planned Absence"
         >
-          Report Unavailability / Planned Absence
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><line x1="12" y1="14" x2="12" y2="18"></line><line x1="10" y1="16" x2="14" y2="16"></line></svg>
+          <span>Report Absence</span>
         </button>
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-calendar-refresh">
-          Refresh Month
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-calendar-refresh" title="Refresh Month">
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          <span>Refresh</span>
         </button>
       </div>
     </div>
@@ -3743,8 +4214,10 @@
             type="button"
             class="btn btn-primary btn-sm"
             id="btn-calendar-admin-open-add-event"
+            title="Add Calendar Event"
           >
-            + Add Calendar Event
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <span>Add Event</span>
           </button>
           <button
             type="button"
@@ -4055,23 +4528,29 @@
             type="button"
             class="btn btn-outline btn-sm pb-btn-danger-outline hidden"
             id="btn-calendar-inspector-delete-event"
+            title="Delete Event"
           >
-            Delete Event
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+            <span>Delete</span>
           </button>
           <button
             type="button"
             class="btn btn-primary btn-sm"
             id="btn-calendar-inspector-report-unavail"
+            title="Report Unavailability for This Date"
           >
-            Report Unavailability for This Date
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><line x1="12" y1="14" x2="12" y2="18"></line><line x1="10" y1="16" x2="14" y2="16"></line></svg>
+            <span>Report Absence</span>
           </button>
           <button
             type="button"
             class="btn btn-outline btn-sm"
             id="btn-calendar-inspector-close"
             aria-label="Close session details"
+            title="Close session details"
           >
-            Close
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            <span>Close</span>
           </button>
         </div>
       </div>
@@ -4326,8 +4805,9 @@
         </div>
       </div>
       <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-admin-refresh">
-          Refresh Dashboard
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-admin-refresh" title="Refresh Dashboard">
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          <span>Refresh</span>
         </button>
       </div>
     </div>
@@ -4488,11 +4968,13 @@
         </p>
       </div>
       <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <button type="button" class="btn btn-primary btn-sm" id="btn-studio-launch-forms-builder">
-          + Create New Exam / Quiz (Form Builder)
+        <button type="button" class="btn btn-primary btn-sm" id="btn-studio-launch-forms-builder" title="Create New Exam or Quiz in Form Builder">
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>New Exam / Quiz</span>
         </button>
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-studio-refresh-all">
-          Refresh Studio
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-studio-refresh-all" title="Refresh Studio">
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          <span>Refresh</span>
         </button>
       </div>
     </div>
@@ -7317,27 +7799,33 @@
       <!-- Top Sticky Toolbar -->
       <div class="pb-forms-sticky-toolbar">
         <div class="pb-forms-toolbar-left">
-          <button type="button" class="btn btn-outline btn-sm" id="btn-forms-builder-back">
-            &larr; Back to Exam Sets
+          <button type="button" class="btn btn-outline btn-sm" id="btn-forms-builder-back" title="Back to Exam Sets">
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            <span>Back</span>
           </button>
           <span class="badge badge-ok" id="pb-forms-status-badge">NEW EXAM</span>
           <span class="pb-forms-live-summary" id="pb-forms-live-summary">1 Question &bull; 2.00 pts</span>
         </div>
         <div class="pb-forms-toolbar-right">
-          <button type="button" class="btn btn-outline btn-sm" id="btn-forms-add-question-top">
-            + Add Question
+          <button type="button" class="btn btn-outline btn-sm" id="btn-forms-add-question-top" title="Add Question">
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <span>Question</span>
           </button>
-          <button type="button" class="btn btn-outline btn-sm" id="btn-forms-import-bank-top">
-            + Import from Bank
+          <button type="button" class="btn btn-outline btn-sm" id="btn-forms-import-bank-top" title="Import from Question Bank">
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span>Import Bank</span>
           </button>
-          <button type="button" class="btn btn-outline btn-sm" id="btn-forms-preview-exam">
-            Preview Exam
+          <button type="button" class="btn btn-outline btn-sm" id="btn-forms-preview-exam" title="Preview Exam">
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            <span>Preview</span>
           </button>
-          <button type="button" class="btn btn-secondary btn-sm" id="btn-forms-save-draft">
-            Save Draft
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-forms-save-draft" title="Save Draft">
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            <span>Save Draft</span>
           </button>
-          <button type="button" class="btn btn-primary btn-sm" id="btn-forms-publish-exam">
-            Publish Exam
+          <button type="button" class="btn btn-primary btn-sm" id="btn-forms-publish-exam" title="Publish Exam">
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            <span>Publish</span>
           </button>
         </div>
       </div>
@@ -7501,22 +7989,27 @@
       <div class="card pb-forms-bottom-action-card">
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button type="button" class="btn btn-primary btn-sm" id="btn-forms-add-question-bottom">
-              + Add Question Card
+            <button type="button" class="btn btn-primary btn-sm" id="btn-forms-add-question-bottom" title="Add Question Card">
+              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              <span>Add Question</span>
             </button>
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-forms-import-bank-bottom">
-              + Import from Question Bank
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-forms-import-bank-bottom" title="Import from Question Bank">
+              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span>Import Bank</span>
             </button>
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button type="button" class="btn btn-outline btn-sm" id="btn-forms-preview-exam-bottom">
-              Preview Exam
+            <button type="button" class="btn btn-outline btn-sm" id="btn-forms-preview-exam-bottom" title="Preview Exam">
+              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              <span>Preview</span>
             </button>
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-forms-save-draft-bottom">
-              Save Exam Draft
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-forms-save-draft-bottom" title="Save Exam Draft">
+              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+              <span>Save Draft</span>
             </button>
-            <button type="button" class="btn btn-primary btn-sm" id="btn-forms-publish-exam-bottom">
-              Validate &amp; Publish Exam
+            <button type="button" class="btn btn-primary btn-sm" id="btn-forms-publish-exam-bottom" title="Validate and Publish Exam">
+              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+              <span>Publish Exam</span>
             </button>
           </div>
         </div>
@@ -7540,20 +8033,25 @@
           </p>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button type="button" class="btn btn-outline btn-sm" id="btn-admin-seed-sample-exams">
-            Load Sample Exam Sets
+          <button type="button" class="btn btn-outline btn-sm" id="btn-admin-seed-sample-exams" title="Load Sample Exam Sets">
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span>Samples</span>
           </button>
-          <button type="button" class="btn btn-secondary btn-sm" id="btn-admin-refresh-exams-list">
-            Refresh Exam Sets
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-admin-refresh-exams-list" title="Refresh Exam Sets">
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            <span>Refresh</span>
           </button>
-          <button type="button" class="btn btn-secondary btn-sm" id="btn-admin-open-exam-assign-modal">
-            Student Assignments &amp; Accommodations
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-admin-open-exam-assign-modal" title="Student Assignments and Accommodations">
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            <span>Assignments</span>
           </button>
-          <button type="button" class="btn btn-primary btn-sm" id="btn-admin-open-forms-builder">
-            + Create Exam / Quiz (Form Builder)
+          <button type="button" class="btn btn-primary btn-sm" id="btn-admin-open-forms-builder" title="Create Exam or Quiz in Form Builder">
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <span>New Exam / Quiz</span>
           </button>
           <button type="button" class="btn btn-outline btn-sm" id="btn-admin-open-exam-builder-modal" title="Open legacy section checklist modal">
-            Classic Builder
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+            <span>Classic</span>
           </button>
         </div>
       </div>
@@ -8636,424 +9134,7 @@
     </div>
   </div>
 
-  <!-- ======================================================================
-       ADMIN TAB PANEL 5: TUITION INVOICES & PAYMENT-SESSION BUSINESS LOGIC (STEP 10)
-       ====================================================================== -->
-  <div
-    id="admin-panel-invoices"
-    class="hidden"
-    role="tabpanel"
-    aria-labelledby="btn-admin-tab-invoices"
-  >
-    <!-- Create Unpaid Student Invoice Card -->
-    <div class="card">
-      <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
-        <div>
-          <span class="badge badge-ok">Tuition Installments &amp; Payment Verification</span>
-          <h2 style="margin: 8px 0 4px 0; font-size: 1.32rem; color: var(--color-brand-deep);">
-            Administrator Invoices — Assign Unpaid Tuition Installments &amp; View History
-          </h2>
-          <p style="margin: 0; font-size: 0.92rem; color: var(--color-text-secondary);">
-            Assign unpaid tuition installments to students, track invoice statuses, and verify submitted transfer receipts.
-          </p>
-        </div>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button
-            type="button"
-            class="btn btn-primary btn-sm"
-            id="btn-admin-run-step10-suite"
-            style="display: none !important;"
-            aria-hidden="true"
-          >
-            Run All 7 Step 10 Payment &amp; Concurrency Tests
-          </button>
-          <button
-            type="button"
-            class="btn btn-primary btn-sm"
-            id="btn-admin-run-step11-suite"
-            style="display: none !important;"
-            aria-hidden="true"
-          >
-            Run Step 11 Checkout, QR &amp; Conflict Suite
-          </button>
-          <button
-            type="button"
-            class="btn btn-outline btn-sm"
-            id="btn-admin-test-invoice-edit-guard"
-            style="display: none !important;"
-            aria-hidden="true"
-          >
-            Test Blocked Invoice Edit / Refund Guard
-          </button>
-          <button
-            type="button"
-            class="btn btn-primary btn-sm"
-            id="btn-admin-open-invoice-modal"
-          >
-            + Create Unpaid Invoice
-          </button>
-          <button
-            type="button"
-            class="btn btn-outline btn-sm"
-            id="btn-admin-jump-pending-payments"
-          >
-            Verification Queue
-          </button>
-          <button
-            type="button"
-            class="btn btn-secondary btn-sm"
-            id="btn-admin-reload-invoices"
-          >
-            Reload Invoices
-          </button>
-        </div>
-      </div>
-
-      <!-- Inline Alert Banner for Admin Invoices -->
-      <div
-        id="admin-invoices-alert-box"
-        class="banner banner-success hidden"
-        role="status"
-        aria-live="polite"
-      >
-        <p class="banner-title" id="admin-invoices-alert-title">Invoice Notice</p>
-        <p class="banner-text" id="admin-invoices-alert-message"></p>
-      </div>
-
-      <!-- Create Unpaid Invoice Form -->
-      <form
-        id="form-admin-create-invoice"
-        class="pb-admin-modal-target"
-        novalidate
-        style="padding: 16px; background: var(--color-bg-subtle); border: 1px solid var(--color-brand-border); border-radius: var(--radius-md); margin-bottom: 18px;"
-      >
-        <h3 style="margin: 0 0 12px 0; font-size: 1.1rem; color: var(--color-brand-deep);">
-          Create Unpaid Student Invoice
-        </h3>
-
-        <div class="form-grid-2col">
-          <div class="form-group">
-            <label class="form-label" for="select-admin-invoice-student">
-              Select Student Account *
-            </label>
-            <select class="form-input" id="select-admin-invoice-student" required>
-              <option value="">-- Select a Student --</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="select-admin-invoice-course">
-              Optional Associated Course
-            </label>
-            <select class="form-input" id="select-admin-invoice-course">
-              <option value="">-- Optional: General Tuition / No Specific Course --</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="input-admin-invoice-label">
-              Installment Label (3–160 chars) *
-            </label>
-            <input
-              type="text"
-              class="form-input"
-              id="input-admin-invoice-label"
-              placeholder="e.g. Term 1 — Installment 1 of 2 (Cellular Energetics)"
-              maxlength="160"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="input-admin-invoice-amount-thb">
-              Amount in THB (e.g. 3500.00) *
-            </label>
-            <input
-              type="text"
-              class="form-input"
-              id="input-admin-invoice-amount-thb"
-              placeholder="e.g. 3500.00"
-              maxlength="20"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="input-admin-invoice-due-date">
-              Due Date *
-            </label>
-            <input
-              type="date"
-              class="form-input"
-              id="input-admin-invoice-due-date"
-              value="2026-11-30"
-              required
-            />
-          </div>
-        </div>
-
-        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px;">
-          <button type="submit" class="btn btn-primary" id="btn-admin-create-invoice-submit">
-            Create Unpaid Invoice
-          </button>
-          <span
-            id="admin-create-invoice-status"
-            role="status"
-            aria-live="polite"
-            style="font-size: 0.9rem; font-weight: 600; color: var(--color-brand-medium);"
-          ></span>
-        </div>
-      </form>
-
-      <!-- Invoice History Summary Strip -->
-      <div class="status-grid" style="margin-bottom: 16px;">
-        <div class="status-item">
-          <div class="status-label">Total Invoices Recorded</div>
-          <div class="status-value" id="admin-invoices-count-total">0</div>
-        </div>
-        <div class="status-item">
-          <div class="status-label">Unpaid / Reserved / Rejected</div>
-          <div class="status-value" id="admin-invoices-count-unpaid">0 (0.00 THB)</div>
-        </div>
-        <div class="status-item">
-          <div class="status-label">Awaiting Verification / Approving</div>
-          <div class="status-value" id="admin-invoices-count-awaiting">0</div>
-        </div>
-        <div class="status-item">
-          <div class="status-label">Paid Invoices Total</div>
-          <div class="status-value" id="admin-invoices-count-paid">0 (0.00 THB)</div>
-        </div>
-      </div>
-
-      <!-- Invoice History Filter Bar -->
-      <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 12px;">
-        <div style="flex: 1; min-width: 200px;">
-          <label class="form-label" for="select-admin-invoices-filter-student" style="font-size: 0.84rem;">
-            Filter by Student
-          </label>
-          <select class="form-input" id="select-admin-invoices-filter-student">
-            <option value="ALL">All Students</option>
-          </select>
-        </div>
-
-        <div style="min-width: 190px;">
-          <label class="form-label" for="select-admin-invoices-filter-status" style="font-size: 0.84rem;">
-            Filter by Invoice Status
-          </label>
-          <select class="form-input" id="select-admin-invoices-filter-status">
-            <option value="ALL">All Statuses</option>
-            <option value="UNPAID">UNPAID</option>
-            <option value="RESERVED">RESERVED (15m Session)</option>
-            <option value="AWAITING_VERIFICATION">AWAITING_VERIFICATION</option>
-            <option value="APPROVING">APPROVING</option>
-            <option value="PAID">PAID</option>
-            <option value="REJECTED">REJECTED</option>
-            <option value="CANCELLED">CANCELLED</option>
-          </select>
-        </div>
-
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-admin-invoices-apply-filter">
-          Apply Filter
-        </button>
-      </div>
-
-      <!-- Invoice History Table -->
-      <div class="table-responsive" aria-live="polite">
-        <table class="data-table" aria-label="Administrator Invoice History">
-          <thead>
-            <tr>
-              <th>Invoice ID &amp; Student</th>
-              <th>Installment Label &amp; Course</th>
-              <th>Amount (THB)</th>
-              <th>Due Date (BKK)</th>
-              <th>Status</th>
-              <th>Payment Link / Expiry / Notes</th>
-            </tr>
-          </thead>
-          <tbody id="admin-invoices-table-tbody">
-            <tr>
-              <td colspan="6" style="text-align: center; padding: 20px; color: var(--color-text-secondary);">
-                Open this tab or click "Reload Invoice History" to view student invoices.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-    <!-- Administrator Payment Session Review & Verification Queue (Step 12) -->
-    <div class="card" id="admin-payment-verification-card" style="margin-top: 18px;">
-      <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
-        <div>
-          <span class="badge badge-ok">Receipt Verification Queue</span>
-          <h3 style="margin: 6px 0 4px 0; font-size: 1.22rem; color: var(--color-brand-deep);">
-            Awaiting-Verification Queue &amp; Receipt Review
-          </h3>
-          <p style="margin: 0; font-size: 0.88rem; color: var(--color-text-secondary);">
-            Review student payment submissions, inspect the uploaded transfer slip, verify the transfer in the school’s bank or PromptPay account, and either <strong>Approve (Mark Paid)</strong> or <strong>Reject with a reason</strong>.
-          </p>
-        </div>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-          <button
-            type="button"
-            class="btn btn-primary btn-sm"
-            id="btn-admin-run-step12-suite"
-            style="display: none !important;"
-            aria-hidden="true"
-          >
-            Run All 7 Step 12 Verification &amp; Recovery Tests
-          </button>
-          <button
-            type="button"
-            class="btn btn-secondary btn-sm"
-            id="btn-admin-reload-pending-payments"
-          >
-            Reload Verification Queue
-          </button>
-        </div>
-      </div>
-
-      <!-- Mandatory Administrator Bank Credit Verification Reminder Banner -->
-      <div
-        id="admin-payment-verification-reminder-banner"
-        class="banner banner-warning"
-        style="margin-bottom: 14px;"
-        role="note"
-      >
-        <p class="banner-title">
-          Bank Statement Verification Reminder
-        </p>
-        <p class="banner-text" id="admin-payment-verification-reminder-text" style="margin-bottom: 0;">
-          Before clicking <strong>Approve (Mark Paid)</strong>, please confirm in the school’s bank or PromptPay statement that the exact amount was credited to the school’s account.
-        </p>
-      </div>
-
-      <!-- Halted / Inconsistent Journal Alert Banner (Shown if recovery detected missing/inconsistent records) -->
-      <div
-        id="admin-payment-halted-journals-box"
-        class="banner banner-error hidden"
-        style="margin-bottom: 14px;"
-        role="alert"
-      >
-        <p class="banner-title">
-          Financial Journal Recovery Halted — Inconsistent or Missing Referenced Records Detected
-        </p>
-        <p class="banner-text" id="admin-payment-halted-journals-text" style="margin-bottom: 0;"></p>
-      </div>
-
-      <!-- Queue Summary Strip -->
-      <div class="status-grid" style="margin-bottom: 14px;">
-        <div class="status-item">
-          <div class="status-label">Awaiting Verification</div>
-          <div class="status-value" id="admin-queue-count-awaiting">0</div>
-        </div>
-        <div class="status-item">
-          <div class="status-label">Approving (In-Flight Journal)</div>
-          <div class="status-value" id="admin-queue-count-approving">0</div>
-        </div>
-        <div class="status-item">
-          <div class="status-label">Verified Paid Sessions</div>
-          <div class="status-value" id="admin-queue-count-paid">0</div>
-        </div>
-        <div class="status-item">
-          <div class="status-label">Rejected / Halted Journals</div>
-          <div class="status-value" id="admin-queue-count-rejected-halted">0 Rejected / 0 Halted</div>
-        </div>
-      </div>
-
-      <!-- Queue Status Filter Bar -->
-      <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 12px;">
-        <div style="min-width: 240px;">
-          <label class="form-label" for="select-admin-payments-filter-status" style="font-size: 0.84rem;">
-            Filter Queue by Payment Status
-          </label>
-          <select class="form-input" id="select-admin-payments-filter-status">
-            <option value="ALL">All Payment Sessions (Awaiting Verification First)</option>
-            <option value="AWAITING_VERIFICATION">AWAITING_VERIFICATION Only</option>
-            <option value="APPROVING">APPROVING Only</option>
-            <option value="PAID">PAID Only</option>
-            <option value="REJECTED">REJECTED Only</option>
-            <option value="PENDING_TRANSFER">PENDING_TRANSFER Only</option>
-            <option value="EXPIRED">EXPIRED Only</option>
-          </select>
-        </div>
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-admin-payments-apply-filter">
-          Apply Queue Filter
-        </button>
-      </div>
-
-      <div class="table-responsive" aria-live="polite">
-        <table class="data-table" aria-label="Administrator Payment Verification Queue">
-          <thead>
-            <tr>
-              <th>Student &amp; Payment Reference</th>
-              <th>Method, Recipient Snapshot &amp; Associated Invoices</th>
-              <th>Amount (THB)</th>
-              <th>Submission Timestamp (BKK) &amp; Status</th>
-              <th>Receipt Thumbnail &amp; Full-Size View</th>
-              <th>Verify: Approve or Reject (Reason Required)</th>
-            </tr>
-          </thead>
-          <tbody id="admin-pending-payments-tbody">
-            <tr>
-              <td colspan="6" style="text-align: center; padding: 18px; color: var(--color-text-secondary);">
-                Open this tab or click "Reload Verification Queue" to inspect student payment submissions.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Step 12 Payment Journal Recovery, Time-Driven Trigger & Financial Record Retention Policy Card -->
-    <div class="card hidden pb-public-launch-hidden" id="admin-payment-maintenance-card" style="display: none !important;" aria-hidden="true">
-      <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
-        <div>
-          <span class="badge badge-ok">Idempotent PaymentJournal Recovery</span>
-          <span class="badge badge-ok">Financial Records Never Deleted During Session Cleanup</span>
-          <h3 style="margin: 6px 0 4px 0; font-size: 1.18rem; color: var(--color-brand-deep);">
-            Payment Maintenance, Interrupted-Approval Recovery &amp; Financial Retention Policy
-          </h3>
-          <p style="margin: 0; font-size: 0.88rem; color: var(--color-text-secondary);">
-            Recover interrupted multi-sheet payment approvals/rejections from <code>PaymentJournal</code>,
-            release expired 15-minute payment reservations, sweep expired authentication sessions, and
-            configure the 15-minute time-driven Apps Script maintenance trigger (<code>runScheduledMaintenanceTrigger_</code>).
-          </p>
-        </div>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button
-            type="button"
-            class="btn btn-secondary btn-sm"
-            id="btn-admin-run-payment-maintenance"
-          >
-            Run Recovery &amp; Session Maintenance Now
-          </button>
-          <button
-            type="button"
-            class="btn btn-outline btn-sm"
-            id="btn-admin-configure-maintenance-trigger"
-          >
-            Configure 15-Minute Time-Driven Recovery Trigger
-          </button>
-        </div>
-      </div>
-
-      <div class="status-item" style="margin-bottom: 10px; font-size: 0.88rem; color: var(--color-text-secondary);">
-        <strong>Financial Record Retention Policy Notice:</strong> Generic maintenance and session cleanup
-        only marks expired <code>UserSessions</code> as <code>EXPIRED</code> and transitions elapsed
-        <code>PENDING_TRANSFER</code> reservations to <code>EXPIRED</code>. It <strong>never deletes</strong>
-        rows from <code>Invoices</code>, <code>Payments</code>, or <code>PaymentJournal</code>, and never
-        deletes uploaded <code>PAYMENT_RECEIPT</code> files. Long-term archival or purging of financial
-        and accounting records requires a separate school financial retention and tax-compliance policy.
-      </div>
-
-      <div
-        id="admin-payment-maintenance-status"
-        role="status"
-        aria-live="polite"
-        style="font-size: 0.88rem; font-weight: 600; color: var(--color-brand-medium);"
-      ></div>
-    </div>
-  </div>
+  <!-- Admin Tuition Invoices & Payment Verification Studio (#admin-panel-invoices) has been moved into the dedicated #view-payments workspace for clean role separation -->
 
   <!-- ======================================================================
        ADMIN TAB PANEL 3: PORTAL OVERVIEW & OFFICIAL LOGO DIAGNOSTICS
@@ -9433,8 +9514,10 @@
             id="btn-copy-contact-line"
             data-copy-contact-val="poowadatch"
             data-copy-contact-label="LINE ID"
+            title="Copy LINE ID"
           >
-            Copy LINE ID
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span>Copy</span>
           </button>
         </div>
         <p
@@ -9478,8 +9561,10 @@
             id="btn-copy-contact-email"
             data-copy-contact-val="phuwadet.khu@student.mahidol.edu"
             data-copy-contact-label="Email Address"
+            title="Copy Email Address"
           >
-            Copy Email
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span>Copy</span>
           </button>
         </div>
         <p
@@ -9517,21 +9602,7 @@
 </section>
 
 <!-- 10. Include Login Modal & Privacy Notice Gate Modal Partial -->
-<!--
-  LoginView.html
-  Pattanabhumi Biology Learning Management System - Step 5 Login Modal & Privacy Notice Gate
-  Contains:
-  1. Accessible Login Modal (#modal-login) with keyboard focus trap, Escape-to-close,
-     Username, Password, optional Remember me (with explicit bearer-token/no-HttpOnly disclosure
-     and iframe storage fallback warning), and Forgot username/password link with a clear
-     fallback when the administrator has not configured the LINE URL yet.
-  2. Accessible First-Login & Version-Update Privacy Notice Gate (#modal-privacy-gate)
-     requiring acknowledgment of the current Privacy Notice version before accessing portal
-     features, keeping marketing email consent separate, optional, and unchecked by default,
-     and displaying a clear legal/compliance explanation regarding minor students and retention.
--->
-
-<!-- 1. Accessible Login Modal Dialog (Bioluminescent Dark Glass Redesign) -->
+<!-- 1. Accessible Login Modal Dialog (Bioluminescent Biology Portal Sign-In & Animated Transition) -->
 <div
   id="modal-login"
   class="modal-backdrop pb-auth-ref-backdrop hidden"
@@ -9542,6 +9613,13 @@
   aria-describedby="login-modal-desc"
 >
   <div class="modal-dialog pb-auth-ref-dialog" id="modal-login-dialog" role="document">
+    <!-- Decorative Ambient Biology Particles -->
+    <div class="pb-auth-ambient-decor" aria-hidden="true">
+      <span class="pb-auth-particle is-p1"></span>
+      <span class="pb-auth-particle is-p2"></span>
+      <span class="pb-auth-particle is-p3"></span>
+    </div>
+
     <!-- Top Floating Glass Bar: Left Back/Close Button & Right School Emblem -->
     <div class="modal-header pb-auth-ref-topbar">
       <button
@@ -9556,7 +9634,7 @@
 
       <div class="portal-header-brand-row pb-auth-ref-brand-pill">
         <span class="pb-auth-ref-brand-dot" aria-hidden="true"></span>
-        <span class="pb-auth-ref-brand-text">Pattanabhumi Portal</span>
+        <span class="pb-auth-ref-brand-text">Pattanabhumi Biology</span>
       </div>
 
       <div class="pb-auth-ref-corner-emblem" title="Pattanabhumi Biology Verified Portal">
@@ -9577,23 +9655,30 @@
 
     <!-- Centered 3D Bioluminescent Orb + Heading & Subtitle -->
     <div class="pb-auth-ref-hero">
-      <div class="pb-auth-ref-orb-stage" aria-hidden="true">
+      <div class="pb-auth-ref-orb-stage" id="login-modal-orb-stage" aria-hidden="true">
         <span class="pb-auth-ref-orb-ring pb-auth-ref-orb-ring-outer"></span>
         <span class="pb-auth-ref-orb-ring pb-auth-ref-orb-ring-inner"></span>
-        <div class="pb-auth-ref-orb">
-          <svg class="pb-auth-ref-orb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-            <path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"></path>
-            <path d="M16 14a4 4 0 0 1 4 4v2H4v-2a4 4 0 0 1 4-4h8z"></path>
+        <div class="pb-auth-ref-orb" id="login-modal-orb">
+          <!-- Default Idle Icon (Biology Shield & Keyhole) -->
+          <svg id="login-orb-icon-idle" class="pb-auth-ref-orb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            <circle cx="12" cy="10" r="2.5"></circle>
+            <path d="M12 12.5v3"></path>
+          </svg>
+          <!-- Verified Success Icon (Shown when credentials succeed) -->
+          <svg id="login-orb-icon-success" class="pb-auth-ref-orb-icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
           </svg>
         </div>
       </div>
 
-      <span class="badge badge-ok pb-auth-ref-status-chip">Secure Portal Sign-In</span>
+      <span class="badge badge-ok pb-auth-ref-status-chip" id="login-hero-status-chip">Learning Portal Access</span>
       <h2 id="login-modal-title" class="pb-auth-ref-title">
         Welcome Back!
       </h2>
       <p id="login-modal-desc" class="pb-auth-ref-subtitle">
-        Sign in to access smart, personalized biology study plans, recorded lessons, and class schedules.
+        Sign in to access your biology courses, recorded lessons, practice quizzes, and class schedule.
       </p>
     </div>
 
@@ -9603,32 +9688,28 @@
       class="banner banner-warning hidden"
       role="status"
     >
-      <p class="banner-title">No Administrator Account Created in the Users Sheet Yet</p>
+      <p class="banner-title">No Administrator Account Created Yet</p>
       <p class="banner-text">
-        Your <code>Users</code> sheet currently has 0 accounts. Open the Apps Script editor, go to
-        <strong>Project Settings &gt; Script Properties</strong>, add
-        <code>BOOTSTRAP_ADMIN_USERNAME</code> and <code>BOOTSTRAP_ADMIN_PASSWORD</code> (at least 8
-        characters), then uncomment and run <code>editorRunOwnerTask</code> in <code>Code.gs</code>.
+        Your <code>Users</code> sheet currently has 0 accounts. Configure <code>BOOTSTRAP_ADMIN_USERNAME</code> and <code>BOOTSTRAP_ADMIN_PASSWORD</code> in Script Properties.
       </p>
     </div>
 
-    <!-- Honest Iframe Storage Fallback Notice (Shown automatically when localStorage is blocked) -->
+    <!-- Honest Iframe Storage Fallback Notice -->
     <div
       id="remember-me-storage-warning"
       class="banner banner-warning hidden"
       role="status"
     >
-      <p class="banner-title">Browser Storage Restricted Inside Sandbox Iframe</p>
+      <p class="banner-title">Session Stored for This Visit</p>
       <p class="banner-text" id="remember-me-storage-warning-text">
-        Your browser blocks persistent storage inside Google Apps Script iframes. "Remember me" is
-        unavailable in this browser mode; your session will remain securely in memory for this visit only.
+        Your browser restricts persistent storage inside iframes; your session will remain active in memory for this visit.
       </p>
     </div>
 
-    <!-- Login Process Skeleton Screen (Shown immediately during credential verification & workspace hydration) -->
+    <!-- Animated 3-Step Login & Workspace Unlocking Stage (Replaces static skeleton lines) -->
     <div
       id="login-modal-skeleton-screen"
-      class="pb-login-skeleton-screen hidden"
+      class="pb-login-skeleton-screen pb-login-anim-stage hidden"
       role="status"
       aria-live="polite"
     >
@@ -9640,41 +9721,42 @@
         <span class="badge badge-ok" id="login-skeleton-step-badge">Authenticating</span>
       </div>
       <div class="pb-login-skeleton-progress-track" aria-hidden="true">
-        <div class="pb-login-skeleton-progress-fill"></div>
+        <div class="pb-login-skeleton-progress-fill" id="login-anim-progress-fill"></div>
       </div>
-      <div class="pb-login-skeleton-workspace" aria-hidden="true">
-        <div class="pb-login-skeleton-header-row">
-          <div class="pb-skeleton-avatar"></div>
-          <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
-            <div class="pb-skeleton-line" style="width: 58%; height: 14px;"></div>
-            <div class="pb-skeleton-line" style="width: 38%; height: 10px;"></div>
+
+      <!-- 3-Step Animated Login Checklist -->
+      <div class="pb-login-anim-steps-list" aria-hidden="true">
+        <div class="pb-login-anim-step is-active" id="login-anim-step-1">
+          <span class="pb-login-anim-step-icon">
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          </span>
+          <div class="pb-login-anim-step-body">
+            <div class="pb-login-anim-step-title">Verifying Account Credentials</div>
+            <div class="pb-login-anim-step-sub">Checking encrypted security key</div>
           </div>
+          <span class="pb-login-anim-step-state" id="login-anim-state-1">In Progress</span>
         </div>
-        <div class="pb-login-skeleton-metrics-grid">
-          <div class="pb-login-skeleton-metric-card">
-            <div class="pb-skeleton-line" style="width: 50%; height: 10px;"></div>
-            <div class="pb-skeleton-line" style="width: 80%; height: 16px;"></div>
+
+        <div class="pb-login-anim-step" id="login-anim-step-2">
+          <span class="pb-login-anim-step-icon">
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+          </span>
+          <div class="pb-login-anim-step-body">
+            <div class="pb-login-anim-step-title">Unlocking Study Workspace</div>
+            <div class="pb-login-anim-step-sub">Loading courses, quizzes &amp; schedule</div>
           </div>
-          <div class="pb-login-skeleton-metric-card">
-            <div class="pb-skeleton-line" style="width: 55%; height: 10px;"></div>
-            <div class="pb-skeleton-line" style="width: 75%; height: 16px;"></div>
-          </div>
-          <div class="pb-login-skeleton-metric-card">
-            <div class="pb-skeleton-line" style="width: 45%; height: 10px;"></div>
-            <div class="pb-skeleton-line" style="width: 85%; height: 16px;"></div>
-          </div>
+          <span class="pb-login-anim-step-state" id="login-anim-state-2">Waiting</span>
         </div>
-        <div class="pb-login-skeleton-cards-grid">
-          <div class="pb-login-skeleton-course-card">
-            <div class="pb-skeleton-block" style="width: 100%; height: 48px;"></div>
-            <div class="pb-skeleton-line" style="width: 78%; height: 12px;"></div>
-            <div class="pb-skeleton-line" style="width: 52%; height: 10px;"></div>
+
+        <div class="pb-login-anim-step" id="login-anim-step-3">
+          <span class="pb-login-anim-step-icon">
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          </span>
+          <div class="pb-login-anim-step-body">
+            <div class="pb-login-anim-step-title">Entering Portal</div>
+            <div class="pb-login-anim-step-sub">Session ready</div>
           </div>
-          <div class="pb-login-skeleton-course-card">
-            <div class="pb-skeleton-block" style="width: 100%; height: 48px;"></div>
-            <div class="pb-skeleton-line" style="width: 72%; height: 12px;"></div>
-            <div class="pb-skeleton-line" style="width: 48%; height: 10px;"></div>
-          </div>
+          <span class="pb-login-anim-step-state" id="login-anim-state-3">Waiting</span>
         </div>
       </div>
     </div>
@@ -9686,7 +9768,7 @@
           <label class="form-label pb-auth-ref-label" for="input-login-username">Username<span class="pb-auth-ref-req">*</span></label>
           <div class="pb-input-icon-wrap pb-auth-ref-input-wrap">
             <span class="pb-input-left-icon" aria-hidden="true">
-              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
             </span>
             <input
               type="text"
@@ -9696,7 +9778,7 @@
               autocomplete="username"
               required
               maxlength="40"
-              placeholder="Enter your username"
+              placeholder="Enter your student or admin username"
             />
           </div>
         </div>
@@ -9705,7 +9787,7 @@
           <label class="form-label pb-auth-ref-label" for="input-login-password">Password<span class="pb-auth-ref-req">*</span></label>
           <div class="pb-password-input-wrap has-left-icon pb-auth-ref-input-wrap">
             <span class="pb-input-left-icon" aria-hidden="true">
-              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+              <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
             </span>
             <input
               type="password"
@@ -9715,7 +9797,7 @@
               autocomplete="current-password"
               required
               maxlength="128"
-              placeholder="Enter password"
+              placeholder="Enter your password"
             />
             <button
               type="button"
@@ -9724,6 +9806,7 @@
               aria-label="Show password"
               aria-pressed="false"
               aria-controls="input-login-password"
+              title="Show or hide password"
             >
               <svg id="icon-login-password-eye" class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
               <span id="label-login-password-toggle" class="pb-sr-only">Show</span>
@@ -9733,7 +9816,7 @@
 
         <!-- Single-Line Remember Me + Forgot Password Row -->
         <div class="pb-auth-ref-meta-row">
-          <label class="pb-auth-ref-remember-label" for="input-login-remember" title="Stores an opaque 7-day session token in localStorage. Never use on a public computer.">
+          <label class="pb-auth-ref-remember-label" for="input-login-remember" title="Keep me signed in for 7 days on this device.">
             <input
               type="checkbox"
               id="input-login-remember"
@@ -9762,15 +9845,17 @@
           <p class="banner-text" id="login-inline-alert-message"></p>
         </div>
 
-        <!-- Luminous Cyan-Emerald-Lime Gradient Pill Submit Button -->
+        <!-- Luminous Cyan-Emerald Gradient Pill Submit Button -->
         <button type="submit" class="btn btn-primary pb-auth-ref-submit-btn" id="btn-login-submit">
           <svg class="pb-icon pb-icon-sm pb-auth-ref-sparkle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-            <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z"></path>
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+            <polyline points="10 17 15 12 10 7"></polyline>
+            <line x1="15" y1="12" x2="3" y2="12"></line>
           </svg>
-          <span id="label-login-submit-btn">Sign in</span>
+          <span id="label-login-submit-btn">Sign in to Portal</span>
         </button>
 
-        <!-- Hidden Legacy Quick-Action Elements (Preserved in DOM for ID alignment, hidden per UI cleanup) -->
+        <!-- Hidden Legacy Quick-Action Elements -->
         <div class="pb-auth-ref-divider hidden" style="display: none !important;" aria-hidden="true">
           <span>Or need help signing in?</span>
         </div>
@@ -9804,7 +9889,7 @@
         </p>
       </div>
 
-      <!-- Forgot Password Sub-View (Matches Screen 3 of Reference Image) -->
+      <!-- Forgot Password Sub-View -->
       <div id="login-view-recovery-pane" class="pb-auth-ref-pane hidden">
         <div class="form-group pb-auth-ref-field-group">
           <label class="form-label pb-auth-ref-label" for="input-login-recovery-identifier">Username or Email<span class="pb-auth-ref-req">*</span></label>
@@ -9832,12 +9917,11 @@
           style="text-decoration: none;"
         >
           <svg class="pb-icon pb-icon-sm pb-auth-ref-sparkle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-            <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z"></path>
+            <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path>
           </svg>
-          <span>Request Reset via LINE (ID: poowadatch)</span>
+          <span>Request Reset via LINE (poowadatch)</span>
         </a>
 
-        <!-- Clear Fallback Box When LINE Contact URL Has Not Been Configured Yet -->
         <div
           id="forgot-password-fallback-box"
           class="banner banner-warning hidden"
@@ -9846,9 +9930,7 @@
         >
           <p class="banner-title">LINE Contact Not Configured Yet</p>
           <p class="banner-text" id="forgot-password-fallback-text">
-            The school administrator has not configured an official LINE recovery URL yet. Please
-            contact your biology instructor directly or view the school Contact page for alternative
-            assistance.
+            Please contact your biology instructor directly or view the school Contact page for assistance.
           </p>
         </div>
 
@@ -9859,14 +9941,14 @@
             id="btn-forgot-open-contact"
           >
             <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>
-            <span>View Contact Page</span>
+            <span>Contact Page</span>
           </button>
         </div>
 
         <p class="pb-auth-ref-bottom-prompt">
-          Already have an account?
+          Remembered your password?
           <button type="button" class="pb-auth-ref-inline-link" id="btn-login-back-to-signin">
-            Sign In
+            Back to Sign In
           </button>
         </p>
       </div>

@@ -3034,6 +3034,13 @@
       toggleHidden('btn-header-logout', !isSignedIn);
       toggleHidden('btn-mobile-logout', !isSignedIn);
 
+      /* Role-aware Payments navigation tab label (Admins see Billing & Payments, Students see Payments) */
+      var payLabelText = isAdmin ? 'Billing & Payments' : 'Payments';
+      var navDeskPayLbl = document.getElementById('nav-desktop-payments-label');
+      var navMobPayLbl = document.getElementById('nav-mobile-payments-label');
+      if (navDeskPayLbl) navDeskPayLbl.textContent = payLabelText;
+      if (navMobPayLbl) navMobPayLbl.textContent = payLabelText;
+
       /* Admin-only controls (Strictly hidden for students and unauthenticated visitors) */
       toggleHidden('nav-desktop-exams', !isAdmin);
       toggleHidden('nav-mobile-exams', !isAdmin);
@@ -4533,16 +4540,93 @@
       }
     }
 
-    function setLoginModalSkeletonState(isActive, opt_statusText, opt_badgeText) {
+    /**
+     * Vector Icon Helper for Dynamic Action Buttons (`setBtnVectorIcon`).
+     * Renders crisp inline SVG icons alongside concise button labels.
+     */
+    var PB_VECTOR_ICON_PATHS = {
+      edit: '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>',
+      delete: '<polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>',
+      preview: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>',
+      duplicate: '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>',
+      up: '<polyline points="18 15 12 9 6 15"></polyline>',
+      down: '<polyline points="6 9 12 15 18 9"></polyline>',
+      archive: '<polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line>',
+      restore: '<polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>',
+      add: '<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>',
+      key: '<path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>',
+      check: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>',
+      x: '<circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line>',
+      users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
+      chart: '<line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line>',
+      layers: '<polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline>',
+      play: '<polygon points="5 3 19 12 5 21 5 3"></polygon>'
+    };
+
+    function setBtnVectorIcon(btn, iconName, labelText, opt_tooltip) {
+      if (!btn) return;
+      btn.classList.add('pb-vec-icon-btn');
+      if (opt_tooltip) {
+        btn.title = String(opt_tooltip);
+        btn.setAttribute('aria-label', String(opt_tooltip));
+      } else if (labelText) {
+        btn.title = String(labelText);
+      }
+      var svgInner = PB_VECTOR_ICON_PATHS[iconName] || PB_VECTOR_ICON_PATHS.edit;
+      var safeLabel = String(labelText || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      btn.innerHTML =
+        '<svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" aria-hidden="true">' +
+        svgInner +
+        '</svg>' +
+        (safeLabel ? '<span>' + safeLabel + '</span>' : '');
+    }
+
+    function setLoginModalSkeletonState(isActive, opt_statusText, opt_badgeText, opt_stageNum) {
       var skelEl = document.getElementById('login-modal-skeleton-screen');
       var formEl = document.getElementById('form-login');
       var statusEl = document.getElementById('login-skeleton-status-text');
       var badgeEl = document.getElementById('login-skeleton-step-badge');
+      var orbEl = document.getElementById('login-modal-orb');
+      var orbIdle = document.getElementById('login-orb-icon-idle');
+      var orbSucc = document.getElementById('login-orb-icon-success');
+      var step1 = document.getElementById('login-anim-step-1');
+      var step2 = document.getElementById('login-anim-step-2');
+      var step3 = document.getElementById('login-anim-step-3');
+      var progFill = document.getElementById('login-anim-progress-fill');
+      var stage = Number(opt_stageNum) || 1;
+
       if (skelEl) {
         skelEl.classList.toggle('hidden', !isActive);
       }
       if (formEl) {
         formEl.classList.toggle('is-authenticating', Boolean(isActive));
+      }
+      if (orbEl) {
+        orbEl.classList.toggle('is-authenticating', Boolean(isActive && stage < 3));
+        orbEl.classList.toggle('is-login-success', Boolean(isActive && stage >= 3));
+      }
+      if (orbIdle && orbSucc) {
+        var showSuccess = Boolean(isActive && stage >= 3);
+        orbIdle.classList.toggle('hidden', showSuccess);
+        orbSucc.classList.toggle('hidden', !showSuccess);
+      }
+      if (step1) {
+        step1.classList.toggle('is-active', Boolean(isActive && stage === 1));
+        step1.classList.toggle('is-done', Boolean(isActive && stage > 1));
+      }
+      if (step2) {
+        step2.classList.toggle('is-active', Boolean(isActive && stage === 2));
+        step2.classList.toggle('is-done', Boolean(isActive && stage > 2));
+      }
+      if (step3) {
+        step3.classList.toggle('is-active', Boolean(isActive && stage === 3));
+        step3.classList.toggle('is-done', Boolean(isActive && stage >= 3));
+      }
+      if (progFill) {
+        progFill.style.width = !isActive ? '0%' : stage === 1 ? '38%' : stage === 2 ? '78%' : '100%';
       }
       if (statusEl && opt_statusText) {
         statusEl.textContent = String(opt_statusText);
@@ -4586,7 +4670,7 @@
         setLoginInlineAlert(
           'danger',
           'Missing Username or Password',
-          'Please enter both your username and password before clicking Log in.'
+          'Please enter both your username and password before signing in.'
         );
         if (!username && usernameInput) {
           usernameInput.focus();
@@ -4610,13 +4694,14 @@
 
       setLoginModalSkeletonState(
         true,
-        'Verifying credentials & preparing your workspace...',
-        'Authenticating'
+        'Verifying your credentials & securing session...',
+        'Step 1 of 3',
+        1
       );
       setLoginInlineAlert(
         'warning',
         'Verifying Credentials...',
-        'Checking your username and password with Google Apps Script (PBKDF2-HMAC-SHA256)...'
+        'Checking your account credentials securely...'
       );
 
       return rpcCallEnvelope(
@@ -4637,8 +4722,9 @@
           }
           setLoginModalSkeletonState(
             true,
-            'Credentials verified! Hydrating your dashboard...',
-            'Loading Data'
+            'Credentials verified! Unlocking your workspace...',
+            'Step 2 of 3',
+            2
           );
           setLoginInlineAlert('hidden');
 
@@ -4658,25 +4744,46 @@
             user: loginData.user
           };
 
-          applySessionAndRouteState(sessionSummary, 'FRESH_LOGIN');
-
-          renderDiagnosticResult(
-            'PASS: Login succeeded for ' +
-              loginData.user.username +
-              ' (' +
-              loginData.user.role +
-              ') | Requires Privacy Ack: ' +
-              String(Boolean(loginData.user.requiresPrivacyAck)),
-            {
-              sessionId: loginData.sessionId,
-              expiresAtBangkok: loginData.expiresAtBangkok,
-              storageMode: currentStorageMode,
-              persistedToLocalStorage: storageOutcome.persistedToLocalStorage,
-              user: loginData.user
-            }
-          );
+          return new Promise(function (resolve) {
+            setTimeout(function () {
+              setLoginModalSkeletonState(
+                true,
+                'Welcome back! Entering learning portal...',
+                'Verified',
+                3
+              );
+              setTimeout(function () {
+                applySessionAndRouteState(sessionSummary, 'FRESH_LOGIN');
+                renderDiagnosticResult(
+                  'PASS: Login succeeded for ' +
+                    loginData.user.username +
+                    ' (' +
+                    loginData.user.role +
+                    ') | Requires Privacy Ack: ' +
+                    String(Boolean(loginData.user.requiresPrivacyAck)),
+                  {
+                    sessionId: loginData.sessionId,
+                    expiresAtBangkok: loginData.expiresAtBangkok,
+                    storageMode: currentStorageMode,
+                    persistedToLocalStorage: storageOutcome.persistedToLocalStorage,
+                    user: loginData.user
+                  }
+                );
+                resolve();
+              }, 260);
+            }, 140);
+          });
         })
         .catch(function (err) {
+          var dlg = document.querySelector('#modal-login .pb-login-modal-dialog');
+          if (dlg) {
+            dlg.classList.remove('is-login-error-shake');
+            void dlg.offsetWidth;
+            dlg.classList.add('is-login-error-shake');
+            setTimeout(function () {
+              dlg.classList.remove('is-login-error-shake');
+            }, 520);
+          }
           var code = err && err.code ? String(err.code) : 'ERR_LOGIN_FAILED';
           var msg =
             err && err.message
@@ -4725,7 +4832,7 @@
                   String(remAttempts) +
                   ' attempt(s) remaining before account lockout.)'
                 : '';
-            setLoginInlineAlert('danger', 'Login Failed (' + code + ')', msg + extraNote);
+            setLoginInlineAlert('danger', 'Sign-In Failed', msg + extraNote);
           }
           renderDiagnosticResult('Login rejected (' + code + ')', err);
         })
@@ -4734,9 +4841,9 @@
           if (submitBtn) {
             submitBtn.disabled = false;
             if (submitBtnLbl) {
-              submitBtnLbl.textContent = 'Sign in';
+              submitBtnLbl.textContent = 'Sign In to Portal';
             } else {
-              submitBtn.textContent = 'Sign in';
+              submitBtn.textContent = 'Sign In to Portal';
             }
             submitBtn.removeAttribute('aria-busy');
           }
@@ -4886,11 +4993,37 @@
      */
     var isLogoutInProgress = false;
 
-    function setLogoutSpinnerState(isActive) {
+    function setLogoutSpinnerState(isActive, opt_stage) {
       var overlayEl = document.getElementById('pb-logout-loading-overlay');
+      var cardEl = document.getElementById('pb-logout-loading-card');
+      var chipEl = document.getElementById('pb-logout-step-chip');
       var textEl = document.getElementById('pb-logout-loading-text');
+      var subEl = document.getElementById('pb-logout-loading-subtitle');
+      var progEl = document.getElementById('pb-logout-progress-fill');
+      var lockIcon = document.getElementById('pb-logout-icon-lock');
+      var checkIcon = document.getElementById('pb-logout-icon-check');
+      var isComplete = opt_stage === 'COMPLETE';
+
+      if (cardEl) {
+        cardEl.classList.toggle('is-logout-complete', isComplete);
+      }
+      if (chipEl) {
+        chipEl.textContent = isComplete ? 'Session Cleared' : 'Securing Account';
+      }
       if (textEl) {
-        textEl.textContent = 'Logging out...';
+        textEl.textContent = isComplete ? 'Signed Out Safely' : 'Signing Out Safely...';
+      }
+      if (subEl) {
+        subEl.textContent = isComplete
+          ? 'Your session token has been revoked. Returning to home page...'
+          : 'Revoking active session token and locking your workspace...';
+      }
+      if (progEl) {
+        progEl.style.width = !isActive ? '0%' : isComplete ? '100%' : '68%';
+      }
+      if (lockIcon && checkIcon) {
+        lockIcon.classList.toggle('hidden', isComplete);
+        checkIcon.classList.toggle('hidden', !isComplete);
       }
       if (overlayEl) {
         overlayEl.classList.toggle('hidden', !isActive);
@@ -4905,14 +5038,23 @@
         var btn = document.getElementById(logoutBtnIds[i].id);
         if (btn) {
           btn.disabled = Boolean(isActive);
+          var lblSpan = btn.querySelector('.pb-logout-btn-label');
           if (isActive) {
             btn.setAttribute('aria-busy', 'true');
             btn.classList.add('is-logging-out');
-            btn.textContent = 'Logging out...';
+            if (lblSpan) {
+              lblSpan.textContent = 'Signing out...';
+            } else {
+              btn.textContent = 'Logging out...';
+            }
           } else {
             btn.removeAttribute('aria-busy');
             btn.classList.remove('is-logging-out');
-            btn.textContent = logoutBtnIds[i].defaultLabel;
+            if (lblSpan) {
+              lblSpan.textContent = logoutBtnIds[i].defaultLabel;
+            } else {
+              btn.textContent = logoutBtnIds[i].defaultLabel;
+            }
           }
         }
       }
@@ -4925,8 +5067,8 @@
       if (typeof PBNotify === 'object' && PBNotify && typeof PBNotify.clearAllToasts === 'function') {
         PBNotify.clearAllToasts();
       }
-      setLogoutSpinnerState(true);
-      setText('loading-heading-text', 'Logging out...');
+      setLogoutSpinnerState(true, 'REVOKING');
+      setText('loading-heading-text', 'Signing out...');
 
       return rpcCallEnvelope(
         'auth.logout',
@@ -4934,17 +5076,23 @@
         { keepSessionOnAuthError: true, suppressErrorBanner: true }
       )
         .then(function (envelope) {
-          setLogoutSpinnerState(false);
-          clearClientSessionCredential();
-          applySessionAndRouteState(null, 'LOGGED_OUT');
-          if (typeof PBNotify === 'object' && PBNotify && typeof PBNotify.clearAllToasts === 'function') {
-            PBNotify.clearAllToasts();
-          }
-          isLogoutInProgress = false;
-          renderDiagnosticResult(
-            'PASS: Logout succeeded - backend session revoked and returned to Landing Page',
-            envelope
-          );
+          setLogoutSpinnerState(true, 'COMPLETE');
+          return new Promise(function (resolve) {
+            setTimeout(function () {
+              setLogoutSpinnerState(false);
+              clearClientSessionCredential();
+              applySessionAndRouteState(null, 'LOGGED_OUT');
+              if (typeof PBNotify === 'object' && PBNotify && typeof PBNotify.clearAllToasts === 'function') {
+                PBNotify.clearAllToasts();
+              }
+              isLogoutInProgress = false;
+              renderDiagnosticResult(
+                'PASS: Logout succeeded - backend session revoked and returned to Landing Page',
+                envelope
+              );
+              resolve();
+            }, 300);
+          });
         })
         .catch(function (err) {
           setLogoutSpinnerState(false);
@@ -5045,7 +5193,13 @@
 
       if (targetView === 'payments') {
         showSectionView('payments');
-        loadStudentPaymentSummaryStep11({ autoSwitchStepper: true });
+        if (usr.role === 'ADMIN') {
+          setPaymentsViewRoleMode(true, false);
+          loadAdminInvoicesStep10();
+        } else {
+          setPaymentsViewRoleMode(false, false);
+          loadStudentPaymentSummaryStep11({ autoSwitchStepper: true });
+        }
         return;
       }
 
@@ -5057,6 +5211,64 @@
 
       /* Default fallback: Admin -> admin, Student -> profile */
       showSectionView(usr.role === 'ADMIN' ? 'admin' : 'profile');
+    }
+
+    function setPaymentsViewRoleMode(isAdminStudioMode, opt_studentPreview) {
+      var adminStudio = document.getElementById('admin-panel-invoices');
+      var studentWs = document.getElementById('student-payments-workspace');
+      var previewBanner = document.getElementById('admin-student-pay-preview-banner');
+      var showAdmin = Boolean(isAdminStudioMode && !opt_studentPreview);
+      if (adminStudio) {
+        adminStudio.classList.toggle('hidden', !showAdmin);
+      }
+      if (studentWs) {
+        studentWs.classList.toggle('hidden', showAdmin);
+      }
+      if (previewBanner) {
+        previewBanner.classList.toggle('hidden', !(isAdminStudioMode && opt_studentPreview));
+      }
+    }
+
+    function switchAdminBillingSubView(subViewKey) {
+      var mode = subViewKey || 'queue';
+      var queueCard = document.getElementById('admin-receipt-verification-queue-card');
+      var invCard = document.getElementById('admin-invoices-directory-card');
+      if (queueCard) {
+        queueCard.classList.toggle('hidden', mode === 'invoices');
+      }
+      if (invCard) {
+        invCard.classList.toggle('hidden', mode === 'queue');
+      }
+      var btns = document.querySelectorAll('[data-admin-billing-subview]');
+      for (var i = 0; i < btns.length; i++) {
+        var b = btns[i];
+        var active = b.getAttribute('data-admin-billing-subview') === mode;
+        b.classList.toggle('is-active', active);
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
+      }
+    }
+
+    function switchStudentPaymentSubView(subViewKey) {
+      var mode = subViewKey || 'checkout';
+      var checkoutWrap = document.getElementById('student-payment-subview-checkout');
+      var invoicesWrap = document.getElementById('student-payment-subview-invoices');
+      var historyWrap = document.getElementById('student-payment-subview-history');
+      if (checkoutWrap) {
+        checkoutWrap.classList.toggle('hidden', mode !== 'checkout');
+      }
+      if (invoicesWrap) {
+        invoicesWrap.classList.toggle('hidden', mode !== 'invoices');
+      }
+      if (historyWrap) {
+        historyWrap.classList.toggle('hidden', mode !== 'history');
+      }
+      var btns = document.querySelectorAll('[data-student-pay-subview]');
+      for (var i = 0; i < btns.length; i++) {
+        var b = btns[i];
+        var active = b.getAttribute('data-student-pay-subview') === mode;
+        b.classList.toggle('is-active', active);
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
+      }
     }
 
 
@@ -5244,6 +5456,10 @@
       if (typeof PBAdminActionModal === 'object' && PBAdminActionModal) {
         PBAdminActionModal.close();
       }
+      if (targetTab === 'invoices') {
+        handleNavigateToView('payments');
+        return true;
+      }
       currentAdminTab = targetTab;
       var tabs = [
         { key: 'settings', btnId: 'btn-admin-tab-settings', panelId: 'admin-panel-settings' },
@@ -5252,7 +5468,6 @@
         { key: 'assessments', btnId: 'btn-admin-tab-assessments', panelId: 'admin-panel-assessments' },
         { key: 'exam-creation', btnId: 'btn-admin-tab-exam-creation', panelId: 'admin-panel-exam-creation' },
         { key: 'exam-integrity', btnId: 'btn-admin-tab-exam-integrity', panelId: 'admin-panel-exam-integrity' },
-        { key: 'invoices', btnId: 'btn-admin-tab-invoices', panelId: 'admin-panel-invoices' },
         { key: 'overview', btnId: 'btn-admin-tab-overview', panelId: 'admin-panel-overview' },
         { key: 'unavailability', btnId: 'btn-admin-tab-unavailability', panelId: 'admin-panel-unavailability' }
       ];
@@ -6649,7 +6864,7 @@
           var editBtn = document.createElement('button');
           editBtn.type = 'button';
           editBtn.className = 'btn btn-primary btn-sm';
-          editBtn.textContent = 'Edit / Courses';
+          setBtnVectorIcon(editBtn, 'edit', 'Edit', 'Edit user & course enrollments');
           editBtn.addEventListener('click', function () {
             selectUserForAdminEditing(u);
             PBAdminActionModal.open('admin-user-editor-card', 'Edit User & Courses: ' + u.username);
@@ -6659,7 +6874,7 @@
           var pwModalBtn = document.createElement('button');
           pwModalBtn.type = 'button';
           pwModalBtn.className = 'btn btn-secondary btn-sm';
-          pwModalBtn.textContent = 'Reset PW';
+          setBtnVectorIcon(pwModalBtn, 'key', 'Password', 'Reset user password');
           pwModalBtn.addEventListener('click', function () {
             selectUserForAdminEditing(u);
             PBAdminActionModal.open('admin-password-reset-card', 'Reset Password: ' + u.username);
@@ -6671,8 +6886,12 @@
           toggleBtn.className = 'btn btn-outline btn-sm';
           var nextQuickStatus =
             u.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
-          toggleBtn.textContent =
-            u.status === 'ACTIVE' ? 'Suspend' : 'Activate';
+          setBtnVectorIcon(
+            toggleBtn,
+            u.status === 'ACTIVE' ? 'x' : 'check',
+            u.status === 'ACTIVE' ? 'Suspend' : 'Activate',
+            u.status === 'ACTIVE' ? 'Suspend account' : 'Activate account'
+          );
           toggleBtn.addEventListener('click', function () {
             withButtonAndAreaLoading(toggleBtn, tr, function () {
               return handleQuickToggleUserStatus(u, nextQuickStatus);
@@ -8860,7 +9079,7 @@
           var editMetaBtn = document.createElement('button');
           editMetaBtn.type = 'button';
           editMetaBtn.className = 'btn btn-primary btn-sm';
-          editMetaBtn.textContent = 'Edit Course';
+          setBtnVectorIcon(editMetaBtn, 'edit', 'Edit', 'Edit course details');
           editMetaBtn.addEventListener('click', function () {
             if (!confirmDiscardUnsavedChangesIfNeeded('editing course ' + c.courseCode)) {
               return;
@@ -8879,7 +9098,7 @@
           var editBtn = document.createElement('button');
           editBtn.type = 'button';
           editBtn.className = 'btn btn-secondary btn-sm';
-          editBtn.textContent = 'Sections & Cards';
+          setBtnVectorIcon(editBtn, 'layers', 'Content', 'Manage sections & lesson cards');
           editBtn.addEventListener('click', function () {
             if (!confirmDiscardUnsavedChangesIfNeeded('switching to course ' + c.courseCode)) {
               return;
@@ -8897,7 +9116,7 @@
           var previewBtn = document.createElement('button');
           previewBtn.type = 'button';
           previewBtn.className = 'btn btn-outline btn-sm';
-          previewBtn.textContent = 'Preview';
+          setBtnVectorIcon(previewBtn, 'preview', 'Preview', 'Preview course as student');
           previewBtn.addEventListener('click', function () {
             withButtonAndAreaLoading(previewBtn, tr, function () {
               return openStudentCourseDetailView(c.courseId, true);
@@ -8909,8 +9128,12 @@
           toggleArchiveBtn.type = 'button';
           toggleArchiveBtn.className = 'btn btn-outline btn-sm';
           var nextStatus = c.status === 'ARCHIVED' ? 'PUBLISHED' : 'ARCHIVED';
-          toggleArchiveBtn.textContent =
-            c.status === 'ARCHIVED' ? 'Restore' : 'Archive';
+          setBtnVectorIcon(
+            toggleArchiveBtn,
+            c.status === 'ARCHIVED' ? 'restore' : 'archive',
+            c.status === 'ARCHIVED' ? 'Restore' : 'Archive',
+            c.status === 'ARCHIVED' ? 'Restore course' : 'Archive course'
+          );
           toggleArchiveBtn.addEventListener('click', function () {
             withButtonAndAreaLoading(toggleArchiveBtn, tr, function () {
               return rpcCallEnvelope('admin.saveCourse', {
@@ -8946,7 +9169,7 @@
           var deleteCourseBtn = document.createElement('button');
           deleteCourseBtn.type = 'button';
           deleteCourseBtn.className = 'btn btn-outline btn-sm pb-btn-danger-outline';
-          deleteCourseBtn.textContent = 'Delete';
+          setBtnVectorIcon(deleteCourseBtn, 'delete', 'Delete', 'Delete course');
           deleteCourseBtn.addEventListener('click', function () {
             withButtonAndAreaLoading(deleteCourseBtn, tr, function () {
               return handleAdminDeleteCourseStep7(c);
@@ -9040,7 +9263,7 @@
           var editBtn = document.createElement('button');
           editBtn.type = 'button';
           editBtn.className = 'btn btn-secondary btn-sm';
-          editBtn.textContent = 'Edit Assessment';
+          setBtnVectorIcon(editBtn, 'edit', 'Edit', 'Edit assessment');
           editBtn.addEventListener('click', function () {
             populateAssessmentEditorForm(a);
             PBAdminActionModal.open('admin-assessment-editor-card', 'Edit Assessment: ' + a.title);
@@ -9051,7 +9274,12 @@
           archBtn.type = 'button';
           archBtn.className = 'btn btn-outline btn-sm';
           var nextSt = a.status === 'ARCHIVED' ? 'ACTIVE' : 'ARCHIVED';
-          archBtn.textContent = a.status === 'ARCHIVED' ? 'Restore ACTIVE' : 'Archive';
+          setBtnVectorIcon(
+            archBtn,
+            a.status === 'ARCHIVED' ? 'restore' : 'archive',
+            a.status === 'ARCHIVED' ? 'Restore' : 'Archive',
+            a.status === 'ARCHIVED' ? 'Restore assessment' : 'Archive assessment'
+          );
           archBtn.addEventListener('click', function () {
             rpcCallEnvelope('admin.saveAssessment', {
               assessmentId: a.assessmentId,
@@ -9431,7 +9659,7 @@
           var upBtn = document.createElement('button');
           upBtn.type = 'button';
           upBtn.className = 'btn btn-outline btn-sm';
-          upBtn.textContent = 'Move Up';
+          setBtnVectorIcon(upBtn, 'up', 'Up', 'Move section up');
           upBtn.disabled = secIndex === 0;
           upBtn.addEventListener('click', function () {
             withButtonAndAreaLoading(upBtn, secBox, function () {
@@ -9443,7 +9671,7 @@
           var downBtn = document.createElement('button');
           downBtn.type = 'button';
           downBtn.className = 'btn btn-outline btn-sm';
-          downBtn.textContent = 'Move Down';
+          setBtnVectorIcon(downBtn, 'down', 'Down', 'Move section down');
           downBtn.disabled = secIndex === sections.length - 1;
           downBtn.addEventListener('click', function () {
             withButtonAndAreaLoading(downBtn, secBox, function () {
@@ -9455,7 +9683,7 @@
           var renameBtn = document.createElement('button');
           renameBtn.type = 'button';
           renameBtn.className = 'btn btn-secondary btn-sm';
-          renameBtn.textContent = 'Rename / Edit';
+          setBtnVectorIcon(renameBtn, 'edit', 'Edit', 'Edit section');
           renameBtn.addEventListener('click', function () {
             populateSectionEditorForm(sec);
             PBAdminActionModal.open('form-admin-section-editor', 'Edit Section: ' + sec.title);
@@ -9475,7 +9703,7 @@
               : sec.sectionType === 'RECORDING'
               ? 'RECORDING_CARD'
               : 'READING_CARD';
-          addCardBtn.textContent = '+ Add Card Here';
+          setBtnVectorIcon(addCardBtn, 'add', 'Add Card', 'Add card to this section');
           addCardBtn.addEventListener('click', function () {
             populateCardEditorForm(null, sec.sectionId, defaultCardTypeForSec);
             PBAdminActionModal.open('admin-card-editor-container', 'Add Card to ' + sec.title);
@@ -9490,11 +9718,11 @@
           removeOrArchiveBtn.type = 'button';
           removeOrArchiveBtn.className = 'btn btn-outline btn-sm';
           if (sec.status === 'ARCHIVED') {
-            removeOrArchiveBtn.textContent = 'Restore Section';
+            setBtnVectorIcon(removeOrArchiveBtn, 'restore', 'Restore', 'Restore section');
           } else if (sec.canHardDelete) {
-            removeOrArchiveBtn.textContent = 'Remove Empty Section';
+            setBtnVectorIcon(removeOrArchiveBtn, 'delete', 'Delete', 'Delete empty section');
           } else {
-            removeOrArchiveBtn.textContent = 'Archive Section';
+            setBtnVectorIcon(removeOrArchiveBtn, 'archive', 'Archive', 'Archive section');
           }
           removeOrArchiveBtn.addEventListener('click', function () {
             var mode =
@@ -9596,7 +9824,7 @@
                 var cUpBtn = document.createElement('button');
                 cUpBtn.type = 'button';
                 cUpBtn.className = 'btn btn-outline btn-sm';
-                cUpBtn.textContent = 'Up';
+                setBtnVectorIcon(cUpBtn, 'up', 'Up', 'Move card up');
                 cUpBtn.disabled = cardIndex === 0;
                 cUpBtn.addEventListener('click', function () {
                   withButtonAndAreaLoading(cUpBtn, cardItem, function () {
@@ -9608,7 +9836,7 @@
                 var cDownBtn = document.createElement('button');
                 cDownBtn.type = 'button';
                 cDownBtn.className = 'btn btn-outline btn-sm';
-                cDownBtn.textContent = 'Down';
+                setBtnVectorIcon(cDownBtn, 'down', 'Down', 'Move card down');
                 cDownBtn.disabled = cardIndex === cards.length - 1;
                 cDownBtn.addEventListener('click', function () {
                   withButtonAndAreaLoading(cDownBtn, cardItem, function () {
@@ -9620,7 +9848,7 @@
                 var cEditBtn = document.createElement('button');
                 cEditBtn.type = 'button';
                 cEditBtn.className = 'btn btn-secondary btn-sm';
-                cEditBtn.textContent = 'Edit Card';
+                setBtnVectorIcon(cEditBtn, 'edit', 'Edit', 'Edit card');
                 cEditBtn.addEventListener('click', function () {
                   populateCardEditorForm(crd);
                   PBAdminActionModal.open('admin-card-editor-container', 'Edit Card: ' + crd.title);
@@ -9635,7 +9863,12 @@
                 cArchBtn.type = 'button';
                 cArchBtn.className = 'btn btn-outline btn-sm';
                 var nextMode = crd.status === 'ARCHIVED' ? 'RESTORE' : 'ARCHIVE';
-                cArchBtn.textContent = crd.status === 'ARCHIVED' ? 'Restore' : 'Archive';
+                setBtnVectorIcon(
+                  cArchBtn,
+                  crd.status === 'ARCHIVED' ? 'restore' : 'archive',
+                  crd.status === 'ARCHIVED' ? 'Restore' : 'Archive',
+                  crd.status === 'ARCHIVED' ? 'Restore card' : 'Archive card'
+                );
                 cArchBtn.addEventListener('click', function () {
                   withButtonAndAreaLoading(cArchBtn, cardItem, function () {
                     return rpcCallEnvelope('admin.removeOrArchiveCard', {
@@ -11091,19 +11324,13 @@
           tdLabel.appendChild(crsBadge);
         }
 
-        /* Col 3: Amount (THB & Integer Satang) */
+        /* Col 3: Amount (THB) */
         var tdAmt = document.createElement('td');
         var amtStrong = document.createElement('div');
         amtStrong.style.fontWeight = '800';
         amtStrong.style.color = 'var(--color-brand-deep)';
         amtStrong.textContent = inv.amountThbFormatted || (inv.amountThb + ' THB');
         tdAmt.appendChild(amtStrong);
-
-        var satangDiv = document.createElement('div');
-        satangDiv.style.fontSize = '0.78rem';
-        satangDiv.style.color = 'var(--color-text-muted)';
-        satangDiv.textContent = String(inv.amountSatang || 0) + ' satang';
-        tdAmt.appendChild(satangDiv);
 
         /* Col 4: Due Date (Asia/Bangkok) */
         var tdDue = document.createElement('td');
@@ -11185,6 +11412,7 @@
 
           var counts = d.summaryCounts || {};
           setText('admin-invoices-count-total', String(counts.totalInvoices || 0));
+          setText('admin-billing-subview-invoices-badge', String(counts.totalInvoices || 0));
           setText(
             'admin-invoices-count-unpaid',
             String(
@@ -11196,12 +11424,9 @@
               (counts.totalUnpaidThbFormatted || '0.00 THB') +
               ')'
           );
-          setText(
-            'admin-invoices-count-awaiting',
-            String(
-              (counts.awaitingVerificationCount || 0) + (counts.approvingCount || 0)
-            )
-          );
+          var awaitTotal = (counts.awaitingVerificationCount || 0) + (counts.approvingCount || 0);
+          setText('admin-invoices-count-awaiting', String(awaitTotal));
+          setText('admin-billing-subview-queue-badge', String(awaitTotal));
           setText(
             'admin-invoices-count-paid',
             String(counts.paidCount || 0) +
@@ -12277,7 +12502,7 @@ var qrcode = (function() {
       );
       setText(
         'payment-selected-total-satang',
-        String(totalSatang) + ' integer satang'
+        selectedCount > 0 ? 'Exact amount for ' + String(selectedCount) + ' item(s)' : ''
       );
 
       var selectAllChk = document.getElementById('chk-payment-select-all');
@@ -12386,13 +12611,7 @@ var qrcode = (function() {
           amtStrong.textContent =
             inv.amountThbFormatted ||
             formatIntegerSatangToThbDisplayClient(inv.amountSatang);
-          var satDiv = document.createElement('div');
-          satDiv.style.fontSize = '0.75rem';
-          satDiv.style.fontFamily = 'monospace';
-          satDiv.style.color = 'var(--color-text-secondary)';
-          satDiv.textContent = String(inv.amountSatang || 0) + ' satang';
           tdAmt.appendChild(amtStrong);
-          tdAmt.appendChild(satDiv);
 
           tr.appendChild(tdChk);
           tr.appendChild(tdLabel);
@@ -12532,7 +12751,7 @@ var qrcode = (function() {
       );
       setText(
         'payment-transfer-amount-satang',
-        String(paymentDto.totalAmountSatang || 0) + ' integer satang'
+        'Exact transfer amount required'
       );
 
       var invLabels = [];
@@ -12593,10 +12812,7 @@ var qrcode = (function() {
         );
         setText(
           'payment-promptpay-target-display',
-          (snap.promptPayTarget || '081-234-5678') +
-            ' [Normalized: ' +
-            (paymentDto.promptPayNormalizedTarget || built.normalizedTarget.digits) +
-            ']'
+          snap.promptPayTarget || '081-234-5678'
         );
         setText(
           'payment-promptpay-amount-display',
@@ -12605,7 +12821,7 @@ var qrcode = (function() {
         );
         setText(
           'payment-promptpay-crc-badge',
-          'EMVCo Tag 29 + CRC-16 (' + finalCrc + ') Verified'
+          'Verified PromptPay QR'
         );
         setText('payment-promptpay-emvco-string', finalEmvPayload);
 
@@ -12750,10 +12966,7 @@ var qrcode = (function() {
               'REJECTED: Payment Session ' +
               rj.paymentId +
               ' — ' +
-              (rj.totalAmountThbFormatted || '') +
-              ' (' +
-              String(rj.totalAmountSatang || 0) +
-              ' satang)';
+              (rj.totalAmountThbFormatted || '');
 
             var rjReason = document.createElement('div');
             rjReason.style.marginTop = '4px';
@@ -12888,10 +13101,7 @@ var qrcode = (function() {
               'PAID: Session ' +
               ps.paymentId +
               ' — ' +
-              (ps.totalAmountThbFormatted || '') +
-              ' (' +
-              String(ps.totalAmountSatang || 0) +
-              ' satang)';
+              (ps.totalAmountThbFormatted || '');
             var pSub = document.createElement('div');
             pSub.style.fontSize = '0.84rem';
             pSub.style.color = 'var(--color-text-secondary)';
@@ -12919,6 +13129,8 @@ var qrcode = (function() {
 
       setText('student-payment-history-count', String(histRows.length));
       setText('student-all-invoices-count', String(invRows.length));
+      setText('student-pay-subview-history-badge', String(histRows.length));
+      setText('student-pay-subview-invoices-badge', String(invRows.length));
 
       if (histTbody) {
         clearChildren(histTbody);
@@ -12959,13 +13171,7 @@ var qrcode = (function() {
               aMain.textContent =
                 p.totalAmountThbFormatted ||
                 formatIntegerSatangToThbDisplayClient(p.totalAmountSatang);
-              var aSat = document.createElement('div');
-              aSat.style.fontSize = '0.75rem';
-              aSat.style.fontFamily = 'monospace';
-              aSat.style.color = 'var(--color-text-secondary)';
-              aSat.textContent = String(p.totalAmountSatang || 0) + ' satang';
               tdAmt.appendChild(aMain);
-              tdAmt.appendChild(aSat);
 
               var tdSt = document.createElement('td');
               var b = document.createElement('span');
@@ -13005,11 +13211,16 @@ var qrcode = (function() {
                 var btnRes = document.createElement('button');
                 btnRes.type = 'button';
                 btnRes.className = 'btn btn-primary btn-sm';
-                btnRes.textContent =
+                setBtnVectorIcon(
+                  btnRes,
+                  'play',
+                  'Resume',
                   p.receiptFileId && p.receiptFileId.indexOf('fil_') === 0
-                    ? 'Resume Upload/Confirm'
-                    : 'Resume Transfer';
+                    ? 'Resume Upload & Confirm'
+                    : 'Resume Transfer'
+                );
                 btnRes.addEventListener('click', function () {
+                  switchStudentPaymentSubView('checkout');
                   renderActiveSessionTransferAndUploadStep11(p);
                   switchStudentPaymentStepper(
                     p.receiptFileId && p.receiptFileId.indexOf('fil_') === 0
@@ -13025,8 +13236,9 @@ var qrcode = (function() {
                 var btnRev = document.createElement('button');
                 btnRev.type = 'button';
                 btnRev.className = 'btn btn-outline btn-sm';
-                btnRev.textContent = 'View in Step 4 (Review)';
+                setBtnVectorIcon(btnRev, 'preview', 'Review', 'View verification status in Step 4');
                 btnRev.addEventListener('click', function () {
+                  switchStudentPaymentSubView('checkout');
                   switchStudentPaymentStepper('review');
                 });
                 tdAct.appendChild(btnRev);
@@ -13034,8 +13246,9 @@ var qrcode = (function() {
                 var btnPaid = document.createElement('button');
                 btnPaid.type = 'button';
                 btnPaid.className = 'btn btn-outline btn-sm';
-                btnPaid.textContent = 'View in Step 5 (Paid)';
+                setBtnVectorIcon(btnPaid, 'check', 'Receipt', 'View paid summary in Step 5');
                 btnPaid.addEventListener('click', function () {
+                  switchStudentPaymentSubView('checkout');
                   switchStudentPaymentStepper('paid');
                 });
                 tdAct.appendChild(btnPaid);
@@ -13090,11 +13303,7 @@ var qrcode = (function() {
 
             var tdIAmt = document.createElement('td');
             tdIAmt.style.fontWeight = '700';
-            tdIAmt.textContent =
-              (inv.amountThbFormatted || '') +
-              ' (' +
-              String(inv.amountSatang || 0) +
-              ' satang)';
+            tdIAmt.textContent = inv.amountThbFormatted || formatIntegerSatangToThbDisplayClient(inv.amountSatang);
 
             var tdIDue = document.createElement('td');
             tdIDue.style.fontFamily = 'monospace';
@@ -13146,16 +13355,14 @@ var qrcode = (function() {
           }
           setText(
             'student-payment-refresh-cooldown',
-            'Bounded status refresh ready (10s minimum interval — no background polling)'
+            'Status is up to date'
           );
           return;
         }
         var remSec = Math.ceil(remMs / 1000);
         setText(
           'student-payment-refresh-cooldown',
-          'Bounded refresh cooldown: ' +
-            String(remSec) +
-            's remaining (prevents unbounded server polling)'
+          'Next manual refresh available in ' + String(remSec) + 's'
         );
       }
       updateLabel();
@@ -13203,7 +13410,7 @@ var qrcode = (function() {
           );
           setText(
             'student-payment-outstanding-satang',
-            String(totals.eligibleUnpaidTotalSatang || 0) + ' integer satang'
+            (totals.eligibleUnpaidCount || 0) > 0 ? 'Ready for checkout' : 'All caught up'
           );
           setText(
             'student-payment-unpaid-count',
@@ -13716,7 +13923,7 @@ var qrcode = (function() {
             btnFull.className = 'btn btn-outline btn-sm';
             btnFull.style.marginTop = '6px';
             btnFull.style.width = '100%';
-            btnFull.textContent = 'View Full-Size Receipt';
+            setBtnVectorIcon(btnFull, 'preview', 'View Slip', 'View full-size transfer receipt');
             btnFull.addEventListener('click', function () {
               openAdminFullSizeReceiptModalStep12(p);
             });
@@ -13762,7 +13969,7 @@ var qrcode = (function() {
             var btnApp = document.createElement('button');
             btnApp.type = 'button';
             btnApp.className = 'btn btn-primary btn-sm';
-            btnApp.textContent = 'Approve (Mark PAID)';
+            setBtnVectorIcon(btnApp, 'check', 'Approve', 'Approve payment and mark invoice PAID');
             btnApp.addEventListener('click', function () {
               btnApp.disabled = true;
               var appNoteVal = String(inpAppNote.value || '').trim();
@@ -13813,7 +14020,7 @@ var qrcode = (function() {
             var btnRej = document.createElement('button');
             btnRej.type = 'button';
             btnRej.className = 'btn btn-danger btn-sm';
-            btnRej.textContent = 'Reject (Reason Required)';
+            setBtnVectorIcon(btnRej, 'x', 'Reject', 'Reject payment with reason');
             btnRej.addEventListener('click', function () {
               var reasonVal = String(inpRejReason.value || '').trim();
               if (reasonVal.length < 3) {
@@ -17384,7 +17591,7 @@ var qrcode = (function() {
             var prevBtn = document.createElement('button');
             prevBtn.type = 'button';
             prevBtn.className = 'btn btn-secondary btn-sm';
-            prevBtn.textContent = 'Preview';
+            setBtnVectorIcon(prevBtn, 'preview', 'Preview', 'Preview question');
             prevBtn.addEventListener('click', function () {
               runButtonWithLoadingState(prevBtn, 'Loading...', function () {
                 return openQuestionStudentPreviewModalPhase2(q.questionId, false);
@@ -17395,7 +17602,7 @@ var qrcode = (function() {
             var editBtn = document.createElement('button');
             editBtn.type = 'button';
             editBtn.className = 'btn btn-primary btn-sm';
-            editBtn.textContent = 'Edit';
+            setBtnVectorIcon(editBtn, 'edit', 'Edit', 'Edit question');
             editBtn.addEventListener('click', function () {
               populateQuestionEditorForEditPhase2(q);
               PBAdminActionModal.open('admin-question-editor-card', 'Edit Question: ' + q.questionCode);
@@ -17405,7 +17612,7 @@ var qrcode = (function() {
             var dupBtn = document.createElement('button');
             dupBtn.type = 'button';
             dupBtn.className = 'btn btn-outline btn-sm';
-            dupBtn.textContent = 'Duplicate';
+            setBtnVectorIcon(dupBtn, 'duplicate', 'Copy', 'Duplicate question');
             dupBtn.addEventListener('click', function () {
               runButtonWithLoadingState(dupBtn, 'Duplicating...', function () {
                 return rpcCallEnvelope('admin.questions.duplicate', { questionId: q.questionId })
@@ -17421,7 +17628,12 @@ var qrcode = (function() {
             var archBtn = document.createElement('button');
             archBtn.type = 'button';
             archBtn.className = 'btn btn-outline btn-sm';
-            archBtn.textContent = q.status === 'ARCHIVED' ? 'Restore' : 'Archive';
+            setBtnVectorIcon(
+              archBtn,
+              q.status === 'ARCHIVED' ? 'restore' : 'archive',
+              q.status === 'ARCHIVED' ? 'Restore' : 'Archive',
+              q.status === 'ARCHIVED' ? 'Restore question' : 'Archive question'
+            );
             archBtn.addEventListener('click', function () {
               var nextMode = q.status === 'ARCHIVED' ? 'RESTORE_PUBLISHED' : 'ARCHIVE';
               runButtonWithLoadingState(archBtn, 'Updating...', function () {
@@ -18615,7 +18827,7 @@ var qrcode = (function() {
           var prevBtn = document.createElement('button');
           prevBtn.type = 'button';
           prevBtn.className = 'btn btn-outline btn-sm';
-          prevBtn.textContent = 'Preview Exam';
+          setBtnVectorIcon(prevBtn, 'preview', 'Preview', 'Preview examination set');
           prevBtn.addEventListener('click', function () {
             runButtonWithLoadingState(prevBtn, 'Loading Preview...', function () {
               return openStudentExamInstructionsModalPhase3(ex.examSetId, true);
@@ -18626,7 +18838,7 @@ var qrcode = (function() {
           var editBtn = document.createElement('button');
           editBtn.type = 'button';
           editBtn.className = 'btn btn-secondary btn-sm';
-          editBtn.textContent = 'Edit in Form Builder';
+          setBtnVectorIcon(editBtn, 'edit', 'Edit', 'Edit exam in Form Builder');
           editBtn.addEventListener('click', function () {
             if (typeof openFormsExamBuilderWithExam === 'function') {
               openFormsExamBuilderWithExam(ex);
@@ -18642,7 +18854,12 @@ var qrcode = (function() {
           var pubBtn = document.createElement('button');
           pubBtn.type = 'button';
           pubBtn.className = 'btn btn-primary btn-sm';
-          pubBtn.textContent = ex.status === 'PUBLISHED' ? 'Re-Publish' : 'Publish';
+          setBtnVectorIcon(
+            pubBtn,
+            'check',
+            ex.status === 'PUBLISHED' ? 'Republish' : 'Publish',
+            ex.status === 'PUBLISHED' ? 'Republish exam set' : 'Publish exam set'
+          );
           pubBtn.addEventListener('click', function () {
             runButtonWithLoadingState(pubBtn, 'Publishing...', function () {
               setText('admin-exams-status-banner', 'Validating and publishing ' + ex.examCode + '...');
@@ -18663,7 +18880,12 @@ var qrcode = (function() {
           var asgBtn = document.createElement('button');
           asgBtn.type = 'button';
           asgBtn.className = 'btn btn-outline btn-sm';
-          asgBtn.textContent = 'Assign (' + (Array.isArray(ex.assignments) ? ex.assignments.length : 0) + ')';
+          setBtnVectorIcon(
+            asgBtn,
+            'users',
+            'Assign (' + (Array.isArray(ex.assignments) ? ex.assignments.length : 0) + ')',
+            'Manage student assignments'
+          );
           asgBtn.addEventListener('click', function () {
             openAdminExamAssignmentsModalPhase3(ex);
           });
@@ -18672,7 +18894,7 @@ var qrcode = (function() {
           var anlBtn = document.createElement('button');
           anlBtn.type = 'button';
           anlBtn.className = 'btn btn-outline btn-sm';
-          anlBtn.textContent = 'Analytics & Regrade';
+          setBtnVectorIcon(anlBtn, 'chart', 'Analytics', 'Analytics & regrade');
           anlBtn.addEventListener('click', function () {
             openAdminExamRegradeAndAnalyticsModalPhase7(ex);
           });
@@ -26761,6 +26983,54 @@ var qrcode = (function() {
       /* ====================================================================
        * STEP 11: STUDENT PAYMENT INTERFACE & CHECKOUT FLOW EVENT BINDINGS
        * ==================================================================== */
+      var adminBillingTabBtns = document.querySelectorAll('[data-admin-billing-subview]');
+      for (var abIdx = 0; abIdx < adminBillingTabBtns.length; abIdx++) {
+        (function (tabBtn) {
+          tabBtn.addEventListener('click', function () {
+            switchAdminBillingSubView(tabBtn.getAttribute('data-admin-billing-subview'));
+          });
+        })(adminBillingTabBtns[abIdx]);
+      }
+
+      var studentPayTabBtns = document.querySelectorAll('[data-student-pay-subview]');
+      for (var spIdx = 0; spIdx < studentPayTabBtns.length; spIdx++) {
+        (function (tabBtn) {
+          tabBtn.addEventListener('click', function () {
+            switchStudentPaymentSubView(tabBtn.getAttribute('data-student-pay-subview'));
+          });
+        })(studentPayTabBtns[spIdx]);
+      }
+
+      var btnAdminTogglePreview = document.getElementById('btn-admin-toggle-student-pay-preview');
+      if (btnAdminTogglePreview) {
+        btnAdminTogglePreview.addEventListener('click', function () {
+          setPaymentsViewRoleMode(true, true);
+          loadStudentPaymentSummaryStep11({ autoSwitchStepper: true });
+        });
+      }
+
+      var btnReturnAdminBilling = document.getElementById('btn-return-admin-billing-studio');
+      if (btnReturnAdminBilling) {
+        btnReturnAdminBilling.addEventListener('click', function () {
+          setPaymentsViewRoleMode(true, false);
+          loadAdminInvoicesStep10();
+        });
+      }
+
+      var btnInvGoCheckout = document.getElementById('btn-student-invoices-go-checkout');
+      if (btnInvGoCheckout) {
+        btnInvGoCheckout.addEventListener('click', function () {
+          switchStudentPaymentSubView('checkout');
+        });
+      }
+
+      var btnHistGoCheckout = document.getElementById('btn-student-history-go-checkout');
+      if (btnHistGoCheckout) {
+        btnHistGoCheckout.addEventListener('click', function () {
+          switchStudentPaymentSubView('checkout');
+        });
+      }
+
       var stepperIds = ['select', 'transfer', 'upload', 'review', 'paid'];
       for (var stIdx = 0; stIdx < stepperIds.length; stIdx++) {
         (function (stepKey) {
