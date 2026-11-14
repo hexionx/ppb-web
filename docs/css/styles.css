@@ -12922,3 +12922,412 @@
       font-size: clamp(1.95rem, 3.8vw, 2.55rem) !important;
     }
   }
+
+  /* ==========================================================================
+     1. SINGLE-INDICATOR LOADING GUARD (NO SIMULTANEOUS SPINNERS & SKELETONS)
+     ========================================================================== */
+  #view-loading > .spinner {
+    display: none !important;
+  }
+
+  /* When the login modal skeleton screen is active, hide the login form and inline alert banner so they do not stack with the skeleton */
+  #form-login.is-authenticating {
+    display: none !important;
+  }
+  #modal-login:has(#form-login.is-authenticating) #login-inline-alert {
+    display: none !important;
+  }
+
+  /* Never show the area-level floating spinner ring when a button inside it already has an inline spinner or when skeletons are rendered */
+  .pb-area-loading-busy::after {
+    display: none !important;
+  }
+  .pb-area-loading-busy.pb-area-spinner-only::after {
+    display: block !important;
+  }
+
+  /* ==========================================================================
+     2. MODERNIZED CLASS CALENDAR UI ALIGNED WITH WEBSITE THEME
+     ========================================================================== */
+  .pb-cal-admin-studio-bar {
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #F0FDFA 0%, #ECFEFF 55%, #F8FAFC 100%);
+    border: 1.5px solid rgba(8, 145, 178, 0.28);
+    border-left: 5px solid #0D9488;
+    border-radius: 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 6px 18px rgba(15, 118, 110, 0.06);
+  }
+
+  /* Hide redundant Prev/Current/Next buttons in the top overview toolbar since the main Calendar Appbar right below has Today / < / > */
+  #view-calendar .calendar-controls-toolbar {
+    padding: 10px 14px !important;
+    background: #F8FAFC !important;
+    border: 1px solid #E2E8F0 !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+  }
+  #view-calendar .calendar-controls-toolbar > div:first-child {
+    display: none !important;
+  }
+
+  #view-calendar #calendar-grid-section.pb-gcal-surface-card {
+    background: #FFFFFF !important;
+    border: 1.5px solid rgba(8, 145, 178, 0.22) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 12px 32px -12px rgba(4, 34, 46, 0.1) !important;
+    overflow: hidden !important;
+  }
+
+  #view-calendar .pb-gcal-appbar {
+    background: linear-gradient(180deg, #F8FAFC 0%, #FFFFFF 100%) !important;
+    border-bottom: 1px solid #E2E8F0 !important;
+    padding: 14px 20px !important;
+  }
+
+  #view-calendar .pb-gcal-logo-mark {
+    background: linear-gradient(135deg, #0D9488 0%, #0891B2 100%) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    box-shadow: 0 4px 10px rgba(13, 148, 136, 0.25) !important;
+  }
+
+  #view-calendar .pb-gcal-today-btn {
+    border: 1.5px solid rgba(13, 148, 136, 0.35) !important;
+    background: #F0FDFA !important;
+    color: #0F766E !important;
+    font-weight: 700 !important;
+    border-radius: 999px !important;
+  }
+  #view-calendar .pb-gcal-today-btn:hover {
+    background: #CCFBF1 !important;
+    border-color: #0D9488 !important;
+  }
+
+  /* Brand-Aligned Calendar Event Pills (Course = Teal/Cyan, School-Wide = Amber/Orange) */
+  #view-calendar .calendar-event-pill {
+    border-radius: 6px !important;
+    padding: 3px 7px !important;
+    margin: 2px 0 0 0 !important;
+    font-size: 0.74rem !important;
+    font-weight: 600 !important;
+    line-height: 1.35 !important;
+    transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease !important;
+  }
+  #view-calendar .calendar-event-pill:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 3px 8px rgba(15, 23, 42, 0.1) !important;
+  }
+
+  #view-calendar .calendar-event-pill.is-all-day-event.is-course-event {
+    background: linear-gradient(135deg, #0D9488 0%, #0891B2 100%) !important;
+    color: #FFFFFF !important;
+  }
+  #view-calendar .calendar-event-pill.is-all-day-event.is-school-wide {
+    background: linear-gradient(135deg, #D97706 0%, #EA580C 100%) !important;
+    color: #FFFFFF !important;
+  }
+
+  #view-calendar .calendar-event-pill.is-timed-event.is-course-event {
+    background: #F0FDFA !important;
+    color: #0F766E !important;
+    border-left: 3px solid #0D9488 !important;
+  }
+  #view-calendar .calendar-event-pill.is-timed-event.is-course-event:hover {
+    background: #CCFBF1 !important;
+  }
+
+  #view-calendar .calendar-event-pill.is-timed-event.is-school-wide {
+    background: #FFFBEB !important;
+    color: #B45309 !important;
+    border-left: 3px solid #D97706 !important;
+  }
+  #view-calendar .calendar-event-pill.is-timed-event.is-school-wide:hover {
+    background: #FEF3C7 !important;
+  }
+
+  .pb-gcal-event-dot.is-course,
+  .pb-cal-legend-dot.is-course {
+    background: #0D9488 !important;
+  }
+  .pb-gcal-event-dot.is-school,
+  .pb-cal-legend-dot.is-school {
+    background: #D97706 !important;
+  }
+
+  /* Make Admin Delete Button on Calendar Pills Always Accessible & Crisp */
+  #view-calendar .calendar-event-pill-del-btn {
+    opacity: 0.88 !important;
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px !important;
+    border-radius: 999px !important;
+    font-size: 0.8rem !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(15, 23, 42, 0.14) !important;
+    color: inherit !important;
+    border: none !important;
+    cursor: pointer !important;
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
+  }
+  #view-calendar .calendar-event-pill-del-btn:hover,
+  #view-calendar .calendar-event-pill-del-btn:focus-visible {
+    opacity: 1 !important;
+    background: #DC2626 !important;
+    color: #FFFFFF !important;
+    transform: scale(1.08) !important;
+  }
+
+  /* ==========================================================================
+     3. REORGANIZED STUDENT PRACTICE QUIZ & EXAM CATALOG UI
+     ========================================================================== */
+  .pb-exam-catalog-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .pb-exam-mode-QuickTabs {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 5px;
+    background: #F1F5F9;
+    border: 1px solid #E2E8F0;
+    border-radius: 14px;
+    margin-bottom: 14px;
+  }
+
+  .pb-exam-mode-tab {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: #475569;
+    font-size: 0.83rem;
+    font-weight: 700;
+    padding: 7px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+  .pb-exam-mode-tab:hover {
+    color: #0F172A;
+    background: rgba(255, 255, 255, 0.6);
+  }
+  .pb-exam-mode-tab.is-active {
+    background: #FFFFFF;
+    color: #0F766E;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  }
+
+  .pb-exam-catalog-filter-bar {
+    display: grid !important;
+    grid-template-columns: minmax(200px, 1.8fr) repeat(3, minmax(135px, 1fr)) auto !important;
+    gap: 10px !important;
+    align-items: end !important;
+    padding: 14px 16px !important;
+    background: #F8FAFC !important;
+    border: 1px solid #E2E8F0 !important;
+    border-radius: 14px !important;
+  }
+
+  .pb-exam-filter-search-col,
+  .pb-exam-filter-select-col {
+    margin: 0 !important;
+    min-width: 0 !important;
+  }
+
+  .pb-exam-filter-search-col .form-label,
+  .pb-exam-filter-select-col .form-label {
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.03em !important;
+    color: #475569 !important;
+    margin-bottom: 4px !important;
+    display: block !important;
+  }
+
+  .pb-exam-filter-actions-col {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 40px;
+  }
+
+  @media (max-width: 960px) {
+    .pb-exam-catalog-filter-bar {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+    .pb-exam-filter-search-col {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .pb-exam-catalog-filter-bar {
+      grid-template-columns: 1fr !important;
+    }
+    .pb-exam-mode-QuickTabs {
+      width: 100%;
+    }
+    .pb-exam-mode-tab {
+      flex: 1 1 calc(50% - 6px);
+      text-align: center;
+    }
+  }
+
+  .pb-exam-catalog-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)) !important;
+    gap: 18px !important;
+    margin-top: 16px !important;
+    align-items: stretch !important;
+  }
+
+  .pb-exam-set-card {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    gap: 14px !important;
+    padding: 20px !important;
+    background: #FFFFFF !important;
+    border: 1.5px solid #E2E8F0 !important;
+    border-top: 4px solid #0891B2 !important;
+    border-radius: 18px !important;
+    box-shadow: 0 6px 20px -8px rgba(15, 23, 42, 0.08) !important;
+    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease !important;
+    height: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .pb-exam-set-card.is-practice-quiz {
+    border-top-color: #10B981 !important;
+    background: linear-gradient(180deg, rgba(240, 253, 250, 0.55) 0%, #FFFFFF 38%) !important;
+  }
+
+  .pb-exam-set-card.is-mock-exam {
+    border-top-color: #0891B2 !important;
+  }
+
+  .pb-exam-set-card.is-assigned-exam {
+    border-top-color: #0F766E !important;
+  }
+
+  .pb-exam-set-card:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: 0 14px 28px -10px rgba(8, 145, 178, 0.18) !important;
+  }
+
+  .pb-exam-set-card-header {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .pb-exam-set-card-top {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .pb-exam-badge-practice {
+    background: #D1FAE5 !important;
+    color: #065F46 !important;
+    border: 1px solid #6EE7B7 !important;
+    font-weight: 700 !important;
+  }
+
+  .pb-exam-badge-mock {
+    background: #E0F2FE !important;
+    color: #0369A1 !important;
+    border: 1px solid #7DD3FC !important;
+    font-weight: 700 !important;
+  }
+
+  .pb-exam-badge-assigned {
+    background: #CCFBF1 !important;
+    color: #0F766E !important;
+    border: 1px solid #5EEAD4 !important;
+    font-weight: 700 !important;
+  }
+
+  .pb-exam-set-meta-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin: 2px 0 !important;
+  }
+
+  .pb-exam-meta-box {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    padding: 8px 12px;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+    min-height: 50px;
+  }
+
+  .pb-exam-set-card.is-practice-quiz .pb-exam-meta-box {
+    background: #F0FDFA;
+    border-color: rgba(16, 185, 129, 0.22);
+  }
+
+  .pb-exam-meta-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748B;
+  }
+
+  .pb-exam-meta-val {
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: #0F172A;
+    line-height: 1.25;
+  }
+
+  .pb-exam-set-schedule-box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 12px;
+    background: #F8FAFC;
+    border-radius: 10px;
+    border: 1px dashed #CBD5E1;
+    font-size: 0.78rem;
+    color: #475569;
+  }
+
+  .pb-exam-set-footer {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    padding-top: 12px !important;
+    margin-top: auto !important;
+    border-top: 1px solid #E2E8F0 !important;
+  }
+
+  .pb-exam-set-footer .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }

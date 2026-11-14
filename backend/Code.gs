@@ -23302,7 +23302,8 @@ function getAuthorizedClassCalendarEventsStep13_(authContext, payload) {
         for (var rIdx = 0; rIdx < rawEvents.length; rIdx++) {
           var rev = rawEvents[rIdx];
           var revId = rev && typeof rev.getId === 'function' ? String(rev.getId() || '') : '';
-          if (!deletedIdsMap[revId]) {
+          var revTitle = rev && typeof rev.getTitle === 'function' ? String(rev.getTitle() || '').trim().toLowerCase() : '';
+          if (!deletedIdsMap[revId] && !(revTitle && deletedIdsMap['title:' + revTitle])) {
             filteredRaw.push(rev);
           }
         }
@@ -23757,17 +23758,26 @@ function adminDeleteCalendarEventStep13_(authContext, payload) {
   }
 
   return withScriptLock_(function () {
+    var reqTitleNorm = String(req.title || '').trim().toLowerCase();
     var customList = readPortalCustomCalendarEventsStep13_();
     var nextList = [];
     for (var i = 0; i < customList.length; i++) {
-      if (String(customList[i].eventId || '') !== eventId) {
-        nextList.push(customList[i]);
+      var cItem = customList[i] || {};
+      var cTitleNorm = String(cItem.title || '').trim().toLowerCase();
+      if (
+        String(cItem.eventId || '') !== eventId &&
+        !(reqTitleNorm && cTitleNorm === reqTitleNorm)
+      ) {
+        nextList.push(cItem);
       }
     }
     savePortalCustomCalendarEventsStep13_(nextList);
 
     var deletedMap = readPortalDeletedCalendarEventIdsStep13_();
     deletedMap[eventId] = true;
+    if (reqTitleNorm) {
+      deletedMap['title:' + reqTitleNorm] = true;
+    }
     savePortalDeletedCalendarEventIdsStep13_(deletedMap);
 
     /* Also attempt to delete from live Google Calendar if present */

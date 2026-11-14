@@ -14064,26 +14064,239 @@ var qrcode = (function() {
       }
     }
 
-    function handleAdminDeleteCalendarEventStep13(eventId, titleText, btnEl, areaEl) {
-      if (!eventId) return Promise.resolve();
-      if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
-        var ok = window.confirm('Remove calendar event "' + (titleText || eventId) + '" from the class schedule?');
-        if (!ok) return Promise.resolve();
+    var PBDeletedCalendarStore = (function () {
+      var STORAGE_KEY = 'pb_deleted_cal_events_v2';
+      var memoryMap = {};
+
+      function loadMap() {
+        var combined = {};
+        var k;
+        for (k in memoryMap) {
+          if (Object.prototype.hasOwnProperty.call(memoryMap, k)) combined[k] = true;
+        }
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            var raw = window.localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+              var parsed = JSON.parse(raw);
+              if (parsed && typeof parsed === 'object') {
+                for (k in parsed) {
+                  if (Object.prototype.hasOwnProperty.call(parsed, k) && parsed[k]) {
+                    combined[k] = true;
+                    memoryMap[k] = true;
+                  }
+                }
+              }
+            }
+          }
+        } catch (ignoreErr) {}
+        return combined;
       }
-      return withButtonAndAreaLoading(btnEl, areaEl, function () {
-        return rpcCallEnvelope('admin.deleteCalendarEvent', { eventId: eventId })
-          .then(function (env) {
-            var d = env.data || {};
-            if (typeof PBNotify === 'object' && PBNotify && typeof PBNotify.toast === 'function') {
-              PBNotify.toast('success', 'Calendar Event Removed', d.savedMessage || 'Event removed from schedule.');
+
+      function saveMap(mapObj) {
+        for (var k in mapObj) {
+          if (Object.prototype.hasOwnProperty.call(mapObj, k) && mapObj[k]) {
+            memoryMap[k] = true;
+          }
+        }
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(memoryMap));
+          }
+        } catch (ignoreErr) {}
+      }
+
+      function buildTitleDateKey(title, dateStr) {
+        var t = String(title || '').trim().toLowerCase();
+        var d = String(dateStr || '').trim().slice(0, 10);
+        if (!t) return '';
+        return 'td:' + t + '|' + d;
+      }
+
+      function markDeleted(eventId, title, dateStr, extraIds) {
+        var m = loadMap();
+        if (eventId) m['id:' + String(eventId).trim()] = true;
+        var tdKey = buildTitleDateKey(title, dateStr);
+        if (tdKey) m[tdKey] = true;
+        if (title) m['t:' + String(title).trim().toLowerCase()] = true;
+        if (Array.isArray(extraIds)) {
+          for (var i = 0; i < extraIds.length; i++) {
+            if (extraIds[i]) m['id:' + String(extraIds[i]).trim()] = true;
+          }
+        }
+        saveMap(m);
+      }
+
+      function unmarkOnCreate(title, dateStr) {
+        var m = loadMap();
+        var tKey = 't:' + String(title || '').trim().toLowerCase();
+        var tdKey = buildTitleDateKey(title, dateStr);
+        delete m[tKey];
+        delete m[tdKey];
+        delete memoryMap[tKey];
+        delete memoryMap[tdKey];
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(memoryMap));
+          }
+        } catch (ignoreErr) {}
+      }
+
+      function isEventDeleted(ev) {
+        if (!ev) return false;
+        var m = loadMap();
+        var eid = String(ev.eventId || '').trim();
+        var occId = String(ev.occurrenceId || '').trim();
+        if (eid && m['id:' + eid]) return true;
+        if (occId && m['id:' + occId]) return true;
+        var tKey = 't:' + String(ev.title || '').trim().toLowerCase();
+        if (ev.title && m[tKey]) return true;
+        var tdKey = buildTitleDateKey(ev.title, ev.startDateBkk);
+        if (tdKey && m[tdKey]) return true;
+        return false;
+      }
+
+      function filterAndDeduplicateBundle(bundle) {
+        if (!bundle || typeof bundle !== 'object') return bundle;
+        var rawEvents = Array.isArray(bundle.events) ? bundle.events : [];
+        var seenEventKeys = {};
+        var cleanEvents = [];
+        var courseCount = 0;
+        var schoolCount = 0;
+
+        for (var i = 0; i < rawEvents.length; i++) {
+          var ev = rawEvents[i];
+          if (!ev || isEventDeleted(ev)) continue;
+          var dedupKey =
+            String(ev.title || '').trim().toLowerCase() +
+            '|' +
+            String(ev.startDateBkk || '') +
+            '|' +
+            String(ev.timeLabelBkk || '') +
+            '|' +
+            String(ev.visibilityScope || '');
+          if (seenEventKeys[dedupKey]) continue;
+          seenEventKeys[dedupKey] = true;
+          cleanEvents.push(ev);
+          if (ev.visibilityScope === 'COURSE') courseCount++;
+          else schoolCount++;
+        }
+        bundle.events = cleanEvents;
+
+        if (bundle.eventsByDateBkk && typeof bundle.eventsByDateBkk === 'object') {
+          var dKeys = Object.keys(bundle.eventsByDateBkk);
+          for (var d = 0; d < dKeys.length; d++) {
+            var dk = dKeys[d];
+            var dayArr = Array.isArray(bundle.eventsByDateBkk[dk]) ? bundle.eventsByDateBkk[dk] : [];
+            var seenDayKeys = {};
+            var cleanDayArr = [];
+            for (var j = 0; j < dayArr.length; j++) {
+              var dev = dayArr[j];
+              if (!dev || isEventDeleted(dev)) continue;
+              var dayDedup =
+                String(dev.title || '').trim().toLowerCase() +
+                '|' +
+                String(dev.dayTimeLabelBkk || '') +
+                '|' +
+                String(dev.visibilityScope || '');
+              if (seenDayKeys[dayDedup]) continue;
+              seenDayKeys[dayDedup] = true;
+              cleanDayArr.push(dev);
             }
-            return loadClassCalendarMonthStep13(currentCalendarMonthKeyStep13);
-          })
-          .catch(function (err) {
-            if (typeof PBNotify === 'object' && PBNotify && typeof PBNotify.toast === 'function') {
-              PBNotify.toast('danger', 'Could Not Remove Event', (err && err.message) || 'Failed to remove event.');
+            bundle.eventsByDateBkk[dk] = cleanDayArr;
+          }
+        }
+
+        if (bundle.stats && typeof bundle.stats === 'object') {
+          bundle.stats.authorizedEventsReturned = cleanEvents.length;
+          bundle.stats.courseEventsReturned = courseCount;
+          bundle.stats.schoolWideEventsReturned = schoolCount;
+        }
+        return bundle;
+      }
+
+      return {
+        markDeleted: markDeleted,
+        unmarkOnCreate: unmarkOnCreate,
+        isEventDeleted: isEventDeleted,
+        filterAndDeduplicateBundle: filterAndDeduplicateBundle
+      };
+    })();
+
+    var currentInspectedCalendarEventObjStep13 = null;
+
+    function handleAdminDeleteCalendarEventStep13(eventId, titleText, btnEl, areaEl, opt_dateBkk) {
+      if (!eventId && !titleText) return Promise.resolve();
+
+      /* Collect all matching eventIds in the current bundle (in case the event exists in both custom storage and live Google Calendar) */
+      var matchingIds = [];
+      if (eventId) matchingIds.push(String(eventId).trim());
+      var normTitle = String(titleText || '').trim().toLowerCase();
+      if (currentCalendarBundleStep13 && Array.isArray(currentCalendarBundleStep13.events)) {
+        for (var i = 0; i < currentCalendarBundleStep13.events.length; i++) {
+          var cev = currentCalendarBundleStep13.events[i];
+          if (!cev) continue;
+          if (
+            (eventId && cev.eventId === eventId) ||
+            (normTitle && String(cev.title || '').trim().toLowerCase() === normTitle)
+          ) {
+            if (cev.eventId && matchingIds.indexOf(cev.eventId) === -1) {
+              matchingIds.push(cev.eventId);
             }
-          });
+          }
+        }
+      }
+
+      /* 1. Immediately mark deleted on client and update UI optimistically */
+      PBDeletedCalendarStore.markDeleted(eventId, titleText, opt_dateBkk || '', matchingIds);
+
+      var inspPanel = document.getElementById('calendar-event-detail-inspector');
+      if (inspPanel) inspPanel.classList.add('hidden');
+      currentInspectedCalendarEventObjStep13 = null;
+
+      if (currentCalendarBundleStep13) {
+        PBDeletedCalendarStore.filterAndDeduplicateBundle(currentCalendarBundleStep13);
+        var st = currentCalendarBundleStep13.stats || {};
+        setText(
+          'calendar-summary-total-events',
+          String(st.authorizedEventsReturned || 0) +
+            (st.authorizedEventsReturned === 1 ? ' event' : ' events')
+        );
+        setText(
+          'calendar-summary-breakdown',
+          String(st.courseEventsReturned || 0) +
+            ' Course / ' +
+            String(st.schoolWideEventsReturned || 0) +
+            ' School-Wide'
+        );
+        renderClassCalendarMonthGridStep13(currentCalendarBundleStep13);
+        renderClassCalendarAccessibleEventListStep13(
+          currentCalendarBundleStep13,
+          currentCalendarSelectedDayFilterStep13 || ''
+        );
+      }
+
+      if (typeof PBNotify === 'object' && PBNotify && typeof PBNotify.toast === 'function') {
+        PBNotify.toast(
+          'success',
+          'Calendar Event Deleted',
+          'Removed "' + (titleText || eventId) + '" from the class schedule.'
+        );
+      }
+
+      /* 2. Persist deletion to the backend for all matching IDs */
+      var deletePromises = [];
+      for (var m = 0; m < matchingIds.length; m++) {
+        deletePromises.push(
+          rpcCallEnvelope(
+            'admin.deleteCalendarEvent',
+            { eventId: matchingIds[m], title: titleText || '' },
+            { suppressErrorBanner: true }
+          ).catch(function () {})
+        );
+      }
+      return Promise.all(deletePromises).then(function () {
+        return loadClassCalendarMonthStep13(currentCalendarMonthKeyStep13);
       });
     }
 
@@ -14152,6 +14365,7 @@ var qrcode = (function() {
       var location = (document.getElementById('input-cal-event-location') || {}).value || '';
 
       setText('admin-cal-event-modal-status', 'Saving calendar event...');
+      PBDeletedCalendarStore.unmarkOnCreate(title.trim(), startDateBkk);
       return withButtonAndAreaLoading(submitBtn, formEl, function () {
         return rpcCallEnvelope('admin.createCalendarEvent', {
           title: title.trim(),
@@ -14413,6 +14627,12 @@ var qrcode = (function() {
         ? (opt_dateKey || evOrDate.startDateBkk || '')
         : String(evOrDate || opt_dateKey || '');
       currentInspectedCalendarDateBkk = dateKey;
+      currentInspectedCalendarEventObjStep13 = isEventObj ? evOrDate : null;
+
+      var delInspBtn = document.getElementById('btn-calendar-inspector-delete-event');
+      var isAdminViewer = Boolean(
+        currentSessionMeta && currentSessionMeta.user && currentSessionMeta.user.role === 'ADMIN'
+      );
 
       if (isEventObj) {
         setText(
@@ -14423,17 +14643,32 @@ var qrcode = (function() {
         );
         setText('calendar-inspector-date-badge', formatUnambiguousDateBkk(dateKey));
         setText('calendar-inspector-heading', evOrDate.title || 'Scheduled Session');
-        var timeText = evOrDate.timeLabelBkk || (evOrDate.isAllDay ? 'All-day' : 'Scheduled');
+        var timeText = evOrDate.timeLabelBkk || evOrDate.dayTimeLabelBkk || (evOrDate.isAllDay ? 'All-day' : 'Scheduled');
         var locText = evOrDate.location || 'Online Classroom';
-        setText('calendar-inspector-meta', timeText + ' (Asia/Bangkok)  |  Location: ' + locText);
+        setText('calendar-inspector-meta', timeText + ' (Bangkok Time)  •  Location: ' + locText);
+        if (delInspBtn) {
+          delInspBtn.classList.toggle('hidden', !isAdminViewer);
+          delInspBtn.onclick = function () {
+            handleAdminDeleteCalendarEventStep13(
+              evOrDate.eventId,
+              evOrDate.title,
+              delInspBtn,
+              panel,
+              dateKey
+            );
+          };
+        }
       } else {
         setText('calendar-inspector-scope-badge', 'Selected Date');
         setText('calendar-inspector-date-badge', formatUnambiguousDateBkk(dateKey));
         setText('calendar-inspector-heading', 'Events on ' + formatUnambiguousDateBkk(dateKey));
         setText(
           'calendar-inspector-meta',
-          'Showing scheduled sessions below for ' + formatUnambiguousDateBkk(dateKey) + ' (Asia/Bangkok).'
+          'Showing scheduled sessions below for ' + formatUnambiguousDateBkk(dateKey) + '.'
         );
+        if (delInspBtn) {
+          delInspBtn.classList.add('hidden');
+        }
       }
       panel.classList.remove('hidden');
     }
@@ -14584,15 +14819,23 @@ var qrcode = (function() {
                 var delPillBtn = document.createElement('button');
                 delPillBtn.type = 'button';
                 delPillBtn.className = 'calendar-event-pill-del-btn';
-                delPillBtn.title = 'Remove event';
-                delPillBtn.setAttribute('aria-label', 'Remove ' + ev.title);
+                delPillBtn.title = 'Delete event';
+                delPillBtn.setAttribute('aria-label', 'Delete ' + ev.title);
                 delPillBtn.textContent = '\u00D7';
                 delPillBtn.addEventListener('click', function (evt) {
                   evt.stopPropagation();
-                  handleAdminDeleteCalendarEventStep13(ev.eventId, ev.title, delPillBtn, cell);
+                  evt.preventDefault();
+                  handleAdminDeleteCalendarEventStep13(ev.eventId, ev.title, delPillBtn, cell, dateKey);
                 });
                 pill.appendChild(delPillBtn);
               }
+              pill.addEventListener('click', function (evt) {
+                evt.stopPropagation();
+                currentCalendarSelectedDayFilterStep13 = dateKey;
+                renderClassCalendarMonthGridStep13(bundle);
+                renderClassCalendarAccessibleEventListStep13(bundle, dateKey);
+                openCalendarEventDetailInspector(ev, dateKey);
+              });
               cell.appendChild(pill);
             })(dayEvents[eIdx]);
           }
@@ -14699,7 +14942,7 @@ var qrcode = (function() {
       })
         .then(function (env) {
           if (loadingEl) loadingEl.classList.add('hidden');
-          var d = env.data || {};
+          var d = PBDeletedCalendarStore.filterAndDeduplicateBundle(env.data || {});
           currentCalendarBundleStep13 = d;
 
           var r = d.range || {};
@@ -18468,14 +18711,52 @@ var qrcode = (function() {
     }
 
     // Student Course Examination Catalog & Instructions Modal Controller
+    function formatFriendlyExamBadgeText(raw) {
+      var s = String(raw || '').trim().toUpperCase();
+      var map = {
+        AVAILABLE: 'Open Now',
+        IN_PROGRESS_RESUMABLE: 'In Progress',
+        IN_PROGRESS: 'In Progress',
+        UPCOMING: 'Upcoming',
+        CLOSED: 'Closed',
+        NOT_STARTED: 'Not Started',
+        COMPLETED: 'Completed',
+        SUBMITTED: 'Submitted',
+        GRADED: 'Graded',
+        PUBLISHED: 'Score Released'
+      };
+      return map[s] || s.replace(/_/g, ' ');
+    }
+
+    function createExamMetricBoxDom(label, value) {
+      var box = document.createElement('div');
+      box.className = 'pb-exam-meta-box';
+      var lbl = document.createElement('span');
+      lbl.className = 'pb-exam-meta-label';
+      lbl.textContent = label;
+      var val = document.createElement('span');
+      val.className = 'pb-exam-meta-val';
+      val.textContent = value;
+      box.appendChild(lbl);
+      box.appendChild(val);
+      return box;
+    }
+
     function renderStudentCourseExamCatalogCardsPhase3(catalogBundle) {
       var data = catalogBundle || {};
       var exams = Array.isArray(data.exams) ? data.exams : [];
       currentStudentCourseExamsCatalogPhase3 = exams;
 
+      var pracCount = 0;
+      for (var p = 0; p < exams.length; p++) {
+        if (exams[p] && exams[p].examMode === 'PRACTICE') pracCount++;
+      }
+
       setText(
         'student-course-exams-count-badge',
-        String(exams.length) + (exams.length === 1 ? ' Examination Set' : ' Examination Sets')
+        String(exams.length) +
+          (exams.length === 1 ? ' Assessment' : ' Assessments') +
+          (pracCount > 0 ? ' (' + pracCount + ' Practice)' : '')
       );
 
       var emptyBox = document.getElementById('student-course-exams-empty');
@@ -18495,22 +18776,51 @@ var qrcode = (function() {
 
       for (var i = 0; i < exams.length; i++) {
         (function (exam) {
-          var card = document.createElement('article');
-          card.className = 'pb-exam-set-card';
+          var isPractice = exam.examMode === 'PRACTICE';
+          var isMock = exam.examMode === 'MOCK_EXAM';
 
-          // Top Badges Row (Mode + Orthogonal Availability & Completion States)
+          var card = document.createElement('article');
+          card.className =
+            'pb-exam-set-card ' +
+            (isPractice
+              ? 'is-practice-quiz'
+              : isMock
+              ? 'is-mock-exam'
+              : 'is-assigned-exam');
+
+          var headerWrap = document.createElement('div');
+          headerWrap.className = 'pb-exam-set-card-header';
+
+          // Top Badges Row (Format Badge on Left, Status Badges on Right)
           var topRow = document.createElement('div');
           topRow.className = 'pb-exam-set-card-top';
 
+          var leftBadges = document.createElement('div');
+          leftBadges.style.display = 'flex';
+          leftBadges.style.alignItems = 'center';
+          leftBadges.style.gap = '6px';
+          leftBadges.style.flexWrap = 'wrap';
+
           var modeBadge = document.createElement('span');
           modeBadge.className =
-            exam.examMode === 'MOCK_EXAM'
-              ? 'badge badge-warning'
-              : exam.examMode === 'ASSIGNED_ASSESSMENT'
-              ? 'badge badge-ok'
-              : 'badge';
-          modeBadge.textContent = exam.examModeLabel || exam.examMode;
-          topRow.appendChild(modeBadge);
+            'badge ' +
+            (isPractice
+              ? 'pb-exam-badge-practice'
+              : isMock
+              ? 'pb-exam-badge-mock'
+              : 'pb-exam-badge-assigned');
+          modeBadge.textContent = isPractice
+            ? 'Practice Quiz'
+            : isMock
+            ? 'Timed Mock Exam'
+            : exam.examModeLabel || 'Course Assessment';
+          leftBadges.appendChild(modeBadge);
+
+          var rightBadges = document.createElement('div');
+          rightBadges.style.display = 'flex';
+          rightBadges.style.alignItems = 'center';
+          rightBadges.style.gap = '6px';
+          rightBadges.style.flexWrap = 'wrap';
 
           var availBadge = document.createElement('span');
           availBadge.className =
@@ -18518,74 +18828,112 @@ var qrcode = (function() {
               ? 'badge badge-ok'
               : exam.availabilityState === 'UPCOMING'
               ? 'badge badge-warning'
-              : 'badge';
-          availBadge.textContent = exam.availabilityState.replace(/_/g, ' ');
-          topRow.appendChild(availBadge);
+              : 'badge badge-incomplete';
+          availBadge.textContent = formatFriendlyExamBadgeText(exam.availabilityState);
+          rightBadges.appendChild(availBadge);
 
           var compBadge = document.createElement('span');
-          compBadge.className = 'badge';
-          compBadge.textContent = exam.completionState.replace(/_/g, ' ');
-          topRow.appendChild(compBadge);
+          compBadge.className =
+            exam.completionState === 'COMPLETED'
+              ? 'badge badge-ok'
+              : exam.completionState === 'IN_PROGRESS'
+              ? 'badge badge-warning'
+              : 'badge';
+          compBadge.textContent = formatFriendlyExamBadgeText(exam.completionState);
+          rightBadges.appendChild(compBadge);
 
-          card.appendChild(topRow);
+          topRow.appendChild(leftBadges);
+          topRow.appendChild(rightBadges);
+          headerWrap.appendChild(topRow);
 
-          // Title & Code
+          // Code Subtitle & Title
           var codeLabel = document.createElement('div');
           codeLabel.className = 'pb-exam-set-code';
-          codeLabel.textContent = exam.examCode + ' | Native Online Examination';
-          card.appendChild(codeLabel);
+          codeLabel.textContent =
+            (exam.examCode || 'BIO-QUIZ') +
+            (isPractice
+              ? ' • Self-Paced Practice & Answer Key'
+              : isMock
+              ? ' • Timed Mock Examination'
+              : ' • Official Course Assessment');
+          headerWrap.appendChild(codeLabel);
 
           var titleH3 = document.createElement('h3');
           titleH3.className = 'pb-exam-set-title';
-          titleH3.textContent = exam.title;
-          card.appendChild(titleH3);
+          titleH3.textContent = exam.title || 'Biology Practice Quiz';
+          headerWrap.appendChild(titleH3);
 
-          var descP = document.createElement('p');
-          descP.className = 'pb-exam-set-desc';
-          descP.textContent = exam.descriptionPlainText || '';
-          card.appendChild(descP);
+          if (exam.descriptionPlainText) {
+            var descP = document.createElement('p');
+            descP.className = 'pb-exam-set-desc';
+            descP.textContent = exam.descriptionPlainText;
+            headerWrap.appendChild(descP);
+          }
 
-          // 4-Metric Pill Grid (Questions, Max Score, Time Limit, Attempts)
+          card.appendChild(headerWrap);
+
+          // Uniform 2x2 Metric Grid (Questions, Total Score, Time Limit, Attempts)
           var metaGrid = document.createElement('div');
           metaGrid.className = 'pb-exam-set-meta-grid';
 
-          var m1 = document.createElement('div');
-          m1.className = 'pb-exam-meta-pill';
-          m1.textContent = 'Questions: ' + exam.questionCount + ' (' + exam.sectionCount + ' sec)';
-          metaGrid.appendChild(m1);
-
-          var m2 = document.createElement('div');
-          m2.className = 'pb-exam-meta-pill';
-          m2.textContent = 'Max Score: ' + exam.maxPointsDisplay;
-          metaGrid.appendChild(m2);
-
-          var m3 = document.createElement('div');
-          m3.className = 'pb-exam-meta-pill';
-          m3.textContent = 'Time: ' + exam.durationLabel;
-          metaGrid.appendChild(m3);
-
-          var m4 = document.createElement('div');
-          m4.className = 'pb-exam-meta-pill';
-          m4.textContent = 'Attempts: ' + exam.attemptsUsed + ' / ' + exam.allowedAttemptsDisplay;
-          metaGrid.appendChild(m4);
+          metaGrid.appendChild(
+            createExamMetricBoxDom(
+              'Questions',
+              String(exam.questionCount || 0) +
+                (exam.questionCount === 1 ? ' Question' : ' Questions')
+            )
+          );
+          metaGrid.appendChild(
+            createExamMetricBoxDom('Total Score', exam.maxPointsDisplay || '0 pts')
+          );
+          metaGrid.appendChild(
+            createExamMetricBoxDom(
+              'Time Limit',
+              exam.durationLabel || (isPractice ? 'Untimed (Self-Paced)' : 'Untimed')
+            )
+          );
+          metaGrid.appendChild(
+            createExamMetricBoxDom(
+              'Attempts',
+              String(exam.attemptsUsed || 0) + ' / ' + (exam.allowedAttemptsDisplay || 'Unlimited')
+            )
+          );
 
           card.appendChild(metaGrid);
 
-          // Availability window line
-          var winDiv = document.createElement('div');
-          winDiv.className = 'pb-exam-set-window';
-          winDiv.textContent =
-            'Window: ' + exam.openAtBangkok + ' -> ' + exam.closeAtBangkok;
-          card.appendChild(winDiv);
+          // Clean Schedule & Feedback Box
+          var schedBox = document.createElement('div');
+          schedBox.className = 'pb-exam-set-schedule-box';
 
-          // Published Score Banner (if released) or Orthogonal Status Line
+          var openLabel =
+            !exam.openAtBangkok || exam.openAtBangkok === 'Immediate'
+              ? 'Open Anytime'
+              : 'Opens ' + exam.openAtBangkok;
+          var closeLabel =
+            !exam.closeAtBangkok || exam.closeAtBangkok === 'No Deadline'
+              ? 'No Closing Deadline'
+              : 'Closes ' + exam.closeAtBangkok;
+          var winLine = document.createElement('div');
+          winLine.textContent = 'Schedule: ' + openLabel + '  •  ' + closeLabel;
+          schedBox.appendChild(winLine);
+
+          if (isPractice) {
+            var pracLine = document.createElement('div');
+            pracLine.style.color = '#065F46';
+            pracLine.style.fontWeight = '600';
+            pracLine.textContent = exam.allowPerQuestionPracticeFeedback
+              ? '✓ Instant per-question answer check & explanations enabled'
+              : '✓ Full answer key & explanations available upon submission';
+            schedBox.appendChild(pracLine);
+          }
+          card.appendChild(schedBox);
+
+          // Published Score Banner (if released) or Clean Attempt Summary
           if (exam.publishedScoreSummary) {
             var scoreBar = document.createElement('div');
             scoreBar.className = 'pb-assessment-inline-score-banner';
             scoreBar.textContent =
-              'Published Score (' +
-              exam.publishedScoreSummary.aggregationRule +
-              '): ' +
+              'Latest Score: ' +
               exam.publishedScoreSummary.scoreDisplay +
               ' (' +
               exam.publishedScoreSummary.percentageFormatted +
@@ -18593,19 +18941,18 @@ var qrcode = (function() {
             card.appendChild(scoreBar);
           } else if (exam.attemptsUsed > 0) {
             var holdNote = document.createElement('div');
-            holdNote.style.fontSize = '0.78rem';
+            holdNote.style.fontSize = '0.8rem';
+            holdNote.style.fontWeight = '600';
             holdNote.style.color = 'var(--color-text-secondary)';
             holdNote.textContent =
-              'Attempt Status: ' +
-              exam.attemptStatusSummary +
-              ' | Grading: ' +
-              exam.gradingStatusSummary +
-              ' | Score Publication: ' +
-              exam.publicationStatusSummary;
+              'Progress: ' +
+              (exam.attemptStatusSummary || 'Submitted') +
+              '  •  ' +
+              (exam.publicationStatusSummary || 'Awaiting Score Release');
             card.appendChild(holdNote);
           }
 
-          // Footer Action Button
+          // Footer Action Buttons
           var footerRow = document.createElement('div');
           footerRow.className = 'pb-exam-set-footer';
 
@@ -18615,7 +18962,20 @@ var qrcode = (function() {
             exam.canStartNewAttempt || exam.canResumeAttempt
               ? 'btn btn-primary btn-sm'
               : 'btn btn-secondary btn-sm';
-          actBtn.textContent = exam.primaryActionLabel || 'View Instructions & Start';
+
+          var defaultCta = isPractice
+            ? exam.canResumeAttempt
+              ? 'Resume Practice Quiz'
+              : exam.attemptsUsed > 0
+              ? 'Retake Practice Quiz'
+              : 'Start Practice Quiz'
+            : exam.primaryActionLabel || 'View Instructions & Start';
+
+          actBtn.textContent =
+            exam.primaryActionType === 'VIEW_RESULT' && exam.canViewPublishedResult
+              ? 'Review Score & Answer Key'
+              : defaultCta;
+
           actBtn.addEventListener('click', function () {
             runButtonWithLoadingState(actBtn, 'Loading...', function () {
               if (exam.primaryActionType === 'VIEW_RESULT' && exam.canViewPublishedResult) {
@@ -18625,6 +18985,23 @@ var qrcode = (function() {
             });
           });
           footerRow.appendChild(actBtn);
+
+          if (
+            exam.canViewPublishedResult &&
+            exam.primaryActionType !== 'VIEW_RESULT' &&
+            (exam.canStartNewAttempt || exam.canResumeAttempt)
+          ) {
+            var revBtn = document.createElement('button');
+            revBtn.type = 'button';
+            revBtn.className = 'btn btn-outline btn-sm';
+            revBtn.textContent = 'View Past Result';
+            revBtn.addEventListener('click', function () {
+              runButtonWithLoadingState(revBtn, 'Opening...', function () {
+                return openStudentPublishedExamResultModalPhase7(exam.examSetId, '');
+              });
+            });
+            footerRow.appendChild(revBtn);
+          }
 
           card.appendChild(footerRow);
           gridEl.appendChild(card);
@@ -18663,13 +19040,88 @@ var qrcode = (function() {
         });
     }
 
+    function buildFallbackAdminPreviewInstructionsBundle(examSetId) {
+      var found = null;
+      if (Array.isArray(currentAdminExamsListPhase3)) {
+        for (var i = 0; i < currentAdminExamsListPhase3.length; i++) {
+          if (currentAdminExamsListPhase3[i] && currentAdminExamsListPhase3[i].examSetId === examSetId) {
+            found = currentAdminExamsListPhase3[i];
+            break;
+          }
+        }
+      }
+      if (!found) return null;
+      var secs = Array.isArray(found.sections) ? found.sections : [];
+      var secOverview = [];
+      for (var s = 0; s < secs.length; s++) {
+        var sitems = Array.isArray(secs[s].items) ? secs[s].items : [];
+        secOverview.push({
+          title: secs[s].title || 'Part ' + (s + 1),
+          selectionMode: secs[s].selectionMode || 'FIXED_ITEMS',
+          selectionModeLabel:
+            secs[s].selectionMode === 'QUESTION_POOL'
+              ? 'Random Pool (' + (secs[s].poolDrawCount || sitems.length) + ' drawn)'
+              : 'All Questions in Order',
+          sectionQuestionsCount: sitems.length,
+          sectionMaxPointsDisplay: found.maxPointsDisplay || (sitems.length * 2) + ' pts'
+        });
+      }
+      return {
+        exam: {
+          examSetId: found.examSetId,
+          examCode: found.examCode || 'DRAFT-EXAM',
+          title: found.title || 'Untitled Exam',
+          courseId: found.courseId || '',
+          courseCode: found.courseCode || '',
+          courseTitle: found.courseTitle || '',
+          examMode: found.examMode || 'MOCK_EXAM',
+          examModeLabel: found.examModeLabel || found.examMode || 'Examination',
+          availabilityState: found.status || 'DRAFT',
+          questionCount: found.questionCount || (secs[0] && secs[0].items ? secs[0].items.length : 0),
+          sectionCount: secs.length || 1,
+          maxPointsDisplay: found.maxPointsDisplay || '0 pts',
+          durationMinutes: Number(found.durationMinutes || 0),
+          effectiveDurationMinutes: Number(found.durationMinutes || 0),
+          durationLabel: Number(found.durationMinutes || 0) > 0 ? found.durationMinutes + ' min' : 'Untimed',
+          attemptsUsed: 0,
+          allowedAttemptsDisplay: Number(found.maxAttempts || 0) === 0 ? 'Unlimited' : String(found.maxAttempts || 1),
+          aggregationRule: found.aggregationRule || 'BEST_PUBLISHED',
+          openAtBangkok: found.openAtBangkok || 'Immediate',
+          closeAtBangkok: found.closeAtBangkok || 'No Deadline',
+          scoreReleasePolicy: found.scoreReleasePolicy || 'IMMEDIATE_AUTO',
+          explanationReleasePolicy: found.explanationReleasePolicy || 'WITH_SCORE',
+          allowPerQuestionPracticeFeedback: Boolean(found.allowPerQuestionPracticeFeedback),
+          instructionsRichText: found.instructionsRichText || found.descriptionRichText || '',
+          sectionsOverview: secOverview,
+          sections: secs,
+          canStartNewAttempt: true,
+          canResumeAttempt: false,
+          _isAdminPreview: true
+        },
+        rulesChecklist: [
+          'Administrator Preview Mode: You can test-drive all questions, options, and instant answer checks without affecting student records.',
+          'Time Limit: ' + (Number(found.durationMinutes || 0) > 0 ? found.durationMinutes + ' minutes' : 'Untimed (Self-Paced)')
+        ],
+        integrityPolicy: {
+          copyPolicyEnabled: Boolean(found.copyPolicyEnabled !== false),
+          policyVersion: 'pb-exam-integrity-v1'
+        }
+      };
+    }
+
     function openStudentExamInstructionsModalPhase3(examSetId, opt_isAdminPreview) {
       var modal = document.getElementById('modal-student-exam-instructions');
-      if (!modal) return;
+      if (!modal) return Promise.resolve(null);
       modal.classList.remove('hidden');
 
+      var isAdminPrev = Boolean(opt_isAdminPreview);
+      var closeBtnFooter = document.getElementById('btn-exam-inst-close');
+      if (closeBtnFooter) {
+        closeBtnFooter.textContent = isAdminPrev ? 'Close Preview' : 'Back to Course Catalog';
+      }
+
       setText('exam-inst-title', 'Loading Examination Preview & Instructions...');
-      setText('exam-inst-status-message', 'Fetching authoritative examination rules and eligibility...');
+      setText('exam-inst-status-message', 'Fetching examination rules, sections, and question preview...');
       setText('exam-inst-question-count', 'Loading...');
       setText('exam-inst-max-points', 'Loading...');
       setText('exam-inst-duration', 'Loading...');
@@ -18677,119 +19129,156 @@ var qrcode = (function() {
       renderModalSkeletonBlock('exam-inst-richtext-body', 1);
       renderTableSkeletonRows('exam-inst-sections-tbody', 4, 2);
 
-      return rpcCallEnvelope('exams.getInstructions', {
-        examSetId: examSetId,
-        adminPreview: Boolean(opt_isAdminPreview)
-      })
+      function applyInstructionsBundleToModal(data) {
+        var ex = (data && data.exam) || {};
+        ex._isAdminPreview = isAdminPrev;
+        currentSelectedInstructionExamPhase3 = ex;
+
+        setText('exam-inst-mode-badge', ex.examModeLabel || ex.examMode || 'Examination');
+        setText('exam-inst-code-badge', ex.examCode || '');
+        setText(
+          'exam-inst-availability-badge',
+          isAdminPrev ? 'ADMIN PREVIEW' : formatFriendlyExamBadgeText(ex.availabilityState || 'AVAILABLE')
+        );
+        setText('exam-inst-title', ex.title || 'Examination Instructions');
+        setText(
+          'exam-inst-course-label',
+          ex.courseCode ? ex.courseCode + ' — ' + ex.courseTitle : 'Assigned Biology Examination'
+        );
+
+        setText(
+          'exam-inst-question-count',
+          String(ex.questionCount || 0) + ' Questions (' + String(ex.sectionCount || 1) + ' Section(s))'
+        );
+        setText('exam-inst-max-points', ex.maxPointsDisplay || '0 pts');
+        setText(
+          'exam-inst-duration',
+          (ex.durationLabel || 'Untimed') +
+            (ex.hasTimeAccommodation ? ' (+' + ex.extraTimeMinutes + 'm Accommodation)' : '')
+        );
+        setText(
+          'exam-inst-attempts',
+          String(ex.attemptsUsed || 0) + ' used of ' + (ex.allowedAttemptsDisplay || '1')
+        );
+        setText('exam-inst-window', (ex.openAtBangkok || 'Immediate') + ' to ' + (ex.closeAtBangkok || 'No Deadline'));
+        setText(
+          'exam-inst-release-policy',
+          'Score: ' + (ex.scoreReleasePolicy || '-') + ' • Key: ' + (ex.explanationReleasePolicy || '-')
+        );
+
+        renderRichTextDocumentToDom(
+          document.getElementById('exam-inst-richtext-body'),
+          ex.instructionsRichText || ex.descriptionRichText || 'Complete all questions before submitting.',
+          ex.courseId
+        );
+
+        var secTbody = document.getElementById('exam-inst-sections-tbody');
+        if (secTbody) {
+          while (secTbody.firstChild) secTbody.removeChild(secTbody.firstChild);
+          var secs = Array.isArray(ex.sectionsOverview) ? ex.sectionsOverview : [];
+          for (var s = 0; s < secs.length; s++) {
+            var tr = document.createElement('tr');
+            var td1 = document.createElement('td');
+            td1.textContent = (s + 1) + '. ' + secs[s].title;
+            tr.appendChild(td1);
+
+            var td2 = document.createElement('td');
+            td2.textContent = secs[s].selectionModeLabel || secs[s].selectionMode;
+            tr.appendChild(td2);
+
+            var td3 = document.createElement('td');
+            td3.textContent = String(secs[s].sectionQuestionsCount || 0);
+            tr.appendChild(td3);
+
+            var td4 = document.createElement('td');
+            td4.textContent = secs[s].sectionMaxPointsDisplay || '0 pts';
+            tr.appendChild(td4);
+
+            secTbody.appendChild(tr);
+          }
+        }
+
+        var rulesUl = document.getElementById('exam-inst-rules-list');
+        if (rulesUl) {
+          while (rulesUl.firstChild) rulesUl.removeChild(rulesUl.firstChild);
+          var rules = Array.isArray(data.rulesChecklist) ? data.rulesChecklist : [];
+          for (var r = 0; r < rules.length; r++) {
+            var li = document.createElement('li');
+            li.textContent = rules[r];
+            rulesUl.appendChild(li);
+          }
+        }
+
+        if (typeof populatePreExamIntegrityDisclosurePhaseC === 'function') {
+          populatePreExamIntegrityDisclosurePhaseC(ex, data.integrityPolicy || ex.integrityPolicy || null);
+        }
+
+        var ackChk = document.getElementById('chk-exam-inst-integrity-ack');
+        if (isAdminPrev && ackChk) {
+          ackChk.checked = true;
+        }
+
+        var startBtn = document.getElementById('btn-exam-inst-start-attempt');
+        if (startBtn) {
+          startBtn.classList.remove('is-btn-loading');
+          if (isAdminPrev) {
+            startBtn.disabled = false;
+            startBtn.textContent = 'Launch Interactive Question Preview';
+            setText(
+              'exam-inst-status-message',
+              'Admin Preview Mode: Click "Launch Interactive Question Preview" to step through the live exam workspace and test questions.'
+            );
+          } else if (ex.canResumeAttempt) {
+            startBtn.disabled = false;
+            startBtn.textContent = ex.examMode === 'PRACTICE' ? 'Resume Practice Quiz' : 'Resume Active Attempt';
+            setText(
+              'exam-inst-status-message',
+              'You have an active attempt in progress. Clicking Resume will restore your saved responses.'
+            );
+          } else if (ex.canStartNewAttempt) {
+            startBtn.disabled = false;
+            startBtn.textContent =
+              ex.examMode === 'PRACTICE'
+                ? ex.attemptsUsed > 0
+                  ? 'Start Practice Retake'
+                  : 'Start Practice Quiz'
+                : ex.attemptsUsed > 0
+                ? 'Start Retake Attempt'
+                : 'Start Examination';
+            setText(
+              'exam-inst-status-message',
+              'You are ready to begin. Your timer starts only after you click Start.'
+            );
+          } else {
+            startBtn.disabled = true;
+            startBtn.textContent = 'Not Available (' + formatFriendlyExamBadgeText(ex.availabilityState || 'CLOSED') + ')';
+            setText(
+              'exam-inst-status-message',
+              'This assessment cannot be started right now because its status is ' + formatFriendlyExamBadgeText(ex.availabilityState || 'CLOSED') + '.'
+            );
+          }
+        }
+      }
+
+      return rpcCallEnvelope(
+        'exams.getInstructions',
+        {
+          examSetId: examSetId,
+          adminPreview: isAdminPrev
+        },
+        { suppressErrorBanner: isAdminPrev }
+      )
         .then(function (env) {
-          var data = env.data || {};
-          var ex = data.exam || {};
-          currentSelectedInstructionExamPhase3 = ex;
-
-          setText('exam-inst-mode-badge', ex.examModeLabel || ex.examMode || 'Examination');
-          setText('exam-inst-code-badge', ex.examCode || '');
-          setText('exam-inst-availability-badge', (ex.availabilityState || 'AVAILABLE').replace(/_/g, ' '));
-          setText('exam-inst-title', ex.title || 'Examination Instructions');
-          setText(
-            'exam-inst-course-label',
-            ex.courseCode ? ex.courseCode + ' — ' + ex.courseTitle : 'Assigned Biology Examination'
-          );
-
-          setText(
-            'exam-inst-question-count',
-            String(ex.questionCount || 0) + ' Questions (' + String(ex.sectionCount || 1) + ' Section(s))'
-          );
-          setText('exam-inst-max-points', ex.maxPointsDisplay || '0 pts');
-          setText(
-            'exam-inst-duration',
-            (ex.durationLabel || 'Untimed') +
-              (ex.hasTimeAccommodation ? ' (+' + ex.extraTimeMinutes + 'm Accommodation)' : '')
-          );
-          setText(
-            'exam-inst-attempts',
-            String(ex.attemptsUsed || 0) + ' used of ' + (ex.allowedAttemptsDisplay || '1') + ' (' + (ex.aggregationRule || 'BEST_PUBLISHED') + ')'
-          );
-          setText('exam-inst-window', (ex.openAtBangkok || 'Immediate') + ' to ' + (ex.closeAtBangkok || 'No Deadline'));
-          setText(
-            'exam-inst-release-policy',
-            'Score: ' + (ex.scoreReleasePolicy || '-') + ' | Key: ' + (ex.explanationReleasePolicy || '-')
-          );
-
-          renderRichTextDocumentToDom(
-            document.getElementById('exam-inst-richtext-body'),
-            ex.instructionsRichText,
-            ex.courseId
-          );
-
-          var secTbody = document.getElementById('exam-inst-sections-tbody');
-          if (secTbody) {
-            while (secTbody.firstChild) secTbody.removeChild(secTbody.firstChild);
-            var secs = Array.isArray(ex.sectionsOverview) ? ex.sectionsOverview : [];
-            for (var s = 0; s < secs.length; s++) {
-              var tr = document.createElement('tr');
-              var td1 = document.createElement('td');
-              td1.textContent = (s + 1) + '. ' + secs[s].title;
-              tr.appendChild(td1);
-
-              var td2 = document.createElement('td');
-              td2.textContent = secs[s].selectionModeLabel || secs[s].selectionMode;
-              tr.appendChild(td2);
-
-              var td3 = document.createElement('td');
-              td3.textContent = String(secs[s].sectionQuestionsCount || 0);
-              tr.appendChild(td3);
-
-              var td4 = document.createElement('td');
-              td4.textContent = secs[s].sectionMaxPointsDisplay || '0 pts';
-              tr.appendChild(td4);
-
-              secTbody.appendChild(tr);
-            }
-          }
-
-          var rulesUl = document.getElementById('exam-inst-rules-list');
-          if (rulesUl) {
-            while (rulesUl.firstChild) rulesUl.removeChild(rulesUl.firstChild);
-            var rules = Array.isArray(data.rulesChecklist) ? data.rulesChecklist : [];
-            for (var r = 0; r < rules.length; r++) {
-              var li = document.createElement('li');
-              li.textContent = rules[r];
-              rulesUl.appendChild(li);
-            }
-          }
-
-          if (typeof populatePreExamIntegrityDisclosurePhaseC === 'function') {
-            populatePreExamIntegrityDisclosurePhaseC(ex, data.integrityPolicy || ex.integrityPolicy || null);
-          }
-
-          var startBtn = document.getElementById('btn-exam-inst-start-attempt');
-          if (startBtn) {
-            if (ex.canResumeAttempt) {
-              startBtn.disabled = false;
-              startBtn.textContent = 'Resume Active Attempt';
-              setText(
-                'exam-inst-status-message',
-                'You have an active attempt in progress. Clicking Resume will restore your saved responses and server deadline.'
-              );
-            } else if (ex.canStartNewAttempt) {
-              startBtn.disabled = false;
-              startBtn.textContent =
-                ex.attemptsUsed > 0 ? 'Start Retake Attempt' : 'Start Authorized Attempt';
-              setText(
-                'exam-inst-status-message',
-                'You are eligible to begin this examination. Your countdown timer will start only after you click Start.'
-              );
-            } else {
-              startBtn.disabled = true;
-              startBtn.textContent = 'Attempt Not Available (' + (ex.availabilityState || 'CLOSED') + ')';
-              setText(
-                'exam-inst-status-message',
-                'This examination cannot be started right now because its state is ' + (ex.availabilityState || 'CLOSED') + '.'
-              );
-            }
-          }
+          applyInstructionsBundleToModal(env.data || {});
         })
         .catch(function (err) {
+          if (isAdminPrev) {
+            var fallback = buildFallbackAdminPreviewInstructionsBundle(examSetId);
+            if (fallback) {
+              applyInstructionsBundleToModal(fallback);
+              return;
+            }
+          }
           setText('exam-inst-title', 'Unable to Load Instructions');
           setText('exam-inst-status-message', (err && err.message) || 'Error loading examination rules.');
         });
@@ -19083,6 +19572,24 @@ var qrcode = (function() {
           return Promise.resolve(getSnapshot());
         }
 
+        if (state.attempt._isAdminPreview) {
+          var prevDirtyIds = Object.keys(state.pendingDirtyByItemId);
+          for (var p = 0; p < prevDirtyIds.length; p++) {
+            var pid = prevDirtyIds[p];
+            delete state.pendingDirtyByItemId[pid];
+            if (state.localResponsesByItemId[pid]) {
+              state.localResponsesByItemId[pid].isSavedOnServer = Boolean(
+                state.localResponsesByItemId[pid].isAnsweredLocal
+              );
+              state.localResponsesByItemId[pid].savedAtBangkok = 'Preview Mode';
+            }
+          }
+          state.saveState = 'SAVED';
+          state.lastSavedAtBangkok = 'Preview Mode';
+          notifyListeners();
+          return Promise.resolve(getSnapshot());
+        }
+
         var dirtyIds = Object.keys(state.pendingDirtyByItemId);
         if (dirtyIds.length === 0) {
           return Promise.resolve(getSnapshot());
@@ -19188,6 +19695,10 @@ var qrcode = (function() {
         state.itemsById[attemptItemId].isFlagged = nextFlag;
         notifyListeners();
 
+        if (state.attempt._isAdminPreview) {
+          return Promise.resolve({ flaggedCount: getSnapshot().flaggedCount });
+        }
+
         return rpcCallEnvelope('exams.saveFlags', {
           attemptId: state.attempt.attemptId,
           leaseToken: state.attempt.leaseToken,
@@ -19252,8 +19763,204 @@ var qrcode = (function() {
       };
     })();
 
+    function launchAdminInteractiveExamWorkspacePreview(examDto) {
+      var startBtn = document.getElementById('btn-exam-inst-start-attempt');
+      if (startBtn) {
+        startBtn.disabled = true;
+        startBtn.classList.add('is-btn-loading');
+        startBtn.textContent = 'Building Interactive Question Preview...';
+      }
+
+      var ensureQuestionsLoaded =
+        Array.isArray(currentQBankQuestionsPhase2) && currentQBankQuestionsPhase2.length > 0
+          ? Promise.resolve(currentQBankQuestionsPhase2)
+          : rpcCallEnvelope('admin.qbank.listQuestions', { page: 1, pageSize: 200 }, { suppressErrorBanner: true })
+              .then(function (env) {
+                var d = env.data || {};
+                currentQBankQuestionsPhase2 = Array.isArray(d.questions) ? d.questions : [];
+                return currentQBankQuestionsPhase2;
+              })
+              .catch(function () {
+                return [];
+              });
+
+      var ensureExamsLoaded =
+        Array.isArray(currentAdminExamsListPhase3) && currentAdminExamsListPhase3.length > 0
+          ? Promise.resolve(currentAdminExamsListPhase3)
+          : rpcCallEnvelope('admin.exams.list', {}, { suppressErrorBanner: true })
+              .then(function (env) {
+                var d = env.data || {};
+                currentAdminExamsListPhase3 = Array.isArray(d.exams) ? d.exams : [];
+                return currentAdminExamsListPhase3;
+              })
+              .catch(function () {
+                return [];
+              });
+
+      return Promise.all([ensureQuestionsLoaded, ensureExamsLoaded]).then(function () {
+        var adminExam = null;
+        if (Array.isArray(currentAdminExamsListPhase3)) {
+          for (var i = 0; i < currentAdminExamsListPhase3.length; i++) {
+            if (currentAdminExamsListPhase3[i] && currentAdminExamsListPhase3[i].examSetId === examDto.examSetId) {
+              adminExam = currentAdminExamsListPhase3[i];
+              break;
+            }
+          }
+        }
+        var qById = {};
+        if (Array.isArray(currentQBankQuestionsPhase2)) {
+          for (var q = 0; q < currentQBankQuestionsPhase2.length; q++) {
+            var qb = currentQBankQuestionsPhase2[q];
+            if (qb && qb.questionId) qById[qb.questionId] = qb;
+          }
+        }
+
+        var secs = (adminExam && Array.isArray(adminExam.sections) && adminExam.sections) || examDto.sections || [];
+        var previewItems = [];
+        var dispNum = 1;
+        for (var s = 0; s < secs.length; s++) {
+          var sec = secs[s] || {};
+          var secItems = Array.isArray(sec.items) ? sec.items : [];
+          for (var it = 0; it < secItems.length; it++) {
+            var qId = secItems[it].questionId || secItems[it].question_id || '';
+            var fullQ = qById[qId] || secItems[it].question || {};
+            var rawOpts = Array.isArray(fullQ.options) ? fullQ.options : [];
+            var mappedOpts = [];
+            for (var o = 0; o < rawOpts.length; o++) {
+              mappedOpts.push({
+                optionId: rawOpts[o].optionId || 'opt_' + (o + 1),
+                optionKey: rawOpts[o].optionKey || String.fromCharCode(65 + o),
+                displayLabel: rawOpts[o].optionKey || String.fromCharCode(65 + o),
+                contentRichText: rawOpts[o].contentRichText || rawOpts[o].text || '',
+                isCorrect: Boolean(rawOpts[o].isCorrect)
+              });
+            }
+            var pts = Number(fullQ.defaultPoints || secItems[it].points || 2);
+            previewItems.push({
+              attemptItemId: 'prev_item_' + dispNum,
+              displayNumber: dispNum,
+              sectionTitle: sec.title || 'Part I',
+              pointsBp: Math.round(pts * 100),
+              pointsDisplay: pts + (pts === 1 ? ' pt' : ' pts'),
+              negativePointsBp: 0,
+              negativePointsDisplay: '0 pts',
+              isFlagged: false,
+              question: {
+                questionId: qId || 'q_prev_' + dispNum,
+                questionCode: fullQ.questionCode || 'Q-' + dispNum,
+                title: fullQ.title || 'Question ' + dispNum,
+                questionType: fullQ.questionType || 'SINGLE_CHOICE',
+                stemRichText: fullQ.stemRichText || fullQ.title || 'Sample question stem',
+                imageFileId: fullQ.imageFileId || '',
+                imageFileIds: fullQ.imageFileIds || [],
+                imageAltText: fullQ.imageAltText || '',
+                selectionInstruction:
+                  fullQ.questionType === 'MULTIPLE_SELECT'
+                    ? 'Select all correct answers.'
+                    : fullQ.questionType === 'NUMERIC_RESPONSE'
+                    ? 'Enter your numeric response below.'
+                    : fullQ.questionType === 'SHORT_ANSWER' || fullQ.questionType === 'WRITTEN_RESPONSE'
+                    ? 'Type your answer below.'
+                    : 'Select the single best answer.',
+                options: mappedOpts,
+                explanationRichText: fullQ.explanationRichText || 'Review the biological concept in your course notes.',
+                acceptedAnswers: fullQ.acceptedAnswers || [],
+                numericTarget: fullQ.numericTarget,
+                numericTolerance: fullQ.numericTolerance,
+                unitLabel: fullQ.unitLabel || ''
+              }
+            });
+            dispNum++;
+          }
+        }
+
+        if (previewItems.length === 0) {
+          previewItems.push({
+            attemptItemId: 'prev_item_1',
+            displayNumber: 1,
+            sectionTitle: 'Part I',
+            pointsBp: 200,
+            pointsDisplay: '2 pts',
+            negativePointsBp: 0,
+            negativePointsDisplay: '0 pts',
+            isFlagged: false,
+            question: {
+              questionId: 'q_prev_1',
+              questionCode: 'PREVIEW-01',
+              title: 'Sample Preview Question',
+              questionType: 'SINGLE_CHOICE',
+              stemRichText: 'No questions have been linked to this exam section yet. Add question cards in the Exam Builder to preview them here.',
+              selectionInstruction: 'Select the single best answer.',
+              options: [
+                { optionId: 'opt_1', optionKey: 'A', displayLabel: 'A', contentRichText: 'Sample Option A', isCorrect: true },
+                { optionId: 'opt_2', optionKey: 'B', displayLabel: 'B', contentRichText: 'Sample Option B', isCorrect: false }
+              ],
+              explanationRichText: 'This is a sample preview explanation.'
+            }
+          });
+        }
+
+        var durMin = Number((adminExam && adminExam.durationMinutes) || examDto.effectiveDurationMinutes || examDto.durationMinutes || 0);
+        var nowMs = Date.now();
+        var deadlineUtc = durMin > 0 ? new Date(nowMs + durMin * 60 * 1000).toISOString() : '';
+
+        var previewBundle = {
+          serverNowUtc: new Date(nowMs).toISOString(),
+          attempt: {
+            attemptId: 'ADMIN-PREVIEW-' + (examDto.examCode || 'EXAM'),
+            examSetId: examDto.examSetId,
+            courseId: (adminExam && adminExam.courseId) || examDto.courseId || '',
+            studentUserId: (currentSessionMeta && currentSessionMeta.user && currentSessionMeta.user.user_id) || 'admin',
+            attemptNumber: 1,
+            attemptStatus: 'IN_PROGRESS',
+            leaseToken: 'preview_lease',
+            effectiveDeadlineUtc: deadlineUtc,
+            effectiveDeadlineBangkok: durMin > 0 ? durMin + ' min preview timer' : 'Untimed Preview',
+            lastSavedAtBangkok: 'Preview Mode',
+            latestRevisionNo: 1,
+            _isAdminPreview: true
+          },
+          exam: {
+            examSetId: examDto.examSetId,
+            examCode: (adminExam && adminExam.examCode) || examDto.examCode || 'PREVIEW',
+            title: ((adminExam && adminExam.title) || examDto.title || 'Exam') + ' (Admin Preview)',
+            examMode: (adminExam && adminExam.examMode) || examDto.examMode || 'PRACTICE',
+            examModeLabel: 'Admin Preview • ' + ((adminExam && adminExam.examModeLabel) || examDto.examModeLabel || 'Exam'),
+            allowPerQuestionPracticeFeedback: true,
+            navigationMode: 'FREE'
+          },
+          sections: secs,
+          items: previewItems,
+          savedResponsesByItemId: {},
+          integrityPolicy: {
+            copyPolicyEnabled: false
+          }
+        };
+
+        if (startBtn) {
+          startBtn.disabled = false;
+          startBtn.classList.remove('is-btn-loading');
+          startBtn.textContent = 'Launch Interactive Question Preview';
+        }
+        closeStudentExamInstructionsModalPhase3();
+        if (typeof PBAdminActionModal === 'object' && PBAdminActionModal) {
+          PBAdminActionModal.close();
+        }
+        openStudentExamWorkspacePhase5(previewBundle);
+        PBNotify.toast(
+          'info',
+          'Admin Exam Preview Active',
+          'You are previewing "' + (examDto.title || 'Exam') + '". Click "Check Answer" on any question or "Exit Preview" when done.'
+        );
+        return previewBundle;
+      });
+    }
+
     function handleStartOrResumeExamAttemptPhase4(examDto) {
       if (!examDto || !examDto.examSetId) return Promise.resolve(null);
+      if (examDto._isAdminPreview) {
+        return launchAdminInteractiveExamWorkspacePreview(examDto);
+      }
       var action = examDto.canResumeAttempt && examDto.activeAttemptId
         ? 'exams.getAttempt'
         : 'exams.startAttempt';
@@ -20784,6 +21491,47 @@ var qrcode = (function() {
           });
         })(pubBtns[pb]);
       }
+
+      var prevFormsBtns = [
+        document.getElementById('btn-forms-preview-exam'),
+        document.getElementById('btn-forms-preview-exam-bottom')
+      ];
+      for (var pf = 0; pf < prevFormsBtns.length; pf++) {
+        (function (btn) {
+          if (!btn || (btn.dataset && btn.dataset.boundPrevForms)) return;
+          if (btn.dataset) btn.dataset.boundPrevForms = '1';
+          btn.addEventListener('click', function () {
+            runButtonWithLoadingState(btn, 'Opening Preview...', function () {
+              return saveAllFormsQuestionsAndBuildExamPayload()
+                .then(function (examPayload) {
+                  setFormsBuilderProgressBanner('info', 'Preparing Exam Preview...', 'Saving draft to launch interactive preview...');
+                  return rpcCallEnvelope('admin.exams.saveDraft', examPayload);
+                })
+                .then(function (env) {
+                  renderAdminExamsTablePhase3(env.data);
+                  var saved = env.data && env.data.exam;
+                  if (saved && saved.examSetId) {
+                    var idEl = document.getElementById('input-forms-exam-id');
+                    var verEl = document.getElementById('input-forms-exam-version');
+                    if (idEl) idEl.value = saved.examSetId;
+                    if (verEl) verEl.value = String(saved.version || 1);
+                    setFormsBuilderProgressBanner('hidden');
+                    return openStudentExamInstructionsModalPhase3(saved.examSetId, true);
+                  }
+                })
+                .catch(function (err) {
+                  var existingId = ((document.getElementById('input-forms-exam-id') || {}).value || '').trim();
+                  if (existingId) {
+                    return openStudentExamInstructionsModalPhase3(existingId, true);
+                  }
+                  var msg = (err && err.message) || 'Please select an Assigned Course and enter an Exam Title before previewing.';
+                  setFormsBuilderProgressBanner('danger', 'Preview Requires Basic Exam Info', msg);
+                  PBNotify.toast('warning', 'Cannot Preview Yet', msg);
+                });
+            });
+          });
+        })(prevFormsBtns[pf]);
+      }
     }
 
     function initExamPhase3BuilderAndCatalogBindings() {
@@ -21030,8 +21778,34 @@ var qrcode = (function() {
           if (mSel) mSel.value = 'ALL';
           if (aSel) aSel.value = 'ALL';
           if (cSel) cSel.value = 'ALL';
+          var quickTabs = document.querySelectorAll('[data-exam-quick-mode]');
+          for (var qt = 0; qt < quickTabs.length; qt++) {
+            var isAll = quickTabs[qt].getAttribute('data-exam-quick-mode') === 'ALL';
+            quickTabs[qt].classList.toggle('is-active', isAll);
+            quickTabs[qt].setAttribute('aria-selected', isAll ? 'true' : 'false');
+          }
           loadStudentCourseExamsCatalogPhase3(currentStudentCourseId);
         });
+      }
+
+      var quickModeTabs = document.querySelectorAll('[data-exam-quick-mode]');
+      for (var qm = 0; qm < quickModeTabs.length; qm++) {
+        (function (tabBtn) {
+          if (tabBtn.dataset && tabBtn.dataset.boundQuickMode) return;
+          if (tabBtn.dataset) tabBtn.dataset.boundQuickMode = '1';
+          tabBtn.addEventListener('click', function () {
+            var targetMode = tabBtn.getAttribute('data-exam-quick-mode') || 'ALL';
+            var allTabs = document.querySelectorAll('[data-exam-quick-mode]');
+            for (var k = 0; k < allTabs.length; k++) {
+              var active = allTabs[k].getAttribute('data-exam-quick-mode') === targetMode;
+              allTabs[k].classList.toggle('is-active', active);
+              allTabs[k].setAttribute('aria-selected', active ? 'true' : 'false');
+            }
+            var mSel = document.getElementById('select-student-exam-mode-filter');
+            if (mSel) mSel.value = targetMode;
+            loadStudentCourseExamsCatalogPhase3(currentStudentCourseId);
+          });
+        })(quickModeTabs[qm]);
       }
 
       var closeInstBtn1 = document.getElementById('btn-exam-inst-header-close');
@@ -21620,6 +22394,12 @@ var qrcode = (function() {
       setText('exam-ws-code-badge', snap.exam.examCode || '');
       setText('exam-ws-title', snap.exam.title || 'Online Examination');
       setText('exam-ws-attempt-ref-badge', 'Ref: ' + (snap.attempt.attemptId || '-'));
+      var exitCourseBtn = document.getElementById('btn-exam-ws-exit-course');
+      if (exitCourseBtn) {
+        exitCourseBtn.textContent = snap.attempt._isAdminPreview
+          ? 'Exit Preview to Exam Studio'
+          : 'Exit to Course';
+      }
       if (typeof window.PBExamIntegrityGuard === 'object' && window.PBExamIntegrityGuard) {
         window.PBExamIntegrityGuard.attachToWorkspaceBundle(workspaceBundle);
       }
@@ -21879,6 +22659,8 @@ var qrcode = (function() {
       var exitBtn = document.getElementById('btn-exam-ws-exit-course');
       if (exitBtn) {
         exitBtn.addEventListener('click', function () {
+          var snap = window.PBExamAutosaveEngine.getSnapshot();
+          var isPreview = Boolean(snap && snap.attempt && snap.attempt._isAdminPreview);
           if (currentExamCountdownIntervalPhase5) {
             clearInterval(currentExamCountdownIntervalPhase5);
             currentExamCountdownIntervalPhase5 = null;
@@ -21886,8 +22668,13 @@ var qrcode = (function() {
           window.PBExamAutosaveEngine.flushPendingSaves(false)
             .catch(function () {})
             .then(function () {
-              showSectionView('courseDetail');
-              loadStudentCourseExamsCatalogPhase3(currentStudentCourseId);
+              if (isPreview) {
+                showSectionView('admin');
+                updateNavbarActiveForExamStudio(isExamStudioModeActive);
+              } else {
+                showSectionView('courseDetail');
+                loadStudentCourseExamsCatalogPhase3(currentStudentCourseId);
+              }
             });
         });
       }
@@ -21947,6 +22734,18 @@ var qrcode = (function() {
         confirmSubBtn.addEventListener('click', function () {
           var snap = window.PBExamAutosaveEngine.getSnapshot();
           if (!snap || !snap.attempt) return;
+          if (snap.attempt._isAdminPreview) {
+            var modal = document.getElementById('modal-exam-submit-readiness');
+            if (modal) modal.classList.add('hidden');
+            showSectionView('admin');
+            updateNavbarActiveForExamStudio(isExamStudioModeActive);
+            PBNotify.toast(
+              'success',
+              'Admin Preview Completed',
+              'Preview finished (' + snap.answeredLocalCount + ' of ' + snap.items.length + ' questions answered).'
+            );
+            return;
+          }
           if (typeof handleConfirmAndSubmitExamAttemptPhase6 === 'function') {
             handleConfirmAndSubmitExamAttemptPhase6(snap.attempt.attemptId);
           } else {
@@ -21970,6 +22769,34 @@ var qrcode = (function() {
         }
         var activeItem = snap.items[currentExamWorkspaceQuestionIndexPhase5];
         var locResp = snap.localResponsesByItemId[activeItem.attemptItemId] || {};
+        if (snap.attempt._isAdminPreview) {
+          var q = activeItem.question || {};
+          var resp = locResp.responsePayload || {};
+          var isCorr = false;
+          var opts = Array.isArray(q.options) ? q.options : [];
+          var corrLabels = [];
+          for (var oi = 0; oi < opts.length; oi++) {
+            if (opts[oi].isCorrect) {
+              corrLabels.push(opts[oi].displayLabel || opts[oi].optionKey || String(oi + 1));
+              if (resp.selectedOptionId === opts[oi].optionId) isCorr = true;
+            }
+          }
+          var fbBox = document.getElementById('exam-ws-practice-feedback-box');
+          if (fbBox) fbBox.classList.remove('hidden');
+          setText('exam-ws-practice-feedback-badge', isCorr ? 'CORRECT (PREVIEW)' : 'ANSWER KEY PREVIEW');
+          setText(
+            'exam-ws-practice-feedback-score',
+            (corrLabels.length > 0 ? 'Correct Option: ' + corrLabels.join(', ') + '  •  ' : '') +
+              'Max Score: ' +
+              (activeItem.pointsDisplay || '2 pts')
+          );
+          renderRichTextDocumentToDom(
+            document.getElementById('exam-ws-practice-feedback-richtext'),
+            q.explanationRichText || 'Explanation preview.',
+            snap.attempt.courseId
+          );
+          return Promise.resolve();
+        }
         return rpcCallEnvelope('exams.checkPracticeItem', {
           attemptId: snap.attempt.attemptId,
           attemptItemId: activeItem.attemptItemId,
