@@ -2197,6 +2197,87 @@
     /**
      * Clears both in-memory and localStorage session credentials.
      */
+    function isCurrentSessionAdminUser() {
+      return Boolean(
+        currentSessionMeta &&
+          currentSessionMeta.user &&
+          String(currentSessionMeta.user.role || '').toUpperCase() === 'ADMIN'
+      );
+    }
+
+    function showTransitionLoadingView(headingText, subtitleText) {
+      if (headingText) setText('loading-heading-text', headingText);
+      if (subtitleText) setText('loading-subtitle-text', subtitleText);
+      showSectionView('loading');
+    }
+
+    function resetAllPortalSessionState(opt_reason) {
+      currentStudentCourseFromAdminPreview = false;
+      isExamStudioModeActive = false;
+      studentCourseDetailCacheById = {};
+      if (typeof currentAdminExamsListPhase3 !== 'undefined') currentAdminExamsListPhase3 = [];
+      if (typeof currentStudentCourseExamsCatalogPhase3 !== 'undefined') currentStudentCourseExamsCatalogPhase3 = [];
+      if (typeof currentQBankQuestionsPhase2 !== 'undefined') currentQBankQuestionsPhase2 = [];
+      if (typeof currentQBankStimuliCachePhase2 !== 'undefined') currentQBankStimuliCachePhase2 = [];
+      if (typeof currentAdminCoursesList !== 'undefined') currentAdminCoursesList = [];
+      currentStudentCourseDetailBundle = null;
+      currentStudentCourseId = '';
+      currentSelectedCourseDetail = null;
+      currentSelectedInstructionExamPhase3 = null;
+      currentExamWorkspaceQuestionIndexPhase5 = 0;
+      if (typeof formsBuilderQuestionCards !== 'undefined') formsBuilderQuestionCards = [];
+      if (typeof window !== 'undefined') {
+        window.__PB_ACTIVE_RICH_EDITOR__ = null;
+      }
+
+      if (window.PBExamAutosaveEngine && typeof window.PBExamAutosaveEngine.reset === 'function') {
+        window.PBExamAutosaveEngine.reset();
+      }
+      if (
+        typeof window.PBExamIntegrityGuard === 'object' &&
+        window.PBExamIntegrityGuard &&
+        typeof window.PBExamIntegrityGuard.detach === 'function'
+      ) {
+        try {
+          window.PBExamIntegrityGuard.detach();
+        } catch (ignoreDetachErr) {}
+      }
+      if (typeof PBAdminActionModal === 'object' && PBAdminActionModal) {
+        PBAdminActionModal.close();
+      }
+      var modalIdsToClose = [
+        'modal-student-exam-instructions',
+        'modal-exam-submit-readiness',
+        'modal-exam-submission-receipt',
+        'modal-student-exam-result',
+        'modal-recording-detail',
+        'modal-privacy-gate',
+        'modal-report-unavailability'
+      ];
+      for (var m = 0; m < modalIdsToClose.length; m++) {
+        if (typeof closeModalDialog === 'function') {
+          closeModalDialog(modalIdsToClose[m]);
+        }
+      }
+      if (typeof closeFormsExamBuilderToCatalog === 'function') {
+        closeFormsExamBuilderToCatalog();
+      }
+      var domIdsToClear = [
+        'student-course-exams-grid',
+        'admin-exams-list-tbody',
+        'admin-qbank-table-tbody',
+        'admin-exam-assignments-tbody',
+        'exam-inst-sections-tbody',
+        'exam-inst-rules-list'
+      ];
+      for (var d = 0; d < domIdsToClear.length; d++) {
+        var el = document.getElementById(domIdsToClear[d]);
+        if (el) {
+          while (el.firstChild) el.removeChild(el.firstChild);
+        }
+      }
+    }
+
     function clearClientSessionCredential() {
       inMemorySessionToken = null;
       window.__PB_SESSION_TOKEN__ = null;
@@ -2207,6 +2288,7 @@
           window.localStorage.removeItem(STORAGE_KEY_SESSION_TOKEN);
         } catch (ignoreErr) {}
       }
+      resetAllPortalSessionState('CREDENTIAL_CLEARED');
     }
 
     /**
@@ -3031,6 +3113,9 @@
     })();
 
     function showSectionView(viewName) {
+      if (viewName === 'admin' && !isCurrentSessionAdminUser()) {
+        viewName = currentSessionMeta && currentSessionMeta.user ? 'profile' : 'landing';
+      }
       if (typeof PBObjectUrlManager === 'object' && PBObjectUrlManager && currentActiveViewName && currentActiveViewName !== viewName) {
         PBObjectUrlManager.revokeAll('VIEW_CHANGE_' + viewName);
       }
@@ -3057,7 +3142,7 @@
       /* Update active state on desktop and mobile navigation buttons across all views */
       var effectiveNavView =
         viewName === 'courseDetail'
-          ? currentStudentCourseFromAdminPreview
+          ? currentStudentCourseFromAdminPreview && isCurrentSessionAdminUser()
             ? 'admin'
             : 'profile'
           : viewName;
@@ -3802,10 +3887,24 @@
      * - Authenticated `ADMIN` with `requiresPrivacyAck === false` -> Opens `Admin Dashboard` (`#view-admin`).
      */
     function applySessionAndRouteState(sessionSummary, opt_restoreStatus) {
+      var prevUserId =
+        currentSessionMeta && currentSessionMeta.user
+          ? String(currentSessionMeta.user.userId || currentSessionMeta.user.username || '')
+          : '';
+      var nextUserId =
+        sessionSummary && sessionSummary.user
+          ? String(sessionSummary.user.userId || sessionSummary.user.username || '')
+          : '';
+      if (prevUserId && prevUserId !== nextUserId) {
+        resetAllPortalSessionState('SESSION_USER_CHANGED');
+      }
       currentSessionMeta = sessionSummary || null;
+      if (!isCurrentSessionAdminUser()) {
+        currentStudentCourseFromAdminPreview = false;
+      }
 
       if (!sessionSummary || !sessionSummary.user) {
-        closeModalDialog('modal-privacy-gate');
+        resetAllPortalSessionState('SESSION_ENDED');
         syncHeaderNavigation(null);
         showSectionView('landing');
 
@@ -4953,25 +5052,39 @@
                 3
               );
               setTimeout(function () {
-                applySessionAndRouteState(sessionSummary, 'FRESH_LOGIN');
-                renderDiagnosticResult(
-                  'PASS: Login succeeded for ' +
-                    loginData.user.username +
-                    ' (' +
-                    loginData.user.role +
-                    ') | Requires Privacy Ack: ' +
-                    String(Boolean(loginData.user.requiresPrivacyAck)),
-                  {
-                    sessionId: loginData.sessionId,
-                    expiresAtBangkok: loginData.expiresAtBangkok,
-                    storageMode: currentStorageMode,
-                    persistedToLocalStorage: storageOutcome.persistedToLocalStorage,
-                    user: loginData.user
-                  }
+                if (typeof closeModalDialog === 'function') {
+                  closeModalDialog('modal-login');
+                }
+                resetAllPortalSessionState('FRESH_LOGIN_SWITCH');
+                var roleTitle =
+                  loginData.user && String(loginData.user.role || '').toUpperCase() === 'ADMIN'
+                    ? 'Administrator'
+                    : 'Student';
+                showTransitionLoadingView(
+                  'Verifying Account & Loading Portal…',
+                  'Initializing your authorized ' + roleTitle + ' workspace…'
                 );
-                resolve();
-              }, 260);
-            }, 140);
+                setTimeout(function () {
+                  applySessionAndRouteState(sessionSummary, 'FRESH_LOGIN');
+                  renderDiagnosticResult(
+                    'PASS: Login succeeded for ' +
+                      loginData.user.username +
+                      ' (' +
+                      loginData.user.role +
+                      ') | Requires Privacy Ack: ' +
+                      String(Boolean(loginData.user.requiresPrivacyAck)),
+                    {
+                      sessionId: loginData.sessionId,
+                      expiresAtBangkok: loginData.expiresAtBangkok,
+                      storageMode: currentStorageMode,
+                      persistedToLocalStorage: storageOutcome.persistedToLocalStorage,
+                      user: loginData.user
+                    }
+                  );
+                  resolve();
+                }, 160);
+              }, 160);
+            }, 120);
           });
         })
         .catch(function (err) {
@@ -5267,8 +5380,12 @@
       if (typeof PBNotify === 'object' && PBNotify && typeof PBNotify.clearAllToasts === 'function') {
         PBNotify.clearAllToasts();
       }
+      resetAllPortalSessionState('LOGOUT_START');
       setLogoutSpinnerState(true, 'REVOKING');
-      setText('loading-heading-text', 'Signing out...');
+      showTransitionLoadingView(
+        'Signing Out…',
+        'Revoking your session and clearing local workspace data…'
+      );
 
       return rpcCallEnvelope(
         'auth.logout',
@@ -7865,7 +7982,82 @@
       };
     }
 
+    function extractPlainTextFromRichTextDoc(doc) {
+      if (doc === null || doc === undefined) return '';
+      if (typeof doc === 'string') {
+        var trimmedStr = doc.trim();
+        if (trimmedStr.charAt(0) === '{') {
+          try {
+            var parsedStr = JSON.parse(trimmedStr);
+            if (parsedStr && Array.isArray(parsedStr.blocks)) {
+              return extractPlainTextFromRichTextDoc(parsedStr);
+            }
+          } catch (ignoreParseErr) {}
+        }
+        return doc;
+      }
+      if (typeof doc !== 'object') return '';
+      if (typeof doc.plainText === 'string' && !Array.isArray(doc.blocks)) {
+        return doc.plainText;
+      }
+      var blocks = Array.isArray(doc.blocks) ? doc.blocks : [];
+      var lines = [];
+      for (var b = 0; b < blocks.length; b++) {
+        var blk = blocks[b];
+        if (!blk || typeof blk !== 'object') continue;
+        if (blk.type === 'bullet_list' || blk.type === 'ordered_list') {
+          var items = Array.isArray(blk.items) ? blk.items : [];
+          for (var it = 0; it < items.length; it++) {
+            var itemSpans = Array.isArray(items[it].spans) ? items[it].spans : [];
+            var itemTxt = '';
+            for (var s = 0; s < itemSpans.length; s++) {
+              itemTxt += itemSpans[s] && itemSpans[s].text ? String(itemSpans[s].text) : '';
+            }
+            lines.push(itemTxt);
+          }
+        } else if (Array.isArray(blk.spans)) {
+          var pTxt = '';
+          for (var ps = 0; ps < blk.spans.length; ps++) {
+            pTxt += blk.spans[ps] && blk.spans[ps].text ? String(blk.spans[ps].text) : '';
+          }
+          lines.push(pTxt);
+        }
+      }
+      return lines.join('\n');
+    }
+
+    function plainTextToRichTextDocSafe(rawText) {
+      var str = rawText === null || rawText === undefined ? '' : String(rawText);
+      var rawLines = str.replace(/\r\n/g, '\n').split('\n');
+      var blocks = [];
+      for (var i = 0; i < rawLines.length; i++) {
+        blocks.push({
+          type: 'paragraph',
+          spans: [{ text: rawLines[i] }]
+        });
+      }
+      if (blocks.length === 0) {
+        return createDefaultEmptyRichTextDoc();
+      }
+      return {
+        schemaVersion: 'pb-richtext-v1',
+        blocks: blocks
+      };
+    }
+
     function cloneRichTextDocSafe(doc) {
+      if (typeof doc === 'string') {
+        var s = doc.trim();
+        if (s.charAt(0) === '{') {
+          try {
+            var jsonParsed = JSON.parse(s);
+            if (jsonParsed && jsonParsed.schemaVersion === 'pb-richtext-v1' && Array.isArray(jsonParsed.blocks) && jsonParsed.blocks.length > 0) {
+              return jsonParsed;
+            }
+          } catch (ignoreJsonStrErr) {}
+        }
+        return plainTextToRichTextDocSafe(doc);
+      }
       if (!doc || typeof doc !== 'object' || !Array.isArray(doc.blocks)) {
         return createDefaultEmptyRichTextDoc();
       }
@@ -8543,6 +8735,689 @@
       }
     }
 
+    /* ========================================================================
+     * MYTCAS A-LEVEL 66 BIOLOGY BLUEPRINT CONSTANTS & WORD-STYLE RICH EDITOR
+     * Official A-Level 66 Bio Structure:
+     *   - 90 Minutes | 40 Questions | 100 Points
+     *   - 35 x 5-Option Single Choice (2.4 pts each = 84 pts)
+     *   - 5 x Complex Multiple Choice (3.2 pts each = 16 pts; 3 sub-statements Yes/No)
+     * ======================================================================== */
+    var PB_ALEVEL_66_BIO_BLUEPRINT = {
+      examDurationMinutes: 90,
+      singleChoiceTargetCount: 35,
+      singleChoiceDefaultPoints: 2.4,
+      complexMcTargetCount: 5,
+      complexMcDefaultPoints: 3.2,
+      totalTargetScore: 100,
+      sections: [
+        {
+          id: 'PART_1',
+          shortLabel: '1. ความหลากหลายฯ',
+          title: 'ส่วนที่ 1 : ความหลากหลายทางชีวภาพและสิ่งแวดล้อม',
+          targetRangeText: '5–7 ข้อ'
+        },
+        {
+          id: 'PART_2',
+          shortLabel: '2. หน่วยพื้นฐานชีวิต',
+          title: 'ส่วนที่ 2 : หน่วยพื้นฐานของสิ่งมีชีวิต',
+          targetRangeText: '6–8 ข้อ'
+        },
+        {
+          id: 'PART_3',
+          shortLabel: '3. ระบบสัตว์และมนุษย์',
+          title: 'ส่วนที่ 3 : ระบบและการทำงานต่าง ๆ ของสัตว์และมนุษย์',
+          targetRangeText: '12–14 ข้อ'
+        },
+        {
+          id: 'PART_4',
+          shortLabel: '4. พืช',
+          title: 'ส่วนที่ 4 : โครงสร้างและการทำงานของส่วนต่าง ๆ ในพืช',
+          targetRangeText: '6–8 ข้อ'
+        },
+        {
+          id: 'PART_5',
+          shortLabel: '5. พันธุศาสตร์/วิวัฒนาการ',
+          title: 'ส่วนที่ 5 : พันธุศาสตร์และวิวัฒนาการ',
+          targetRangeText: '6–8 ข้อ'
+        }
+      ]
+    };
+
+    var PBWordRichEditor = (function () {
+      var GREEK_AND_BIO_SYMBOLS = [
+        { ch: '\u03B1', label: 'alpha (\u03B1) \u2014 type \\alpha + Space' },
+        { ch: '\u03B2', label: 'beta (\u03B2) e.g. \u03B2-glycosidic \u2014 type \\beta- or \\beta + Space' },
+        { ch: '\u03B3', label: 'gamma (\u03B3) \u2014 type \\gamma + Space' },
+        { ch: '\u03B4', label: 'delta (\u03B4) \u2014 type \\delta + Space' },
+        { ch: '\u03B5', label: 'epsilon (\u03B5) \u2014 type \\epsilon + Space' },
+        { ch: '\u03B8', label: 'theta (\u03B8) \u2014 type \\theta + Space' },
+        { ch: '\u03BB', label: 'lambda (\u03BB) \u2014 type \\lambda + Space' },
+        { ch: '\u03BC', label: 'micro / mu (\u03BC) \u2014 type \\mu + Space' },
+        { ch: '\u03C0', label: 'pi (\u03C0) \u2014 type \\pi + Space' },
+        { ch: '\u03C1', label: 'rho (\u03C1) \u2014 type \\rho + Space' },
+        { ch: '\u03C3', label: 'sigma (\u03C3) \u2014 type \\sigma + Space' },
+        { ch: '\u03C6', label: 'phi (\u03C6) \u2014 type \\phi + Space' },
+        { ch: '\u03C9', label: 'omega (\u03C9) \u2014 type \\omega + Space' },
+        { ch: '\u0394', label: 'Delta (\u0394) \u2014 type \\Delta + Space' },
+        { ch: '\u03A3', label: 'Sigma (\u03A3) \u2014 type \\Sigma + Space' },
+        { ch: '\u03A9', label: 'Omega (\u03A9) \u2014 type \\Omega + Space' },
+        { ch: '\u2192', label: 'Reaction Arrow (\u2192) \u2014 type \\-> + Space' },
+        { ch: '\u21CC', label: 'Reversible Arrow (\u21CC) \u2014 type \\<=> + Space' },
+        { ch: '\u00B1', label: 'Plus-Minus (\u00B1) \u2014 type \\+- + Space' },
+        { ch: '\u00B0', label: 'Degree (\u00B0)' }
+      ];
+
+      var BACKSLASH_MACRO_MAP = {
+        '\\alpha': '\u03B1',
+        '\\beta': '\u03B2',
+        '\\gamma': '\u03B3',
+        '\\delta': '\u03B4',
+        '\\epsilon': '\u03B5',
+        '\\theta': '\u03B8',
+        '\\lambda': '\u03BB',
+        '\\mu': '\u03BC',
+        '\\pi': '\u03C0',
+        '\\rho': '\u03C1',
+        '\\sigma': '\u03C3',
+        '\\phi': '\u03C6',
+        '\\omega': '\u03C9',
+        '\\Delta': '\u0394',
+        '\\Sigma': '\u03A3',
+        '\\Omega': '\u03A9',
+        '\\->': '\u2192',
+        '\\<=>': '\u21CC',
+        '\\+-': '\u00B1'
+      };
+
+      var registeredToolbars = [];
+      var activeEditorInstance = null;
+      var selectionListenerAttached = false;
+
+      function sameSpanStyle(a, b) {
+        return (
+          Boolean(a.bold) === Boolean(b.bold) &&
+          Boolean(a.italic) === Boolean(b.italic) &&
+          Boolean(a.underline) === Boolean(b.underline) &&
+          Boolean(a.sup) === Boolean(b.sup) &&
+          Boolean(a.sub) === Boolean(b.sub)
+        );
+      }
+
+      function normalizeSpansList(rawSpans) {
+        var out = [];
+        for (var i = 0; i < rawSpans.length; i++) {
+          var s = rawSpans[i];
+          if (!s || s.text === undefined || s.text === null) continue;
+          var txt = String(s.text).replace(/\u00A0/g, ' ');
+          if (!txt) continue;
+          var clean = { text: txt };
+          if (s.bold) clean.bold = true;
+          if (s.italic) clean.italic = true;
+          if (s.underline) clean.underline = true;
+          if (s.sup) clean.sup = true;
+          else if (s.sub) clean.sub = true;
+          if (out.length > 0 && sameSpanStyle(out[out.length - 1], clean)) {
+            out[out.length - 1].text += clean.text;
+          } else {
+            out.push(clean);
+          }
+        }
+        return out.length > 0 ? out : [{ text: '' }];
+      }
+
+      function editableDomToRichTextDoc(rootEl) {
+        if (!rootEl) return createDefaultEmptyRichTextDoc();
+        var paragraphs = [[]];
+
+        function walkNode(node, fmt) {
+          if (!node) return;
+          if (node.nodeType === 3) {
+            var val = node.nodeValue || '';
+            if (val) {
+              var sp = { text: val };
+              if (fmt.bold) sp.bold = true;
+              if (fmt.italic) sp.italic = true;
+              if (fmt.underline) sp.underline = true;
+              if (fmt.sup) sp.sup = true;
+              else if (fmt.sub) sp.sub = true;
+              paragraphs[paragraphs.length - 1].push(sp);
+            }
+            return;
+          }
+          if (node.nodeType !== 1) return;
+          var tag = String(node.tagName || '').toUpperCase();
+          if (tag === 'BR') {
+            if (node.parentNode !== rootEl || node.nextSibling) {
+              paragraphs.push([]);
+            }
+            return;
+          }
+          var isBlock = tag === 'DIV' || tag === 'P' || tag === 'LI';
+          if (isBlock && paragraphs[paragraphs.length - 1].length > 0) {
+            paragraphs.push([]);
+          }
+          var nextFmt = {
+            bold: fmt.bold || tag === 'B' || tag === 'STRONG',
+            italic: fmt.italic || tag === 'I' || tag === 'EM',
+            underline: fmt.underline || tag === 'U',
+            sup: tag === 'SUP' ? true : tag === 'SUB' ? false : fmt.sup,
+            sub: tag === 'SUB' ? true : tag === 'SUP' ? false : fmt.sub
+          };
+          var st = node.style;
+          if (st) {
+            if (st.fontWeight === 'bold' || st.fontWeight === '700' || st.fontWeight === '600') nextFmt.bold = true;
+            if (st.fontStyle === 'italic') nextFmt.italic = true;
+            if (st.textDecoration && st.textDecoration.indexOf('underline') !== -1) nextFmt.underline = true;
+            if (st.verticalAlign === 'super') { nextFmt.sup = true; nextFmt.sub = false; }
+            else if (st.verticalAlign === 'sub') { nextFmt.sub = true; nextFmt.sup = false; }
+          }
+          for (var c = 0; c < node.childNodes.length; c++) {
+            walkNode(node.childNodes[c], nextFmt);
+          }
+          if (isBlock && node.nextSibling) {
+            paragraphs.push([]);
+          }
+        }
+
+        walkNode(rootEl, {});
+        while (paragraphs.length > 1 && paragraphs[paragraphs.length - 1].length === 0) {
+          paragraphs.pop();
+        }
+        var blocks = [];
+        for (var p = 0; p < paragraphs.length; p++) {
+          blocks.push({
+            type: 'paragraph',
+            spans: normalizeSpansList(paragraphs[p])
+          });
+        }
+        if (blocks.length === 0) return createDefaultEmptyRichTextDoc();
+        return {
+          schemaVersion: 'pb-richtext-v1',
+          blocks: blocks
+        };
+      }
+
+      function richTextDocToEditableDom(rootEl, richDoc) {
+        if (!rootEl) return;
+        while (rootEl.firstChild) rootEl.removeChild(rootEl.firstChild);
+        var doc = cloneRichTextDocSafe(richDoc);
+        var blocks = Array.isArray(doc.blocks) ? doc.blocks : [];
+        var hasText = false;
+        for (var b = 0; b < blocks.length; b++) {
+          var blk = blocks[b];
+          if (!blk || !Array.isArray(blk.spans)) continue;
+          if (b > 0) {
+            rootEl.appendChild(document.createElement('br'));
+          }
+          for (var s = 0; s < blk.spans.length; s++) {
+            var sp = blk.spans[s];
+            if (!sp || !sp.text) continue;
+            hasText = true;
+            var node = document.createTextNode(String(sp.text));
+            if (sp.underline) {
+              var u = document.createElement('u');
+              u.appendChild(node);
+              node = u;
+            }
+            if (sp.italic) {
+              var iEl = document.createElement('i');
+              iEl.appendChild(node);
+              node = iEl;
+            }
+            if (sp.bold) {
+              var bEl = document.createElement('b');
+              bEl.appendChild(node);
+              node = bEl;
+            }
+            if (sp.sup) {
+              var supEl = document.createElement('sup');
+              supEl.appendChild(node);
+              node = supEl;
+            } else if (sp.sub) {
+              var subEl = document.createElement('sub');
+              subEl.appendChild(node);
+              node = subEl;
+            }
+            rootEl.appendChild(node);
+          }
+        }
+        if (!hasText) {
+          while (rootEl.firstChild) rootEl.removeChild(rootEl.firstChild);
+        }
+        if (rootEl.classList) {
+          rootEl.classList.toggle('is-empty', !hasText);
+        }
+      }
+
+      function saveSelectionRange(el) {
+        var sel = window.getSelection && window.getSelection();
+        if (!sel || sel.rangeCount === 0) return null;
+        var range = sel.getRangeAt(0);
+        if (el.contains(range.commonAncestorContainer)) {
+          return range.cloneRange();
+        }
+        return null;
+      }
+
+      function restoreOrFocusEditor(inst) {
+        if (!inst || !inst.el) return;
+        if (document.activeElement !== inst.el) {
+          inst.el.focus();
+        }
+        if (inst.savedRange && window.getSelection) {
+          try {
+            if (inst.el.contains(inst.savedRange.commonAncestorContainer)) {
+              var sel = window.getSelection();
+              sel.removeAllRanges();
+              sel.addRange(inst.savedRange);
+              return;
+            }
+          } catch (ignoreRangeErr) {}
+        }
+        var sel2 = window.getSelection && window.getSelection();
+        if (sel2 && (!sel2.rangeCount || !inst.el.contains(sel2.anchorNode))) {
+          var endRange = document.createRange();
+          endRange.selectNodeContents(inst.el);
+          endRange.collapse(false);
+          sel2.removeAllRanges();
+          sel2.addRange(endRange);
+        }
+      }
+
+      function applyFormatCommand(inst, cmd) {
+        if (!inst || !inst.el) return;
+        restoreOrFocusEditor(inst);
+        try {
+          if (cmd === 'subscript') {
+            if (document.queryCommandState('superscript')) {
+              document.execCommand('superscript', false, null);
+            }
+            document.execCommand('subscript', false, null);
+          } else if (cmd === 'superscript') {
+            if (document.queryCommandState('subscript')) {
+              document.execCommand('subscript', false, null);
+            }
+            document.execCommand('superscript', false, null);
+          } else if (cmd === 'removeFormat') {
+            if (document.queryCommandState('subscript')) document.execCommand('subscript', false, null);
+            if (document.queryCommandState('superscript')) document.execCommand('superscript', false, null);
+            document.execCommand('removeFormat', false, null);
+          } else {
+            document.execCommand(cmd, false, null);
+          }
+        } catch (ignoreCmdErr) {}
+        inst.savedRange = saveSelectionRange(inst.el);
+        inst.notifyChange();
+        refreshAllToolbarStates();
+      }
+
+      function insertSymbolIntoEditor(inst, ch) {
+        if (!inst || !inst.el) return;
+        restoreOrFocusEditor(inst);
+        try {
+          document.execCommand('insertText', false, ch);
+        } catch (ignoreInsErr) {
+          inst.el.appendChild(document.createTextNode(ch));
+        }
+        inst.savedRange = saveSelectionRange(inst.el);
+        inst.notifyChange();
+        refreshAllToolbarStates();
+      }
+
+      function replaceMacroRange(inst, rangeStartContainer, startOff, endOff, replacementText) {
+        var sel = window.getSelection && window.getSelection();
+        if (!sel) return false;
+        var replaceRange = document.createRange();
+        replaceRange.setStart(rangeStartContainer, startOff);
+        replaceRange.setEnd(rangeStartContainer, endOff);
+        sel.removeAllRanges();
+        sel.addRange(replaceRange);
+        document.execCommand('insertText', false, replacementText);
+        inst.savedRange = saveSelectionRange(inst.el);
+        inst.notifyChange();
+        return true;
+      }
+
+      function tryExpandBackslashMacroAtCaret(inst, triggerChar) {
+        if (!inst || !inst.el || !window.getSelection) return false;
+        var sel = window.getSelection();
+        if (!sel || !sel.rangeCount || !sel.isCollapsed) return false;
+        var range = sel.getRangeAt(0);
+        if (range.startContainer.nodeType !== 3) return false;
+        var nodeVal = range.startContainer.nodeValue || '';
+        var offset = range.startOffset;
+        var beforeCaret = nodeVal.slice(0, offset);
+        var match = beforeCaret.match(/(\\[A-Za-z>+<=+\-]+)$/);
+        if (!match) return false;
+        var token = match[1];
+        if (triggerChar === '-' && !/^\\[A-Za-z]+$/.test(token)) return false;
+        var symbol = BACKSLASH_MACRO_MAP[token];
+        if (!symbol) return false;
+        var insertedText = triggerChar === '-' ? symbol + '-' : triggerChar === ' ' ? symbol + ' ' : symbol;
+        return replaceMacroRange(inst, range.startContainer, offset - token.length, offset, insertedText);
+      }
+
+      function tryExpandBackslashMacroAfterInput(inst) {
+        if (!inst || !inst.el || !window.getSelection) return false;
+        var sel = window.getSelection();
+        if (!sel || !sel.rangeCount || !sel.isCollapsed) return false;
+        var range = sel.getRangeAt(0);
+        if (range.startContainer.nodeType !== 3) return false;
+        var nodeVal = range.startContainer.nodeValue || '';
+        var offset = range.startOffset;
+        var beforeCaret = nodeVal.slice(0, offset);
+        var m = beforeCaret.match(/(\\[A-Za-z>+<=+\-]+)([\u00A0 \-])$/);
+        if (m) {
+          var tok = m[1];
+          var sep = m[2] === '\u00A0' ? ' ' : m[2];
+          if (!(sep === '-' && !/^\\[A-Za-z]+$/.test(tok)) && BACKSLASH_MACRO_MAP[tok]) {
+            return replaceMacroRange(
+              inst,
+              range.startContainer,
+              offset - (tok.length + 1),
+              offset,
+              BACKSLASH_MACRO_MAP[tok] + sep
+            );
+          }
+        }
+        var inlineMatch = beforeCaret.match(/(\\(?:alpha|beta|gamma|delta|epsilon|theta|lambda|mu|pi|rho|sigma|phi|omega|Delta|Sigma|Omega))([\- ])/);
+        if (inlineMatch && BACKSLASH_MACRO_MAP[inlineMatch[1]]) {
+          var startIdx = inlineMatch.index;
+          return replaceMacroRange(
+            inst,
+            range.startContainer,
+            startIdx,
+            startIdx + inlineMatch[0].length,
+            BACKSLASH_MACRO_MAP[inlineMatch[1]] + inlineMatch[2]
+          );
+        }
+        return false;
+      }
+
+      function refreshAllToolbarStates() {
+        var states = { bold: false, italic: false, underline: false, subscript: false, superscript: false };
+        if (activeEditorInstance && document.activeElement === activeEditorInstance.el) {
+          try {
+            states.bold = document.queryCommandState('bold');
+            states.italic = document.queryCommandState('italic');
+            states.underline = document.queryCommandState('underline');
+            states.subscript = document.queryCommandState('subscript');
+            states.superscript = document.queryCommandState('superscript');
+          } catch (ignoreQryErr) {}
+        }
+        for (var i = 0; i < registeredToolbars.length; i++) {
+          var tb = registeredToolbars[i];
+          if (!tb || !tb.buttons) continue;
+          var cmdKeys = Object.keys(tb.buttons);
+          for (var k = 0; k < cmdKeys.length; k++) {
+            var ck = cmdKeys[k];
+            if (tb.buttons[ck]) {
+              tb.buttons[ck].classList.toggle('is-active', Boolean(states[ck]));
+            }
+          }
+        }
+      }
+
+      function ensureGlobalSelectionWatcher() {
+        if (selectionListenerAttached || typeof document === 'undefined') return;
+        selectionListenerAttached = true;
+        document.addEventListener('selectionchange', function () {
+          if (activeEditorInstance && document.activeElement === activeEditorInstance.el) {
+            activeEditorInstance.savedRange = saveSelectionRange(activeEditorInstance.el);
+            refreshAllToolbarStates();
+          }
+        });
+      }
+
+      function resolveTargetEditorForScope(scopeEl) {
+        if (activeEditorInstance && activeEditorInstance.el && (!scopeEl || scopeEl.contains(activeEditorInstance.el))) {
+          return activeEditorInstance;
+        }
+        if (scopeEl) {
+          var firstEditable = scopeEl.querySelector('.pb-word-inline-editor');
+          if (firstEditable && firstEditable.__pbWordInst) {
+            activeEditorInstance = firstEditable.__pbWordInst;
+            return activeEditorInstance;
+          }
+        }
+        return activeEditorInstance;
+      }
+
+      function renderToolbarInto(dockEl, opt_scopeContainerEl) {
+        if (!dockEl) return null;
+        ensureGlobalSelectionWatcher();
+        while (dockEl.firstChild) dockEl.removeChild(dockEl.firstChild);
+
+        var row1 = document.createElement('div');
+        row1.className = 'pb-word-toolbar-row';
+
+        var tbButtons = {};
+        var fmtSpecs = [
+          { cmd: 'bold', label: 'B', style: 'font-weight:900;', title: 'Bold (Ctrl+B)' },
+          { cmd: 'italic', label: 'I', style: 'font-style:italic;', title: 'Italic (Ctrl+I)' },
+          { cmd: 'underline', label: 'U', style: 'text-decoration:underline;', title: 'Underline (Ctrl+U)' },
+          { cmd: 'subscript', label: 'X\u2082', style: '', title: 'Subscript e.g. H\u2082O, CO\u2082 (Ctrl+=)' },
+          { cmd: 'superscript', label: 'X\u00B2', style: '', title: 'Superscript e.g. 10\u2076, Ca\u00B2\u207A (Ctrl+Shift+=)' },
+          { cmd: 'removeFormat', label: 'T\u2093', style: 'color:#64748B;', title: 'Clear Formatting' }
+        ];
+
+        for (var f = 0; f < fmtSpecs.length; f++) {
+          (function (spec) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'pb-word-fmt-btn';
+            btn.setAttribute('data-word-cmd', spec.cmd);
+            if (spec.style) btn.setAttribute('style', spec.style);
+            btn.textContent = spec.label;
+            btn.title = spec.title;
+            btn.addEventListener('mousedown', function (e) {
+              e.preventDefault();
+              var inst = resolveTargetEditorForScope(opt_scopeContainerEl);
+              if (!inst) {
+                PBNotify.toast('info', 'Select a Question or Option Box', 'Click inside any question stem, answer option, or explanation field first to apply formatting.');
+                return;
+              }
+              applyFormatCommand(inst, spec.cmd);
+            });
+            tbButtons[spec.cmd] = btn;
+            row1.appendChild(btn);
+          })(fmtSpecs[f]);
+        }
+
+        var sep = document.createElement('span');
+        sep.className = 'pb-word-toolbar-sep';
+        row1.appendChild(sep);
+
+        var hint = document.createElement('span');
+        hint.className = 'pb-word-shortcut-hint';
+        hint.textContent = 'Shortcuts: Ctrl+B/I/U \u2022 Sub: Ctrl+= \u2022 Sup: Ctrl+Shift+= \u2022 Type \\beta- or click Greek (Alt+G):';
+        row1.appendChild(hint);
+
+        var row2 = document.createElement('div');
+        row2.className = 'pb-word-toolbar-row';
+        row2.setAttribute('role', 'group');
+        row2.setAttribute('aria-label', 'Greek & Biology Symbols');
+
+        var firstGreekBtn = null;
+        for (var g = 0; g < GREEK_AND_BIO_SYMBOLS.length; g++) {
+          (function (sym, idx) {
+            var gBtn = document.createElement('button');
+            gBtn.type = 'button';
+            gBtn.className = 'pb-word-greek-btn';
+            gBtn.textContent = sym.ch;
+            gBtn.title = sym.label;
+            if (idx === 0) firstGreekBtn = gBtn;
+            gBtn.addEventListener('mousedown', function (e) {
+              e.preventDefault();
+              var inst = resolveTargetEditorForScope(opt_scopeContainerEl);
+              if (!inst) {
+                PBNotify.toast('info', 'Select a Question or Option Box', 'Click inside any question stem or answer field first to insert "' + sym.ch + '".');
+                return;
+              }
+              insertSymbolIntoEditor(inst, sym.ch);
+            });
+            row2.appendChild(gBtn);
+          })(GREEK_AND_BIO_SYMBOLS[g], g);
+        }
+
+        dockEl.appendChild(row1);
+        dockEl.appendChild(row2);
+
+        var entry = { dockEl: dockEl, buttons: tbButtons, firstGreekBtn: firstGreekBtn, scopeEl: opt_scopeContainerEl || null };
+        registeredToolbars.push(entry);
+        return entry;
+      }
+
+      function createInput(options) {
+        ensureGlobalSelectionWatcher();
+        var opts = options || {};
+        var el = document.createElement('div');
+        el.contentEditable = 'true';
+        el.spellcheck = true;
+        el.className =
+          'pb-word-inline-editor' +
+          (opts.isStem ? ' is-stem' : '') +
+          (opts.isSingleLine ? ' is-single-line' : '');
+        if (opts.id) el.id = opts.id;
+        if (opts.placeholder) el.setAttribute('data-placeholder', opts.placeholder);
+        if (opts.ariaLabel) el.setAttribute('aria-label', opts.ariaLabel);
+
+        richTextDocToEditableDom(el, opts.initialValue || '');
+
+        var inst = {
+          el: el,
+          savedRange: null,
+          getValueDoc: function () {
+            return editableDomToRichTextDoc(el);
+          },
+          getPlainText: function () {
+            return extractPlainTextFromRichTextDoc(editableDomToRichTextDoc(el));
+          },
+          setValue: function (val) {
+            richTextDocToEditableDom(el, val);
+          },
+          notifyChange: function () {
+            if (typeof opts.onChange === 'function') {
+              var docVal = editableDomToRichTextDoc(el);
+              opts.onChange(docVal, extractPlainTextFromRichTextDoc(docVal));
+            }
+          }
+        };
+        el.__pbWordInst = inst;
+
+        el.addEventListener('focus', function () {
+          activeEditorInstance = inst;
+          if (typeof window !== 'undefined') window.__PB_ACTIVE_WORD_EDITOR__ = inst;
+          inst.savedRange = saveSelectionRange(el);
+          refreshAllToolbarStates();
+        });
+
+        el.addEventListener('mouseup', function () {
+          activeEditorInstance = inst;
+          inst.savedRange = saveSelectionRange(el);
+          refreshAllToolbarStates();
+        });
+
+        el.addEventListener('keyup', function () {
+          inst.savedRange = saveSelectionRange(el);
+          refreshAllToolbarStates();
+        });
+
+        el.addEventListener('input', function () {
+          if (tryExpandBackslashMacroAfterInput(inst)) return;
+          el.classList.toggle('is-empty', !inst.getPlainText().trim());
+          inst.savedRange = saveSelectionRange(el);
+          inst.notifyChange();
+        });
+
+        el.addEventListener('paste', function (e) {
+          e.preventDefault();
+          var plain = (e.clipboardData || window.clipboardData).getData('text/plain') || '';
+          if (opts.isSingleLine) plain = plain.replace(/[\r\n]+/g, ' ');
+          try {
+            document.execCommand('insertText', false, plain);
+          } catch (ignorePasteErr) {}
+          inst.savedRange = saveSelectionRange(el);
+          inst.notifyChange();
+        });
+
+        el.addEventListener('keydown', function (e) {
+          var isCtrlOrCmd = Boolean(e.ctrlKey || e.metaKey) && !e.altKey;
+          var keyLower = String(e.key || '').toLowerCase();
+
+          if (isCtrlOrCmd && !e.shiftKey && keyLower === 'b') {
+            e.preventDefault();
+            applyFormatCommand(inst, 'bold');
+            return;
+          }
+          if (isCtrlOrCmd && !e.shiftKey && keyLower === 'i') {
+            e.preventDefault();
+            applyFormatCommand(inst, 'italic');
+            return;
+          }
+          if (isCtrlOrCmd && !e.shiftKey && keyLower === 'u') {
+            e.preventDefault();
+            applyFormatCommand(inst, 'underline');
+            return;
+          }
+          var isEqKey = e.key === '=' || e.key === '+' || e.code === 'Equal' || e.code === 'NumpadAdd';
+          if (isCtrlOrCmd && isEqKey) {
+            e.preventDefault();
+            applyFormatCommand(inst, e.shiftKey ? 'superscript' : 'subscript');
+            return;
+          }
+          if (e.altKey && !e.ctrlKey && !e.metaKey) {
+            var altSym = { a: '\u03B1', b: '\u03B2', g: '', d: '\u0394', m: '\u03BC' }[keyLower];
+            if (keyLower === 'g') {
+              e.preventDefault();
+              activeEditorInstance = inst;
+              inst.savedRange = saveSelectionRange(el);
+              for (var t = registeredToolbars.length - 1; t >= 0; t--) {
+                var tb = registeredToolbars[t];
+                if (tb && tb.firstGreekBtn && tb.dockEl.offsetParent !== null) {
+                  tb.firstGreekBtn.focus();
+                  break;
+                }
+              }
+              return;
+            }
+            if (altSym) {
+              e.preventDefault();
+              insertSymbolIntoEditor(inst, altSym);
+              return;
+            }
+          }
+          if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+            if (e.key === ' ' || e.key === '-' || e.key === 'Tab') {
+              if (tryExpandBackslashMacroAtCaret(inst, e.key === 'Tab' ? '' : e.key)) {
+                e.preventDefault();
+                return;
+              }
+            }
+            if (opts.isSingleLine && e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              return;
+            }
+          }
+        });
+
+        return {
+          element: el,
+          getValueDoc: inst.getValueDoc,
+          getPlainText: inst.getPlainText,
+          setValue: inst.setValue
+        };
+      }
+
+      return {
+        GREEK_AND_BIO_SYMBOLS: GREEK_AND_BIO_SYMBOLS,
+        editableDomToRichTextDoc: editableDomToRichTextDoc,
+        richTextDocToEditableDom: richTextDocToEditableDom,
+        renderToolbarInto: renderToolbarInto,
+        createInput: createInput
+      };
+    })();
+
     /**
      * Mounts a self-contained, zero-dependency structured `pb-richtext-v1` editor inside `hostId`.
      * Supports bold, italic, underline, approved font sizes (`sm`, `base`, `lg`, `xl`),
@@ -8605,6 +9480,8 @@
       var boldBtn = null;
       var italicBtn = null;
       var underlineBtn = null;
+      var subBtn = null;
+      var supBtn = null;
       var sizeSelect = null;
       var linkInp = null;
 
@@ -8618,6 +9495,12 @@
         }
         if (underlineBtn) {
           underlineBtn.classList.toggle('is-active', Boolean(activeSpan.underline));
+        }
+        if (subBtn) {
+          subBtn.classList.toggle('is-active', Boolean(activeSpan.sub));
+        }
+        if (supBtn) {
+          supBtn.classList.toggle('is-active', Boolean(activeSpan.sup));
         }
         if (sizeSelect) {
           sizeSelect.value = activeSpan.size || 'base';
@@ -8945,6 +9828,56 @@
         grpMarks.appendChild(boldBtn);
         grpMarks.appendChild(italicBtn);
         grpMarks.appendChild(underlineBtn);
+
+        subBtn = document.createElement('button');
+        subBtn.type = 'button';
+        subBtn.className = 'pb-rt-btn';
+        subBtn.textContent = 'X\u2082';
+        subBtn.title = 'Toggle Subscript on active span';
+        subBtn.addEventListener('click', function () {
+          var sp = getActiveSpanObj();
+          sp.sub = !sp.sub;
+          if (!sp.sub) delete sp.sub;
+          else delete sp.sup;
+          setCourseEditorDirtyState(true, editorLabel);
+          updatePreviewAndToolbarState();
+        });
+        grpMarks.appendChild(subBtn);
+
+        supBtn = document.createElement('button');
+        supBtn.type = 'button';
+        supBtn.className = 'pb-rt-btn';
+        supBtn.textContent = 'X\u00B2';
+        supBtn.title = 'Toggle Superscript on active span';
+        supBtn.addEventListener('click', function () {
+          var sp = getActiveSpanObj();
+          sp.sup = !sp.sup;
+          if (!sp.sup) delete sp.sup;
+          else delete sp.sub;
+          setCourseEditorDirtyState(true, editorLabel);
+          updatePreviewAndToolbarState();
+        });
+        grpMarks.appendChild(supBtn);
+
+        var quickGreek = ['\u03B1', '\u03B2', '\u0394', '\u03BC', '\u2192', '\u21CC'];
+        for (var qg = 0; qg < quickGreek.length; qg++) {
+          (function (ch) {
+            var qb = document.createElement('button');
+            qb.type = 'button';
+            qb.className = 'pb-rt-btn';
+            qb.textContent = ch;
+            qb.title = 'Append ' + ch + ' to active span';
+            qb.addEventListener('click', function () {
+              var sp = getActiveSpanObj();
+              sp.text = String(sp.text || '') + ch;
+              setCourseEditorDirtyState(true, editorLabel);
+              renderEditorBlocksDom();
+              updatePreviewAndToolbarState();
+            });
+            grpMarks.appendChild(qb);
+          })(quickGreek[qg]);
+        }
+
         grpMarks.appendChild(sizeSelect);
         toolbar.appendChild(grpMarks);
 
@@ -18487,9 +19420,10 @@ var qrcode = (function() {
     function openStudentCourseDetailView(courseId, opt_fromAdminPreview) {
       hideUiErrorBanner();
       currentStudentCourseId = courseId;
-      currentStudentCourseFromAdminPreview = Boolean(opt_fromAdminPreview);
+      var allowPreview = Boolean(opt_fromAdminPreview) && isCurrentSessionAdminUser();
+      currentStudentCourseFromAdminPreview = allowPreview;
 
-      var cachedBundle = !opt_fromAdminPreview && courseId ? studentCourseDetailCacheById[courseId] : null;
+      var cachedBundle = !allowPreview && courseId ? studentCourseDetailCacheById[courseId] : null;
       showSectionView('courseDetail');
       if (cachedBundle && cachedBundle.course) {
         setStudentCourseLoadingSkeletonState(false);
@@ -18500,7 +19434,7 @@ var qrcode = (function() {
 
       return rpcCallEnvelope('student.getCourseDetail', {
         courseId: courseId,
-        adminPreview: Boolean(opt_fromAdminPreview)
+        adminPreview: allowPreview
       })
         .then(function (envelope) {
           var d = (envelope && envelope.data) || {};
@@ -19328,7 +20262,8 @@ var qrcode = (function() {
     function formatQuestionTypeDisplayLabel(qType) {
       var k = String(qType || 'SINGLE_CHOICE').trim().toUpperCase();
       var map = {
-        SINGLE_CHOICE: 'Single Choice',
+        SINGLE_CHOICE: 'Single Choice (5 Opts)',
+        COMPLEX_MULTIPLE_CHOICE: 'Complex MC (ใช่/ไม่ใช่)',
         MULTIPLE_SELECT: 'Multiple Select',
         TRUE_FALSE: 'True / False',
         NUMERIC_RESPONSE: 'Numeric Response',
@@ -19336,6 +20271,102 @@ var qrcode = (function() {
         WRITTEN_RESPONSE: 'Written Response'
       };
       return map[k] || k.replace(/_/g, ' ');
+    }
+
+    function renderComplexMultipleChoiceStatementsDom(containerEl, q, currentDecisionsMap, onChangeDecision, opt_courseId) {
+      if (!containerEl) return;
+      while (containerEl.firstChild) containerEl.removeChild(containerEl.firstChild);
+
+      var opts = Array.isArray(q && q.options) ? q.options : [];
+      var decMap = currentDecisionsMap && typeof currentDecisionsMap === 'object' ? currentDecisionsMap : {};
+
+      var list = document.createElement('div');
+      list.className = 'pb-complex-mc-card-list';
+
+      for (var i = 0; i < opts.length; i++) {
+        (function (opt, idx) {
+          var curVal = String(decMap[opt.optionId] || '').toUpperCase();
+          var row = document.createElement('div');
+          row.className = 'pb-complex-mc-row' + (curVal === 'YES' || curVal === 'NO' ? ' is-decided' : '');
+
+          var stmtWrap = document.createElement('div');
+          stmtWrap.className = 'pb-complex-mc-stmt-wrap';
+
+          var numEl = document.createElement('span');
+          numEl.className = 'pb-complex-mc-num';
+          numEl.textContent = String(opt.displayLabel || idx + 1) + '.';
+          stmtWrap.appendChild(numEl);
+
+          var bodyEl = document.createElement('div');
+          bodyEl.className = 'pb-complex-mc-stmt-body pb-rt-rendered';
+          renderRichTextDocumentToDom(bodyEl, opt.contentRichText || opt.text || '', opt_courseId || '');
+          stmtWrap.appendChild(bodyEl);
+          row.appendChild(stmtWrap);
+
+          var tg = document.createElement('div');
+          tg.className = 'pb-complex-mc-toggle-group';
+          tg.setAttribute('role', 'group');
+          tg.setAttribute('aria-label', 'ข้อความย่อยที่ ' + (idx + 1));
+
+          var yesBtn = document.createElement('button');
+          yesBtn.type = 'button';
+          yesBtn.className = 'pb-complex-mc-toggle-pill is-yes' + (curVal === 'YES' ? ' is-selected' : '');
+          yesBtn.textContent = 'ใช่ (Yes)';
+          yesBtn.setAttribute('aria-pressed', curVal === 'YES' ? 'true' : 'false');
+          yesBtn.addEventListener('click', function () {
+            if (typeof onChangeDecision === 'function') {
+              onChangeDecision(opt.optionId, 'YES', opt, idx);
+            }
+          });
+          tg.appendChild(yesBtn);
+
+          var noBtn = document.createElement('button');
+          noBtn.type = 'button';
+          noBtn.className = 'pb-complex-mc-toggle-pill is-no' + (curVal === 'NO' ? ' is-selected' : '');
+          noBtn.textContent = 'ไม่ใช่ (No)';
+          noBtn.setAttribute('aria-pressed', curVal === 'NO' ? 'true' : 'false');
+          noBtn.addEventListener('click', function () {
+            if (typeof onChangeDecision === 'function') {
+              onChangeDecision(opt.optionId, 'NO', opt, idx);
+            }
+          });
+          tg.appendChild(noBtn);
+
+          row.appendChild(tg);
+          list.appendChild(row);
+        })(opts[i], i);
+      }
+
+      containerEl.appendChild(list);
+    }
+
+    function formatStudentResponseSummaryText(respPayload, opt_question, opt_emptyFallback) {
+      var p = respPayload && typeof respPayload === 'object' ? respPayload : {};
+      if (p.statementDecisions && typeof p.statementDecisions === 'object') {
+        var opts = opt_question && Array.isArray(opt_question.options) ? opt_question.options : [];
+        var parts = [];
+        if (opts.length > 0) {
+          for (var i = 0; i < opts.length; i++) {
+            var oid = opts[i].optionId;
+            var dVal = String(p.statementDecisions[oid] || '').toUpperCase();
+            parts.push((i + 1) + ': ' + (dVal === 'YES' ? 'ใช่' : dVal === 'NO' ? 'ไม่ใช่' : '-'));
+          }
+        } else {
+          var keys = Object.keys(p.statementDecisions);
+          for (var k = 0; k < keys.length; k++) {
+            var dk = String(p.statementDecisions[keys[k]] || '').toUpperCase();
+            parts.push((k + 1) + ': ' + (dk === 'YES' ? 'ใช่' : dk === 'NO' ? 'ไม่ใช่' : '-'));
+          }
+        }
+        if (parts.length > 0) return parts.join(' | ');
+      }
+      return (
+        p.textResponse ||
+        p.numericText ||
+        p.selectedOptionId ||
+        (Array.isArray(p.selectedOptionIds) && p.selectedOptionIds.length > 0 ? p.selectedOptionIds.join(', ') : '') ||
+        (opt_emptyFallback !== undefined ? opt_emptyFallback : '(No answer submitted)')
+      );
     }
 
     function renderFormattedBiologyUnitDom(containerEl, rawUnit, opt_trim) {
@@ -19410,6 +20441,88 @@ var qrcode = (function() {
       };
     }
 
+    var qbankWordStatePhase2 = {
+      toolbarMounted: false,
+      stemEditor: null,
+      expEditor: null,
+      optionEditors: {},
+      optionDocs: {}
+    };
+
+    function mountQBankWordEditorOnControl(controlId, editorKey, isStem, placeholder, isSingleLine) {
+      var origEl = document.getElementById(controlId);
+      if (!origEl || !origEl.parentNode) return null;
+      var existing =
+        editorKey === 'stem'
+          ? qbankWordStatePhase2.stemEditor
+          : editorKey === 'explanation'
+          ? qbankWordStatePhase2.expEditor
+          : qbankWordStatePhase2.optionEditors[editorKey];
+      if (existing && existing.element && existing.element.parentNode === origEl.parentNode) {
+        return existing;
+      }
+      if (origEl.hasAttribute('required')) {
+        origEl.removeAttribute('required');
+      }
+      origEl.classList.add('hidden');
+      var ed = PBWordRichEditor.createInput({
+        isStem: Boolean(isStem),
+        isSingleLine: Boolean(isSingleLine),
+        placeholder: placeholder || '',
+        initialValue: origEl.value || '',
+        ariaLabel: origEl.getAttribute('aria-label') || placeholder || editorKey,
+        onChange: function (doc, plainTxt) {
+          origEl.value = plainTxt;
+          if (editorKey !== 'stem' && editorKey !== 'explanation') {
+            qbankWordStatePhase2.optionDocs[editorKey] = doc;
+          }
+        }
+      });
+      if (isSingleLine) {
+        ed.element.style.flex = '1';
+      }
+      origEl.parentNode.insertBefore(ed.element, origEl.nextSibling);
+      if (editorKey === 'stem') qbankWordStatePhase2.stemEditor = ed;
+      else if (editorKey === 'explanation') qbankWordStatePhase2.expEditor = ed;
+      else qbankWordStatePhase2.optionEditors[editorKey] = ed;
+      return ed;
+    }
+
+    function ensureAllQBankWordEditorsMountedPhase2() {
+      var qEditorForm = document.getElementById('form-admin-question-editor');
+      var dockEl = document.getElementById('qbank-word-toolbar-dock');
+      if (dockEl && !qbankWordStatePhase2.toolbarMounted) {
+        PBWordRichEditor.renderToolbarInto(dockEl, qEditorForm || document.body);
+        qbankWordStatePhase2.toolbarMounted = true;
+      }
+      mountQBankWordEditorOnControl(
+        'textarea-qbank-stem',
+        'stem',
+        true,
+        'Enter biology question stem (Ctrl+B/I/U, Ctrl+= Subscript, Ctrl+Shift+= Superscript, \\beta- for β-)...',
+        false
+      );
+      mountQBankWordEditorOnControl(
+        'textarea-qbank-explanation',
+        'explanation',
+        false,
+        'Explain the biological mechanism behind the answer (supports Sub/Sup & Greek)...',
+        false
+      );
+      for (var i = 0; i < 10; i++) {
+        var inp = document.getElementById('input-qbank-opt-text-' + i);
+        if (inp) {
+          mountQBankWordEditorOnControl(
+            'input-qbank-opt-text-' + i,
+            'opt_' + i,
+            false,
+            'Option ' + String.fromCharCode(65 + i) + ' text (Ctrl+= Sub, Ctrl+Shift+= Sup, \\beta-)...',
+            true
+          );
+        }
+      }
+    }
+
     function updateQBankOptionsCountBadgePhase2() {
       var badge = document.getElementById('qbank-options-count-badge');
       var typeSel = document.getElementById('select-qbank-type');
@@ -19417,6 +20530,8 @@ var qrcode = (function() {
       if (!badge) return;
       if (qType === 'TRUE_FALSE') {
         badge.textContent = '2 Choices (True / False)';
+      } else if (qType === 'COMPLEX_MULTIPLE_CHOICE') {
+        badge.textContent = String(currentQBankActiveOptionCountPhase2) + ' Sub-Statements (ใช่ / ไม่ใช่)';
       } else {
         var lastLetter = String.fromCharCode(64 + Math.max(2, currentQBankActiveOptionCountPhase2));
         badge.textContent = String(currentQBankActiveOptionCountPhase2) + ' Choices (A–' + lastLetter + ')';
@@ -19424,7 +20539,7 @@ var qrcode = (function() {
     }
 
     function setQBankOptionRowCountPhase2(targetCount) {
-      var count = Math.min(10, Math.max(2, Number(targetCount) || 4));
+      var count = Math.min(10, Math.max(2, Number(targetCount) || 5));
       currentQBankActiveOptionCountPhase2 = count;
 
       // Toggle visibility of rows 2 and 3 (C and D) if count < 4
@@ -19444,13 +20559,16 @@ var qrcode = (function() {
           var exTxt = document.getElementById('input-qbank-opt-text-' + k);
           var exChk = document.getElementById('chk-qbank-opt-correct-' + k);
           var exPin = document.getElementById('select-qbank-opt-pin-' + k);
+          var exEd = qbankWordStatePhase2.optionEditors['opt_' + k];
           if (exTxt || exChk || exPin) {
             savedExtra[k] = {
               text: exTxt ? exTxt.value : '',
+              doc: exEd ? exEd.getValueDoc() : qbankWordStatePhase2.optionDocs['opt_' + k] || null,
               checked: Boolean(exChk && exChk.checked),
               pin: exPin ? exPin.value : 'NONE'
             };
           }
+          delete qbankWordStatePhase2.optionEditors['opt_' + k];
         }
         clearChildren(extraHost);
         for (var idx = 4; idx < count; idx++) {
@@ -19513,9 +20631,21 @@ var qrcode = (function() {
             row.appendChild(rmBtn);
 
             extraHost.appendChild(row);
+            var mountedEd = mountQBankWordEditorOnControl(
+              'input-qbank-opt-text-' + optIndex,
+              'opt_' + optIndex,
+              false,
+              'Option ' + letter + ' text (Ctrl+= Sub, Ctrl+Shift+= Sup)...',
+              true
+            );
+            if (mountedEd && savedExtra[optIndex] && savedExtra[optIndex].doc) {
+              mountedEd.setValue(savedExtra[optIndex].doc);
+              qbankWordStatePhase2.optionDocs['opt_' + optIndex] = savedExtra[optIndex].doc;
+            }
           })(idx);
         }
       }
+      ensureAllQBankWordEditorsMountedPhase2();
       updateQBankOptionsCountBadgePhase2();
     }
 
@@ -19527,8 +20657,10 @@ var qrcode = (function() {
         var tEl = document.getElementById('input-qbank-opt-text-' + i);
         var cEl = document.getElementById('chk-qbank-opt-correct-' + i);
         var pEl = document.getElementById('select-qbank-opt-pin-' + i);
+        var edEl = qbankWordStatePhase2.optionEditors['opt_' + i];
         allVals.push({
           text: tEl ? tEl.value : '',
+          doc: edEl ? edEl.getValueDoc() : qbankWordStatePhase2.optionDocs['opt_' + i] || null,
           checked: Boolean(cEl && cEl.checked),
           pin: pEl ? pEl.value : 'NONE'
         });
@@ -19538,7 +20670,9 @@ var qrcode = (function() {
         var tEl2 = document.getElementById('input-qbank-opt-text-' + j);
         var cEl2 = document.getElementById('chk-qbank-opt-correct-' + j);
         var pEl2 = document.getElementById('select-qbank-opt-pin-' + j);
+        var edEl2 = qbankWordStatePhase2.optionEditors['opt_' + j];
         if (tEl2) tEl2.value = allVals[j].text;
+        if (edEl2) edEl2.setValue(allVals[j].doc || allVals[j].text);
         if (cEl2) cEl2.checked = allVals[j].checked;
         if (pEl2) pEl2.value = allVals[j].pin;
       }
@@ -19639,11 +20773,15 @@ var qrcode = (function() {
       var choicePanel = document.getElementById('qbank-panel-choices');
       var numPanel = document.getElementById('qbank-panel-numeric');
       var writtenPanel = document.getElementById('qbank-panel-written');
+      var msRuleSel = document.getElementById('select-qbank-multiselect-rule');
 
       if (choicePanel) {
         choicePanel.classList.toggle(
           'hidden',
-          qType !== 'SINGLE_CHOICE' && qType !== 'MULTIPLE_SELECT' && qType !== 'TRUE_FALSE'
+          qType !== 'SINGLE_CHOICE' &&
+            qType !== 'COMPLEX_MULTIPLE_CHOICE' &&
+            qType !== 'MULTIPLE_SELECT' &&
+            qType !== 'TRUE_FALSE'
         );
       }
       if (numPanel) {
@@ -19655,16 +20793,33 @@ var qrcode = (function() {
           qType !== 'SHORT_ANSWER' && qType !== 'WRITTEN_RESPONSE'
         );
       }
+      if (msRuleSel) {
+        msRuleSel.classList.toggle('hidden', qType !== 'MULTIPLE_SELECT');
+      }
       if (qType === 'TRUE_FALSE') {
         setQBankOptionRowCountPhase2(2);
         var o0 = document.getElementById('input-qbank-opt-text-0');
         var o1 = document.getElementById('input-qbank-opt-text-1');
-        if (o0 && !o0.value) o0.value = 'True';
-        if (o1 && !o1.value) o1.value = 'False';
+        if (o0 && !o0.value) {
+          o0.value = 'True';
+          if (qbankWordStatePhase2.optionEditors.opt_0) qbankWordStatePhase2.optionEditors.opt_0.setValue('True');
+        }
+        if (o1 && !o1.value) {
+          o1.value = 'False';
+          if (qbankWordStatePhase2.optionEditors.opt_1) qbankWordStatePhase2.optionEditors.opt_1.setValue('False');
+        }
+      } else if (qType === 'COMPLEX_MULTIPLE_CHOICE') {
+        if (currentQBankActiveOptionCountPhase2 < 3 || currentQBankActiveOptionCountPhase2 > 5) {
+          setQBankOptionRowCountPhase2(3);
+        } else {
+          ensureAllQBankWordEditorsMountedPhase2();
+          updateQBankOptionsCountBadgePhase2();
+        }
       } else if (qType === 'SINGLE_CHOICE' || qType === 'MULTIPLE_SELECT') {
         if (currentQBankActiveOptionCountPhase2 < 3) {
-          setQBankOptionRowCountPhase2(4);
+          setQBankOptionRowCountPhase2(5);
         } else {
+          ensureAllQBankWordEditorsMountedPhase2();
           updateQBankOptionsCountBadgePhase2();
         }
       }
@@ -19700,7 +20855,7 @@ var qrcode = (function() {
       if (titleInp) titleInp.value = '';
       if (typeSel) typeSel.value = 'SINGLE_CHOICE';
       if (diffSel) diffSel.value = 'MEDIUM';
-      if (ptsInp) ptsInp.value = '2';
+      if (ptsInp) ptsInp.value = '2.4';
       if (negInp) negInp.value = '0';
       if (topInp) topInp.value = '';
       if (statSel) statSel.value = 'PUBLISHED';
@@ -19713,15 +20868,21 @@ var qrcode = (function() {
       if (refInp) refInp.value = '';
       if (notesInp) notesInp.value = '';
 
-      setQBankOptionRowCountPhase2(4);
-      for (var i = 0; i < 4; i++) {
+      setQBankOptionRowCountPhase2(5);
+      qbankWordStatePhase2.optionDocs = {};
+      for (var i = 0; i < 5; i++) {
         var chk = document.getElementById('chk-qbank-opt-correct-' + i);
         var txt = document.getElementById('input-qbank-opt-text-' + i);
         var pin = document.getElementById('select-qbank-opt-pin-' + i);
         if (chk) chk.checked = i === 0;
         if (txt) txt.value = '';
+        if (qbankWordStatePhase2.optionEditors['opt_' + i]) {
+          qbankWordStatePhase2.optionEditors['opt_' + i].setValue('');
+        }
         if (pin) pin.value = 'NONE';
       }
+      if (qbankWordStatePhase2.stemEditor) qbankWordStatePhase2.stemEditor.setValue('');
+      if (qbankWordStatePhase2.expEditor) qbankWordStatePhase2.expEditor.setValue('');
       setQBankEditorImagesListPhase2([]);
       syncQBankTypePanelsPhase2();
     }
@@ -19731,6 +20892,7 @@ var qrcode = (function() {
         resetQuestionEditorFormPhase2();
         return;
       }
+      ensureAllQBankWordEditorsMountedPhase2();
       var idInp = document.getElementById('input-qbank-question-id');
       var verInp = document.getElementById('input-qbank-expected-version');
       if (idInp) idInp.value = q.questionId || '';
@@ -19769,6 +20931,9 @@ var qrcode = (function() {
       if (statSel) statSel.value = q.status || 'PUBLISHED';
       if (stimSel) stimSel.value = q.stimulusId || '';
       if (stemTxt) stemTxt.value = q.stemPlainText || '';
+      if (qbankWordStatePhase2.stemEditor) {
+        qbankWordStatePhase2.stemEditor.setValue(q.stemRichText || q.stemPlainText || '');
+      }
       var qImgs = Array.isArray(q.imageFileIds) && q.imageFileIds.length > 0
         ? q.imageFileIds
         : (q.imageFileId ? parseClientImageFileIdsListPhase2(q.imageFileId) : []);
@@ -19779,20 +20944,35 @@ var qrcode = (function() {
       var priv = q.privateGradingData || {};
       var gSpec = priv.gradingSpec || {};
       if (expTxt) expTxt.value = priv.explanationPlainText || '';
+      if (qbankWordStatePhase2.expEditor) {
+        qbankWordStatePhase2.expEditor.setValue(priv.explanationRichText || priv.explanationPlainText || '');
+      }
       if (refInp) refInp.value = priv.referenceText || '';
       if (notesInp) notesInp.value = priv.adminNotes || '';
 
       var opts = Array.isArray(q.options) ? q.options : [];
-      var desiredOptRows = q.questionType === 'TRUE_FALSE' ? 2 : Math.min(10, Math.max(4, opts.length));
+      var desiredOptRows =
+        q.questionType === 'TRUE_FALSE'
+          ? 2
+          : q.questionType === 'COMPLEX_MULTIPLE_CHOICE'
+          ? Math.min(5, Math.max(3, opts.length || 3))
+          : Math.min(10, Math.max(5, opts.length || 5));
       setQBankOptionRowCountPhase2(desiredOptRows);
+      qbankWordStatePhase2.optionDocs = {};
       for (var i = 0; i < desiredOptRows; i++) {
         var chk = document.getElementById('chk-qbank-opt-correct-' + i);
         var txt = document.getElementById('input-qbank-opt-text-' + i);
         var pin = document.getElementById('select-qbank-opt-pin-' + i);
+        var ed = qbankWordStatePhase2.optionEditors['opt_' + i];
         var op = opts[i] || null;
         if (chk) chk.checked = Boolean(op && op.isCorrect);
-        if (txt) txt.value = op ? op.plainText || '' : '';
-        if (pin) pin.value = op && op.pinPosition ? op.pinPosition : 'NONE';
+        var optRichOrPlain = op ? (op.contentRichText || op.plainText || '') : '';
+        if (txt) txt.value = op ? (op.plainText || extractPlainTextFromRichTextDoc(op.contentRichText) || '') : '';
+        if (ed) ed.setValue(optRichOrPlain);
+        if (op && op.contentRichText && typeof op.contentRichText === 'object') {
+          qbankWordStatePhase2.optionDocs['opt_' + i] = op.contentRichText;
+        }
+        if (pin) pin.value = op && op.pinPosition ? op.pinPosition : (q.questionType === 'COMPLEX_MULTIPLE_CHOICE' ? 'FIXED' : 'NONE');
       }
 
       var msRuleSel = document.getElementById('select-qbank-multiselect-rule');
@@ -20238,7 +21418,24 @@ var qrcode = (function() {
         }
 
         /* 3. Interactive Student Input Controls by Question Type */
-        if (
+        if (q.questionType === 'COMPLEX_MULTIPLE_CHOICE') {
+          var prevDecisions = {};
+          var cmcContainer = document.createElement('div');
+          function reRenderQBankPreviewCmc() {
+            renderComplexMultipleChoiceStatementsDom(
+              cmcContainer,
+              q,
+              prevDecisions,
+              function (optId, val) {
+                prevDecisions[optId] = val;
+                reRenderQBankPreviewCmc();
+              },
+              ''
+            );
+          }
+          reRenderQBankPreviewCmc();
+          qBox.appendChild(cmcContainer);
+        } else if (
           q.questionType === 'SINGLE_CHOICE' ||
           q.questionType === 'MULTIPLE_SELECT' ||
           q.questionType === 'TRUE_FALSE'
@@ -20353,9 +21550,21 @@ var qrcode = (function() {
     }
 
     function initExamPhase2QuestionBankBindings() {
+      ensureAllQBankWordEditorsMountedPhase2();
+
       var typeSel = document.getElementById('select-qbank-type');
       if (typeSel) {
-        typeSel.addEventListener('change', syncQBankTypePanelsPhase2);
+        typeSel.addEventListener('change', function () {
+          var ptsInp = document.getElementById('input-qbank-points');
+          if (ptsInp) {
+            if (typeSel.value === 'COMPLEX_MULTIPLE_CHOICE' && (ptsInp.value === '2' || ptsInp.value === '2.4')) {
+              ptsInp.value = '3.2';
+            } else if (typeSel.value === 'SINGLE_CHOICE' && (ptsInp.value === '2' || ptsInp.value === '3.2')) {
+              ptsInp.value = '2.4';
+            }
+          }
+          syncQBankTypePanelsPhase2();
+        });
       }
 
       var symBtns = document.querySelectorAll('[data-insert-bio-symbol]');
@@ -20601,16 +21810,43 @@ var qrcode = (function() {
           var qType = (document.getElementById('select-qbank-type') || {}).value || 'SINGLE_CHOICE';
 
           var optionsPayload = [];
-          if (qType === 'SINGLE_CHOICE' || qType === 'MULTIPLE_SELECT' || qType === 'TRUE_FALSE') {
-            var maxO = qType === 'TRUE_FALSE' ? 2 : Math.min(10, Math.max(2, currentQBankActiveOptionCountPhase2));
+          if (
+            qType === 'SINGLE_CHOICE' ||
+            qType === 'COMPLEX_MULTIPLE_CHOICE' ||
+            qType === 'MULTIPLE_SELECT' ||
+            qType === 'TRUE_FALSE'
+          ) {
+            var maxO =
+              qType === 'TRUE_FALSE'
+                ? 2
+                : qType === 'COMPLEX_MULTIPLE_CHOICE'
+                ? Math.min(5, Math.max(3, currentQBankActiveOptionCountPhase2))
+                : Math.min(10, Math.max(2, currentQBankActiveOptionCountPhase2));
             for (var i = 0; i < maxO; i++) {
+              var edOpt = qbankWordStatePhase2.optionEditors['opt_' + i];
               var txt = ((document.getElementById('input-qbank-opt-text-' + i) || {}).value || '').trim();
+              if (edOpt) {
+                var edPlain = edOpt.getPlainText().trim();
+                if (edPlain) txt = edPlain;
+              }
+              var optDocVal = edOpt ? edOpt.getValueDoc() : qbankWordStatePhase2.optionDocs['opt_' + i] || txt;
               var chk = Boolean((document.getElementById('chk-qbank-opt-correct-' + i) || {}).checked);
-              var pin = (document.getElementById('select-qbank-opt-pin-' + i) || {}).value || 'NONE';
+              var pin =
+                qType === 'COMPLEX_MULTIPLE_CHOICE'
+                  ? 'FIXED'
+                  : (document.getElementById('select-qbank-opt-pin-' + i) || {}).value || 'NONE';
               if (txt) {
                 optionsPayload.push({
-                  optionKey: qType === 'TRUE_FALSE' ? (i === 0 ? 'TRUE' : 'FALSE') : String.fromCharCode(65 + i),
+                  optionKey:
+                    qType === 'TRUE_FALSE'
+                      ? i === 0
+                        ? 'TRUE'
+                        : 'FALSE'
+                      : qType === 'COMPLEX_MULTIPLE_CHOICE'
+                      ? 'S' + (optionsPayload.length + 1)
+                      : String.fromCharCode(65 + optionsPayload.length),
                   text: txt,
+                  contentRichText: qType === 'TRUE_FALSE' ? txt : optDocVal,
                   isCorrect: chk,
                   pinPosition: pin
                 });
@@ -20623,6 +21859,22 @@ var qrcode = (function() {
             rawImgField || currentQBankEditorImageIdsPhase2
           );
 
+          var stemDocVal = qbankWordStatePhase2.stemEditor
+            ? qbankWordStatePhase2.stemEditor.getValueDoc()
+            : (document.getElementById('textarea-qbank-stem') || {}).value || '';
+          var stemPlainChk = extractPlainTextFromRichTextDoc(stemDocVal).trim();
+          if (!stemPlainChk) {
+            setText('qbank-editor-status', 'Error: Question stem cannot be blank.');
+            if (qbankWordStatePhase2.stemEditor && qbankWordStatePhase2.stemEditor.element) {
+              qbankWordStatePhase2.stemEditor.element.focus();
+            }
+            return;
+          }
+          var expDocVal = qbankWordStatePhase2.expEditor
+            ? qbankWordStatePhase2.expEditor.getValueDoc()
+            : (document.getElementById('textarea-qbank-explanation') || {}).value || '';
+          var expFinal = extractPlainTextFromRichTextDoc(expDocVal).trim() ? expDocVal : '';
+
           var payload = {
             questionId: qId,
             expectedVersion: expVer ? Number(expVer) : undefined,
@@ -20630,12 +21882,12 @@ var qrcode = (function() {
             title: (document.getElementById('input-qbank-title') || {}).value || '',
             questionType: qType,
             difficulty: (document.getElementById('select-qbank-difficulty') || {}).value || 'MEDIUM',
-            defaultPoints: (document.getElementById('input-qbank-points') || {}).value || '1',
+            defaultPoints: (document.getElementById('input-qbank-points') || {}).value || '2.4',
             negativePoints: (document.getElementById('input-qbank-neg-points') || {}).value || '0',
             topicTags: (document.getElementById('input-qbank-topics') || {}).value || '',
             status: (document.getElementById('select-qbank-status') || {}).value || 'PUBLISHED',
             stimulusId: (document.getElementById('select-qbank-stimulus') || {}).value || '',
-            stemRichText: (document.getElementById('textarea-qbank-stem') || {}).value || '',
+            stemRichText: stemDocVal,
             imageFileId: imgIdsList.join(','),
             imageFileIds: imgIdsList,
             imageAltText: (document.getElementById('input-qbank-image-alt') || {}).value || '',
@@ -20656,7 +21908,7 @@ var qrcode = (function() {
             maxLengthChars: Number((document.getElementById('input-qbank-max-chars') || {}).value || 1500),
             acceptedAnswers: (document.getElementById('textarea-qbank-accepted-answers') || {}).value || '',
             sampleModelAnswer: (document.getElementById('textarea-qbank-rubric-model') || {}).value || '',
-            explanationRichText: (document.getElementById('textarea-qbank-explanation') || {}).value || '',
+            explanationRichText: expFinal,
             referenceText: (document.getElementById('input-qbank-reference') || {}).value || '',
             adminNotes: (document.getElementById('input-qbank-admin-notes') || {}).value || ''
           };
@@ -21827,10 +23079,7 @@ var qrcode = (function() {
               if (exam.primaryActionType === 'VIEW_RESULT' && exam.canViewPublishedResult) {
                 return openStudentPublishedExamResultModalPhase7(exam.examSetId, '');
               }
-              var isAdmViewer = Boolean(
-                currentStudentCourseFromAdminPreview ||
-                  (currentSessionMeta && currentSessionMeta.user && currentSessionMeta.user.role === 'ADMIN')
-              );
+              var isAdmViewer = isCurrentSessionAdminUser();
               return openStudentExamInstructionsModalPhase3(exam.examSetId, isAdmViewer);
             });
           });
@@ -21874,7 +23123,7 @@ var qrcode = (function() {
         modeFilter: mSel ? mSel.value : 'ALL',
         availabilityFilter: aSel ? aSel.value : 'ALL',
         completionFilter: cSel ? cSel.value : 'ALL',
-        adminPreview: Boolean(currentStudentCourseFromAdminPreview)
+        adminPreview: Boolean(currentStudentCourseFromAdminPreview) && isCurrentSessionAdminUser()
       };
 
       return rpcCallEnvelope('exams.list', payload)
@@ -21891,19 +23140,12 @@ var qrcode = (function() {
     }
 
     function buildFallbackAdminPreviewInstructionsBundle(examSetId) {
+      if (!isCurrentSessionAdminUser()) return null;
       var found = null;
       if (Array.isArray(currentAdminExamsListPhase3)) {
         for (var i = 0; i < currentAdminExamsListPhase3.length; i++) {
           if (currentAdminExamsListPhase3[i] && currentAdminExamsListPhase3[i].examSetId === examSetId) {
             found = currentAdminExamsListPhase3[i];
-            break;
-          }
-        }
-      }
-      if (!found && Array.isArray(currentStudentCourseExamsCatalogPhase3)) {
-        for (var j = 0; j < currentStudentCourseExamsCatalogPhase3.length; j++) {
-          if (currentStudentCourseExamsCatalogPhase3[j] && currentStudentCourseExamsCatalogPhase3[j].examSetId === examSetId) {
-            found = currentStudentCourseExamsCatalogPhase3[j];
             break;
           }
         }
@@ -21980,14 +23222,31 @@ var qrcode = (function() {
         });
       }
 
-      var isAdminPrev = Boolean(opt_isAdminPreview);
+      var isAdminPrev = Boolean(opt_isAdminPreview) && isCurrentSessionAdminUser();
+      currentSelectedInstructionExamPhase3 = null;
+      var loadOverlay = document.getElementById('exam-inst-loading-overlay');
+      if (loadOverlay) loadOverlay.classList.remove('hidden');
+      var startBtnInit = document.getElementById('btn-exam-inst-start-attempt');
+      if (startBtnInit) {
+        startBtnInit.disabled = true;
+        startBtnInit.classList.remove('is-btn-loading');
+        startBtnInit.textContent = 'Verifying Session...';
+      }
       var closeBtnFooter = document.getElementById('btn-exam-inst-close');
       if (closeBtnFooter) {
         closeBtnFooter.textContent = isAdminPrev ? 'Close Preview' : 'Back to Course Catalog';
       }
-
-      setText('exam-inst-title', 'Loading Examination Preview & Instructions...');
-      setText('exam-inst-status-message', 'Fetching examination rules, sections, and question preview...');
+      var availBadgeInit = document.getElementById('exam-inst-availability-badge');
+      if (availBadgeInit) {
+        availBadgeInit.classList.remove('is-preview');
+        availBadgeInit.textContent = 'CHECKING...';
+      }
+      setText('exam-inst-mode-badge', 'Assessment');
+      setText('exam-inst-code-badge', 'LOADING');
+      setText('exam-inst-title', 'Loading Examination Instructions...');
+      setText('exam-inst-course-label', '');
+      setText('exam-inst-status-title', 'Verifying Session');
+      setText('exam-inst-status-message', 'Verifying your session role and fetching official assessment rules...');
       setText('exam-inst-question-count', 'Loading...');
       setText('exam-inst-max-points', 'Loading...');
       setText('exam-inst-duration', 'Loading...');
@@ -22053,12 +23312,9 @@ var qrcode = (function() {
 
       function applyInstructionsBundleToModal(data) {
         var ex = (data && data.exam) || {};
-        var effectiveAdminPrev = Boolean(
-          isAdminPrev ||
-            ex._isAdminPreview ||
-            currentStudentCourseFromAdminPreview ||
-            (currentSessionMeta && currentSessionMeta.user && currentSessionMeta.user.role === 'ADMIN')
-        );
+        var effectiveAdminPrev =
+          isCurrentSessionAdminUser() &&
+          Boolean(isAdminPrev || ex._isAdminPreview || currentStudentCourseFromAdminPreview);
         ex._isAdminPreview = effectiveAdminPrev;
         currentSelectedInstructionExamPhase3 = ex;
 
@@ -22275,11 +23531,8 @@ var qrcode = (function() {
             );
           }
         }
-      }
-
-      var instantCachedBundle = buildFallbackAdminPreviewInstructionsBundle(examSetId);
-      if (instantCachedBundle) {
-        applyInstructionsBundleToModal(instantCachedBundle);
+        var loadOverlayDone = document.getElementById('exam-inst-loading-overlay');
+        if (loadOverlayDone) loadOverlayDone.classList.add('hidden');
       }
 
       return rpcCallEnvelope(
@@ -22294,12 +23547,20 @@ var qrcode = (function() {
           applyInstructionsBundleToModal(env.data || {});
         })
         .catch(function (err) {
-          if (instantCachedBundle || isAdminPrev) {
-            var fallback = instantCachedBundle || buildFallbackAdminPreviewInstructionsBundle(examSetId);
+          if (isAdminPrev && isCurrentSessionAdminUser()) {
+            var fallback = buildFallbackAdminPreviewInstructionsBundle(examSetId);
             if (fallback) {
               applyInstructionsBundleToModal(fallback);
               return;
             }
+          }
+          var loadOverlayErr = document.getElementById('exam-inst-loading-overlay');
+          if (loadOverlayErr) loadOverlayErr.classList.add('hidden');
+          var startBtnErr = document.getElementById('btn-exam-inst-start-attempt');
+          if (startBtnErr) {
+            startBtnErr.disabled = true;
+            startBtnErr.classList.remove('is-btn-loading');
+            startBtnErr.textContent = 'Unavailable';
           }
           setText('exam-inst-title', 'Unable to Load Instructions');
           setText('exam-inst-status-message', (err && err.message) || 'Error loading examination rules.');
@@ -22307,6 +23568,9 @@ var qrcode = (function() {
     }
 
     function closeStudentExamInstructionsModalPhase3() {
+      var loadOverlay = document.getElementById('exam-inst-loading-overlay');
+      if (loadOverlay) loadOverlay.classList.add('hidden');
+      currentSelectedInstructionExamPhase3 = null;
       closeModalDialog('modal-student-exam-instructions');
     }
 
@@ -22408,6 +23672,13 @@ var qrcode = (function() {
         var p = responsePayload && typeof responsePayload === 'object' ? responsePayload : {};
         if (p.selectedOptionId && String(p.selectedOptionId).trim()) return true;
         if (Array.isArray(p.selectedOptionIds) && p.selectedOptionIds.length > 0) return true;
+        if (p.statementDecisions && typeof p.statementDecisions === 'object') {
+          var decKeys = Object.keys(p.statementDecisions);
+          for (var i = 0; i < decKeys.length; i++) {
+            var v = String(p.statementDecisions[decKeys[i]] || '').toUpperCase();
+            if (v === 'YES' || v === 'NO') return true;
+          }
+        }
         if (p.numericText !== undefined && p.numericText !== null && String(p.numericText).trim() !== '') return true;
         if (p.textResponse !== undefined && p.textResponse !== null && String(p.textResponse).trim() !== '') return true;
         return false;
@@ -22769,6 +24040,33 @@ var qrcode = (function() {
         };
       }
 
+      function reset() {
+        if (state.debounceTimerId) {
+          clearTimeout(state.debounceTimerId);
+          state.debounceTimerId = null;
+        }
+        if (state.countdownIntervalId) {
+          clearInterval(state.countdownIntervalId);
+          state.countdownIntervalId = null;
+        }
+        state.attempt = null;
+        state.exam = null;
+        state.sections = [];
+        state.items = [];
+        state.itemsById = {};
+        state.localResponsesByItemId = {};
+        state.pendingDirtyByItemId = {};
+        state.flagsByItemId = {};
+        state.clientRevisionCounter = 0;
+        state.serverTimeOffsetMs = 0;
+        state.saveState = 'IDLE';
+        state.lastSavedAtBangkok = '';
+        state.lastSaveError = '';
+        state.inFlightSavePromise = null;
+        state.needsFollowUpFlush = false;
+        state.onStateChangeCallback = null;
+      }
+
       return {
         loadFromWorkspaceBundle: loadFromWorkspaceBundle,
         queueResponseChange: queueResponseChange,
@@ -22778,6 +24076,7 @@ var qrcode = (function() {
         getSnapshot: getSnapshot,
         clearLocalDraft: clearLocalDraft,
         getStorageKey: getStorageKey,
+        reset: reset,
         setOnStateChange: function (fn) {
           state.onStateChangeCallback = fn;
         }
@@ -22785,6 +24084,9 @@ var qrcode = (function() {
     })();
 
     function launchAdminInteractiveExamWorkspacePreview(examDto) {
+      if (!isCurrentSessionAdminUser()) {
+        return Promise.reject(new Error('Administrator session required.'));
+      }
       var startBtn = document.getElementById('btn-exam-inst-start-attempt');
       if (startBtn) {
         startBtn.disabled = true;
@@ -22792,21 +24094,42 @@ var qrcode = (function() {
         startBtn.textContent = 'Building Interactive Question Preview...';
       }
 
-      var ensureQuestionsLoaded =
-        Array.isArray(currentQBankQuestionsPhase2) && currentQBankQuestionsPhase2.length > 0
-          ? Promise.resolve(currentQBankQuestionsPhase2)
-          : rpcCallEnvelope('admin.qbank.listQuestions', { page: 1, pageSize: 200 }, { suppressErrorBanner: true })
-              .then(function (env) {
-                var d = env.data || {};
-                currentQBankQuestionsPhase2 = Array.isArray(d.questions) ? d.questions : [];
-                return currentQBankQuestionsPhase2;
-              })
-              .catch(function () {
-                return [];
-              });
+      var initialQById = {};
+      if (Array.isArray(currentQBankQuestionsPhase2)) {
+        for (var iq = 0; iq < currentQBankQuestionsPhase2.length; iq++) {
+          var iqb = currentQBankQuestionsPhase2[iq];
+          if (iqb && iqb.questionId) initialQById[iqb.questionId] = iqb;
+        }
+      }
+      var hasMissingPreviewQuestions = !Array.isArray(currentQBankQuestionsPhase2) || currentQBankQuestionsPhase2.length === 0;
+      if (!hasMissingPreviewQuestions && examDto && Array.isArray(examDto.sections)) {
+        for (var es = 0; es < examDto.sections.length; es++) {
+          var esItems = Array.isArray(examDto.sections[es].items) ? examDto.sections[es].items : [];
+          for (var ei = 0; ei < esItems.length; ei++) {
+            var eqId = esItems[ei].questionId || esItems[ei].question_id || '';
+            if (eqId && !initialQById[eqId]) {
+              hasMissingPreviewQuestions = true;
+              break;
+            }
+          }
+          if (hasMissingPreviewQuestions) break;
+        }
+      }
+
+      var ensureQuestionsLoaded = !hasMissingPreviewQuestions
+        ? Promise.resolve(currentQBankQuestionsPhase2)
+        : rpcCallEnvelope('admin.questions.list', { page: 1, limit: 200, includePrivate: true }, { suppressErrorBanner: true })
+            .then(function (env) {
+              var d = env.data || {};
+              currentQBankQuestionsPhase2 = Array.isArray(d.questions) ? d.questions : [];
+              return currentQBankQuestionsPhase2;
+            })
+            .catch(function () {
+              return currentQBankQuestionsPhase2 || [];
+            });
 
       var ensureExamsLoaded =
-        Array.isArray(currentAdminExamsListPhase3) && currentAdminExamsListPhase3.length > 0
+        Array.isArray(currentAdminExamsListPhase3) && currentAdminExamsListPhase3.length > 0 && !hasMissingPreviewQuestions
           ? Promise.resolve(currentAdminExamsListPhase3)
           : rpcCallEnvelope('admin.exams.list', {}, { suppressErrorBanner: true })
               .then(function (env) {
@@ -22844,19 +24167,22 @@ var qrcode = (function() {
           var secItems = Array.isArray(sec.items) ? sec.items : [];
           for (var it = 0; it < secItems.length; it++) {
             var qId = secItems[it].questionId || secItems[it].question_id || '';
-            var fullQ = qById[qId] || secItems[it].question || {};
+            var fullQ = qById[qId] || secItems[it].question || secItems[it].questionPreview || {};
             var rawOpts = Array.isArray(fullQ.options) ? fullQ.options : [];
             var mappedOpts = [];
             for (var o = 0; o < rawOpts.length; o++) {
               mappedOpts.push({
                 optionId: rawOpts[o].optionId || 'opt_' + (o + 1),
-                optionKey: rawOpts[o].optionKey || String.fromCharCode(65 + o),
-                displayLabel: rawOpts[o].optionKey || String.fromCharCode(65 + o),
+                optionKey: rawOpts[o].optionKey || (fullQ.questionType === 'COMPLEX_MULTIPLE_CHOICE' ? 'S' + (o + 1) : String.fromCharCode(65 + o)),
+                displayLabel:
+                  fullQ.questionType === 'COMPLEX_MULTIPLE_CHOICE'
+                    ? String(o + 1)
+                    : rawOpts[o].optionKey || String.fromCharCode(65 + o),
                 contentRichText: rawOpts[o].contentRichText || rawOpts[o].text || '',
                 isCorrect: Boolean(rawOpts[o].isCorrect)
               });
             }
-            var pts = Number(fullQ.defaultPoints || secItems[it].points || 2);
+            var pts = Number(secItems[it].points || fullQ.defaultPoints || 2.4);
             previewItems.push({
               attemptItemId: 'prev_item_' + dispNum,
               displayNumber: dispNum,
@@ -22876,7 +24202,9 @@ var qrcode = (function() {
                 imageFileIds: fullQ.imageFileIds || [],
                 imageAltText: fullQ.imageAltText || '',
                 selectionInstruction:
-                  fullQ.questionType === 'MULTIPLE_SELECT'
+                  fullQ.questionType === 'COMPLEX_MULTIPLE_CHOICE'
+                    ? 'เลือกตอบเชิงซ้อน: พิจารณาข้อความย่อยแต่ละข้อแล้วเลือก "ใช่" หรือ "ไม่ใช่" ให้ครบทั้ง 3 ข้อย่อย'
+                    : fullQ.questionType === 'MULTIPLE_SELECT'
                     ? 'Select all correct answers.'
                     : fullQ.questionType === 'NUMERIC_RESPONSE'
                     ? 'Enter your numeric response below.'
@@ -22980,7 +24308,11 @@ var qrcode = (function() {
     function handleStartOrResumeExamAttemptPhase4(examDto) {
       if (!examDto || !examDto.examSetId) return Promise.resolve(null);
       if (examDto._isAdminPreview) {
-        return launchAdminInteractiveExamWorkspacePreview(examDto);
+        if (!isCurrentSessionAdminUser()) {
+          examDto._isAdminPreview = false;
+        } else {
+          return launchAdminInteractiveExamWorkspacePreview(examDto);
+        }
       }
       var action = examDto.canResumeAttempt && examDto.activeAttemptId
         ? 'exams.getAttempt'
@@ -23149,21 +24481,93 @@ var qrcode = (function() {
       updateNavbarActiveForExamStudio(isExamStudioModeActive);
     }
 
+    var activeFormsBlueprintSectionId = 'PART_1';
+    var formsWordToolbarMounted = false;
+    var formsStickyResizeBound = false;
+
+    function syncFormsStickyToolbarOffset() {
+      var hdr = document.querySelector('.site-header');
+      var ws = document.getElementById('pb-forms-builder-workspace');
+      if (hdr && ws && ws.style) {
+        var h = Math.ceil(hdr.getBoundingClientRect().height || 88);
+        ws.style.setProperty('--pb-sticky-toolbar-top', (h + 8) + 'px');
+      }
+    }
+
+    function resolveBlueprintSectionIdFromLabel(rawLabel) {
+      var s = String(rawLabel || '').trim();
+      if (!s) return 'PART_1';
+      for (var i = 0; i < PB_ALEVEL_66_BIO_BLUEPRINT.sections.length; i++) {
+        var sec = PB_ALEVEL_66_BIO_BLUEPRINT.sections[i];
+        if (s === sec.id || s.indexOf(sec.title) !== -1 || s.indexOf('ส่วนที่ ' + (i + 1)) !== -1) {
+          return sec.id;
+        }
+      }
+      return 'PART_1';
+    }
+
+    function getBlueprintSectionById(secId) {
+      for (var i = 0; i < PB_ALEVEL_66_BIO_BLUEPRINT.sections.length; i++) {
+        if (PB_ALEVEL_66_BIO_BLUEPRINT.sections[i].id === secId) {
+          return PB_ALEVEL_66_BIO_BLUEPRINT.sections[i];
+        }
+      }
+      return PB_ALEVEL_66_BIO_BLUEPRINT.sections[0];
+    }
+
+    function ensureFormsWordToolbarMounted() {
+      syncFormsStickyToolbarOffset();
+      if (!formsStickyResizeBound && typeof window !== 'undefined') {
+        formsStickyResizeBound = true;
+        window.addEventListener('resize', syncFormsStickyToolbarOffset);
+      }
+      var dockEl = document.getElementById('pb-forms-word-toolbar-dock');
+      var canvasEl = document.getElementById('pb-forms-questions-container');
+      if (dockEl && !formsWordToolbarMounted) {
+        PBWordRichEditor.renderToolbarInto(dockEl, canvasEl || document.getElementById('pb-forms-builder-workspace'));
+        formsWordToolbarMounted = true;
+      }
+    }
+
     function createBlankFormsQuestionCardState(opt_overrides) {
       var ov = opt_overrides && typeof opt_overrides === 'object' ? opt_overrides : {};
       var qType = ov.questionType || 'SINGLE_CHOICE';
       var defaultOpts =
         qType === 'TRUE_FALSE'
           ? [
-              { text: 'True', isCorrect: true, pinPosition: 'FIXED' },
-              { text: 'False', isCorrect: false, pinPosition: 'FIXED' }
+              { text: 'True', doc: plainTextToRichTextDocSafe('True'), isCorrect: true, pinPosition: 'FIXED' },
+              { text: 'False', doc: plainTextToRichTextDocSafe('False'), isCorrect: false, pinPosition: 'FIXED' }
+            ]
+          : qType === 'COMPLEX_MULTIPLE_CHOICE'
+          ? [
+              { text: '', doc: createDefaultEmptyRichTextDoc(), isCorrect: true, pinPosition: 'FIXED' },
+              { text: '', doc: createDefaultEmptyRichTextDoc(), isCorrect: false, pinPosition: 'FIXED' },
+              { text: '', doc: createDefaultEmptyRichTextDoc(), isCorrect: true, pinPosition: 'FIXED' }
             ]
           : [
-              { text: 'Option A', isCorrect: true, pinPosition: 'NONE' },
-              { text: 'Option B', isCorrect: false, pinPosition: 'NONE' },
-              { text: 'Option C', isCorrect: false, pinPosition: 'NONE' },
-              { text: 'Option D', isCorrect: false, pinPosition: 'NONE' }
+              { text: '', doc: createDefaultEmptyRichTextDoc(), isCorrect: true, pinPosition: 'NONE' },
+              { text: '', doc: createDefaultEmptyRichTextDoc(), isCorrect: false, pinPosition: 'NONE' },
+              { text: '', doc: createDefaultEmptyRichTextDoc(), isCorrect: false, pinPosition: 'NONE' },
+              { text: '', doc: createDefaultEmptyRichTextDoc(), isCorrect: false, pinPosition: 'NONE' },
+              { text: '', doc: createDefaultEmptyRichTextDoc(), isCorrect: false, pinPosition: 'NONE' }
             ];
+      var defaultPts =
+        ov.points !== undefined
+          ? String(ov.points)
+          : qType === 'COMPLEX_MULTIPLE_CHOICE'
+          ? String(PB_ALEVEL_66_BIO_BLUEPRINT.complexMcDefaultPoints)
+          : String(PB_ALEVEL_66_BIO_BLUEPRINT.singleChoiceDefaultPoints);
+      var stemDoc = ov.stemDoc
+        ? cloneRichTextDocSafe(ov.stemDoc)
+        : ov.stemRichText
+        ? cloneRichTextDocSafe(ov.stemRichText)
+        : plainTextToRichTextDocSafe(ov.stem !== undefined ? ov.stem : '');
+      var expDoc = ov.explanationDoc
+        ? cloneRichTextDocSafe(ov.explanationDoc)
+        : ov.explanationRichText
+        ? cloneRichTextDocSafe(ov.explanationRichText)
+        : plainTextToRichTextDocSafe(ov.explanation || '');
+
       return {
         localId: 'fcard_' + (formsBuilderCardSeq++),
         questionId: ov.questionId || '',
@@ -23171,11 +24575,13 @@ var qrcode = (function() {
         questionCode: ov.questionCode || '',
         title: ov.title || '',
         questionType: qType,
-        stem: ov.stem !== undefined ? ov.stem : '',
-        points: ov.points !== undefined ? String(ov.points) : '2',
+        blueprintSection: ov.blueprintSection || activeFormsBlueprintSectionId || 'PART_1',
+        stem: extractPlainTextFromRichTextDoc(stemDoc),
+        stemDoc: stemDoc,
+        points: defaultPts,
         negativePoints: ov.negativePoints !== undefined ? String(ov.negativePoints) : '0',
         difficulty: ov.difficulty || 'MEDIUM',
-        topicTags: ov.topicTags || 'General Biology',
+        topicTags: ov.topicTags || getBlueprintSectionById(ov.blueprintSection || activeFormsBlueprintSectionId || 'PART_1').title,
         options: Array.isArray(ov.options) && ov.options.length > 0 ? ov.options : defaultOpts,
         multiSelectRule: ov.multiSelectRule || 'EXACT_MATCH',
         numericTarget: ov.numericTarget !== undefined ? String(ov.numericTarget) : '0',
@@ -23184,35 +24590,40 @@ var qrcode = (function() {
         shortAnswerMode: ov.shortAnswerMode || 'MANUAL',
         acceptedAnswers: ov.acceptedAnswers || '',
         sampleModelAnswer: ov.sampleModelAnswer || '',
-        explanation: ov.explanation || '',
+        explanation: extractPlainTextFromRichTextDoc(expDoc),
+        explanationDoc: expDoc,
         imageFileIds: Array.isArray(ov.imageFileIds) ? ov.imageFileIds.slice() : [],
         imageAltText: ov.imageAltText || '',
         isDirty: Boolean(ov.isDirty !== undefined ? ov.isDirty : !ov.questionId)
       };
     }
 
-    function mapQuestionDtoToFormsCardState(qDto, opt_pointsDisplay, opt_negPointsDisplay) {
+    function mapQuestionDtoToFormsCardState(qDto, opt_pointsDisplay, opt_negPointsDisplay, opt_sectionTitle) {
       if (!qDto) return createBlankFormsQuestionCardState();
       var qType = qDto.questionType || 'SINGLE_CHOICE';
       var opts = [];
       if (Array.isArray(qDto.options) && qDto.options.length > 0) {
         for (var i = 0; i < qDto.options.length; i++) {
           var o = qDto.options[i];
+          var optDoc = o.contentRichText ? cloneRichTextDocSafe(o.contentRichText) : plainTextToRichTextDocSafe(o.plainText || o.text || '');
           opts.push({
-            text: o.plainText || (o.contentRichText && o.contentRichText.plainText) || '',
+            text: extractPlainTextFromRichTextDoc(optDoc) || o.plainText || '',
+            doc: optDoc,
             isCorrect: Boolean(o.isCorrect),
-            pinPosition: o.pinPosition || 'NONE'
+            pinPosition: o.pinPosition || (qType === 'COMPLEX_MULTIPLE_CHOICE' ? 'FIXED' : 'NONE')
           });
         }
-        // Ensure at least one option is marked correct if private data wasn't loaded yet
-        var anyCorrect = opts.some(function (x) { return x.isCorrect; });
-        if (!anyCorrect && opts.length > 0) opts[0].isCorrect = true;
+        if (qType !== 'COMPLEX_MULTIPLE_CHOICE') {
+          var anyCorrect = opts.some(function (x) { return x.isCorrect; });
+          if (!anyCorrect && opts.length > 0) opts[0].isCorrect = true;
+        }
       }
       var gSpec = qDto.gradingSpec || {};
+      var fallbackPts = qType === 'COMPLEX_MULTIPLE_CHOICE' ? PB_ALEVEL_66_BIO_BLUEPRINT.complexMcDefaultPoints : PB_ALEVEL_66_BIO_BLUEPRINT.singleChoiceDefaultPoints;
       var pts =
         opt_pointsDisplay !== undefined
-          ? parseFloat(String(opt_pointsDisplay)) || 2
-          : (Number(qDto.defaultPointsBp || 200) / 100);
+          ? parseFloat(String(opt_pointsDisplay)) || fallbackPts
+          : (Number(qDto.defaultPointsBp || Math.round(fallbackPts * 100)) / 100);
       var negPts =
         opt_negPointsDisplay !== undefined
           ? parseFloat(String(opt_negPointsDisplay)) || 0
@@ -23220,6 +24631,11 @@ var qrcode = (function() {
       var imgIds = Array.isArray(qDto.imageFileIds) && qDto.imageFileIds.length > 0
         ? qDto.imageFileIds.slice()
         : (qDto.imageFileId ? [qDto.imageFileId] : []);
+      var secGuess = resolveBlueprintSectionIdFromLabel(
+        opt_sectionTitle || (Array.isArray(qDto.topicTags) ? qDto.topicTags.join(', ') : '')
+      );
+      var priv = qDto.privateGradingData || {};
+      var expSource = priv.explanationRichText || qDto.explanationRichText || priv.explanationPlainText || qDto.explanationPlainText || '';
 
       return createBlankFormsQuestionCardState({
         questionId: qDto.questionId || '',
@@ -23227,11 +24643,12 @@ var qrcode = (function() {
         questionCode: qDto.questionCode || '',
         title: qDto.title || '',
         questionType: qType,
-        stem: qDto.stemPlainText || '',
+        blueprintSection: secGuess,
+        stemRichText: qDto.stemRichText || qDto.stemPlainText || '',
         points: pts,
         negativePoints: negPts,
         difficulty: qDto.difficulty || 'MEDIUM',
-        topicTags: Array.isArray(qDto.topicTags) && qDto.topicTags.length > 0 ? qDto.topicTags.join(', ') : 'General Biology',
+        topicTags: Array.isArray(qDto.topicTags) && qDto.topicTags.length > 0 ? qDto.topicTags.join(', ') : getBlueprintSectionById(secGuess).title,
         options: opts,
         multiSelectRule: gSpec.multiSelectScoringRule || 'EXACT_MATCH',
         numericTarget: gSpec.targetValue !== undefined ? gSpec.targetValue : '0',
@@ -23240,7 +24657,7 @@ var qrcode = (function() {
         shortAnswerMode: qDto.gradingMode || 'MANUAL',
         acceptedAnswers: Array.isArray(gSpec.acceptedAnswers) ? gSpec.acceptedAnswers.join('\n') : '',
         sampleModelAnswer: gSpec.sampleModelAnswer || '',
-        explanation: qDto.explanationPlainText || '',
+        explanationRichText: expSource,
         imageFileIds: imgIds,
         imageAltText: qDto.imageAltText || '',
         isDirty: false
@@ -23249,20 +24666,65 @@ var qrcode = (function() {
 
     function updateFormsBuilderSummaryBadge() {
       var totalPts = 0;
+      var count5Opt = 0;
+      var countComplex = 0;
+      var secCounts = {};
       for (var i = 0; i < formsBuilderQuestionCards.length; i++) {
-        var p = parseFloat(formsBuilderQuestionCards[i].points);
+        var c = formsBuilderQuestionCards[i];
+        var p = parseFloat(c.points);
         if (isFinite(p) && p > 0) totalPts += p;
+        if (c.questionType === 'SINGLE_CHOICE') count5Opt++;
+        else if (c.questionType === 'COMPLEX_MULTIPLE_CHOICE') countComplex++;
+        var sKey = c.blueprintSection || 'PART_1';
+        secCounts[sKey] = (secCounts[sKey] || 0) + 1;
       }
       var count = formsBuilderQuestionCards.length;
       setText(
         'pb-forms-live-summary',
         count + (count === 1 ? ' Question' : ' Questions') + ' \u2022 ' + totalPts.toFixed(2) + ' pts'
       );
+
+      var p5El = document.getElementById('pb-alevel-count-5opt');
+      if (p5El) {
+        p5El.textContent = '5-Option MC: ' + count5Opt + ' / ' + PB_ALEVEL_66_BIO_BLUEPRINT.singleChoiceTargetCount;
+        p5El.classList.toggle('is-target-met', count5Opt === PB_ALEVEL_66_BIO_BLUEPRINT.singleChoiceTargetCount);
+      }
+      var pCxEl = document.getElementById('pb-alevel-count-complex');
+      if (pCxEl) {
+        pCxEl.textContent = 'Complex MC (ใช่/ไม่ใช่): ' + countComplex + ' / ' + PB_ALEVEL_66_BIO_BLUEPRINT.complexMcTargetCount;
+        pCxEl.classList.toggle('is-target-met', countComplex === PB_ALEVEL_66_BIO_BLUEPRINT.complexMcTargetCount);
+      }
+      var pScEl = document.getElementById('pb-alevel-score-total');
+      if (pScEl) {
+        pScEl.textContent = 'Total Score: ' + totalPts.toFixed(2) + ' / 100.00';
+        pScEl.classList.toggle('is-target-met', Math.abs(totalPts - 100) < 0.01);
+      }
+
+      var stripEl = document.getElementById('pb-alevel-blueprint-sections');
+      if (stripEl) {
+        while (stripEl.firstChild) stripEl.removeChild(stripEl.firstChild);
+        for (var s = 0; s < PB_ALEVEL_66_BIO_BLUEPRINT.sections.length; s++) {
+          (function (sec) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'pb-alevel-sec-pill' + (activeFormsBlueprintSectionId === sec.id ? ' is-active' : '');
+            var cNum = secCounts[sec.id] || 0;
+            btn.textContent = sec.shortLabel + ': ' + cNum + ' (' + sec.targetRangeText + ')';
+            btn.title = sec.title + ' — คลิกเพื่อตั้งเป็นหมวดหลักสำหรับข้อใหม่';
+            btn.addEventListener('click', function () {
+              activeFormsBlueprintSectionId = sec.id;
+              updateFormsBuilderSummaryBadge();
+            });
+            stripEl.appendChild(btn);
+          })(PB_ALEVEL_66_BIO_BLUEPRINT.sections[s]);
+        }
+      }
     }
 
     function renderFormsBuilderQuestionCards() {
       var container = document.getElementById('pb-forms-questions-container');
       if (!container) return;
+      ensureFormsWordToolbarMounted();
       while (container.firstChild) container.removeChild(container.firstChild);
       updateFormsBuilderSummaryBadge();
 
@@ -23272,7 +24734,7 @@ var qrcode = (function() {
           cardEl.className = 'pb-forms-q-card';
           cardEl.setAttribute('data-forms-card-id', card.localId);
 
-          // 1. Card Top Bar: Question # Badge + Points + Move/Duplicate/Delete
+          // 1. Card Top Bar: Question # Badge + Blueprint Section + Points + Move/Duplicate/Delete
           var hdr = document.createElement('div');
           hdr.className = 'pb-forms-q-card-header';
 
@@ -23295,6 +24757,29 @@ var qrcode = (function() {
             leftHdr.appendChild(codeTag);
           }
 
+          var secSel = document.createElement('select');
+          secSel.className = 'form-input';
+          secSel.style.width = 'auto';
+          secSel.style.maxWidth = '265px';
+          secSel.style.padding = '3px 8px';
+          secSel.style.fontSize = '0.76rem';
+          secSel.setAttribute('aria-label', 'A-Level Blueprint Section');
+          for (var bs = 0; bs < PB_ALEVEL_66_BIO_BLUEPRINT.sections.length; bs++) {
+            var bSec = PB_ALEVEL_66_BIO_BLUEPRINT.sections[bs];
+            var bOpt = document.createElement('option');
+            bOpt.value = bSec.id;
+            bOpt.textContent = bSec.title;
+            if ((card.blueprintSection || 'PART_1') === bSec.id) bOpt.selected = true;
+            secSel.appendChild(bOpt);
+          }
+          secSel.addEventListener('change', function () {
+            card.blueprintSection = secSel.value;
+            card.topicTags = getBlueprintSectionById(secSel.value).title;
+            card.isDirty = true;
+            updateFormsBuilderSummaryBadge();
+          });
+          leftHdr.appendChild(secSel);
+
           hdr.appendChild(leftHdr);
 
           var rightHdr = document.createElement('div');
@@ -23313,14 +24798,14 @@ var qrcode = (function() {
           var ptsInp = document.createElement('input');
           ptsInp.type = 'number';
           ptsInp.className = 'form-input';
-          ptsInp.min = '0.25';
+          ptsInp.min = '0.1';
           ptsInp.max = '100';
-          ptsInp.step = '0.25';
+          ptsInp.step = '0.1';
           ptsInp.style.width = '76px';
           ptsInp.style.padding = '4px 8px';
           ptsInp.value = card.points;
           ptsInp.addEventListener('input', function () {
-            card.points = ptsInp.value || '1';
+            card.points = ptsInp.value || '2.4';
             card.isDirty = true;
             updateFormsBuilderSummaryBadge();
           });
@@ -23362,11 +24847,18 @@ var qrcode = (function() {
           dupBtn.textContent = 'Duplicate';
           dupBtn.addEventListener('click', function () {
             var copyOpts = card.options.map(function (o) {
-              return { text: o.text, isCorrect: o.isCorrect, pinPosition: o.pinPosition };
+              return {
+                text: o.text,
+                doc: o.doc ? cloneRichTextDocSafe(o.doc) : plainTextToRichTextDocSafe(o.text),
+                isCorrect: o.isCorrect,
+                pinPosition: o.pinPosition
+              };
             });
             var cloned = createBlankFormsQuestionCardState({
               questionType: card.questionType,
+              blueprintSection: card.blueprintSection,
               stem: card.stem,
+              stemDoc: card.stemDoc,
               points: card.points,
               negativePoints: card.negativePoints,
               difficulty: card.difficulty,
@@ -23379,6 +24871,7 @@ var qrcode = (function() {
               acceptedAnswers: card.acceptedAnswers,
               sampleModelAnswer: card.sampleModelAnswer,
               explanation: card.explanation,
+              explanationDoc: card.explanationDoc,
               imageFileIds: card.imageFileIds.slice(),
               imageAltText: card.imageAltText,
               isDirty: true
@@ -23406,25 +24899,29 @@ var qrcode = (function() {
           hdr.appendChild(rightHdr);
           cardEl.appendChild(hdr);
 
-          // 2. Question Stem + Question Type Selector Row
+          // 2. Question Stem (Word-Style Inline Editor) + Question Type Selector Row
           var stemRow = document.createElement('div');
           stemRow.className = 'pb-forms-q-stem-row';
 
-          var stemInp = document.createElement('textarea');
-          stemInp.className = 'pb-forms-q-stem-input';
-          stemInp.rows = 2;
-          stemInp.placeholder = 'Write your question prompt here...';
-          stemInp.value = card.stem;
-          stemInp.addEventListener('input', function () {
-            card.stem = stemInp.value;
-            card.isDirty = true;
+          var stemEd = PBWordRichEditor.createInput({
+            isStem: true,
+            isSingleLine: false,
+            placeholder: 'Write question prompt here... (Ctrl+B/I/U, Ctrl+= Subscript, Ctrl+Shift+= Superscript, \\beta- for β-glycosidic)',
+            initialValue: card.stemDoc || card.stem,
+            ariaLabel: 'Question ' + (cardIndex + 1) + ' stem',
+            onChange: function (doc, plainTxt) {
+              card.stemDoc = doc;
+              card.stem = plainTxt;
+              card.isDirty = true;
+            }
           });
-          stemRow.appendChild(stemInp);
+          stemRow.appendChild(stemEd.element);
 
           var typeSel = document.createElement('select');
           typeSel.className = 'form-input';
           var typeChoices = [
-            { v: 'SINGLE_CHOICE', l: '\u25C9 Multiple Choice (1 Correct)' },
+            { v: 'SINGLE_CHOICE', l: '\u25C9 A-Level Multiple Choice (5 Opts)' },
+            { v: 'COMPLEX_MULTIPLE_CHOICE', l: '\u229E A-Level Complex MC (ใช่ / ไม่ใช่)' },
             { v: 'MULTIPLE_SELECT', l: '\u2611 Checkboxes (Multi-Select)' },
             { v: 'TRUE_FALSE', l: '\u2713 True / False' },
             { v: 'NUMERIC_RESPONSE', l: '# Numeric Calculation' },
@@ -23443,30 +24940,43 @@ var qrcode = (function() {
             card.isDirty = true;
             if (card.questionType === 'TRUE_FALSE') {
               card.options = [
-                { text: 'True', isCorrect: true, pinPosition: 'FIXED' },
-                { text: 'False', isCorrect: false, pinPosition: 'FIXED' }
+                { text: 'True', doc: plainTextToRichTextDocSafe('True'), isCorrect: true, pinPosition: 'FIXED' },
+                { text: 'False', doc: plainTextToRichTextDocSafe('False'), isCorrect: false, pinPosition: 'FIXED' }
               ];
-            } else if (
-              (card.questionType === 'SINGLE_CHOICE' || card.questionType === 'MULTIPLE_SELECT') &&
-              card.options.length < 2
-            ) {
-              card.options = [
-                { text: 'Option A', isCorrect: true, pinPosition: 'NONE' },
-                { text: 'Option B', isCorrect: false, pinPosition: 'NONE' },
-                { text: 'Option C', isCorrect: false, pinPosition: 'NONE' },
-                { text: 'Option D', isCorrect: false, pinPosition: 'NONE' }
-              ];
-            }
-            if (card.questionType === 'SINGLE_CHOICE') {
-              var foundOne = false;
-              for (var oi = 0; oi < card.options.length; oi++) {
-                if (card.options[oi].isCorrect && !foundOne) {
-                  foundOne = true;
-                } else {
-                  card.options[oi].isCorrect = false;
-                }
+            } else if (card.questionType === 'COMPLEX_MULTIPLE_CHOICE') {
+              while (card.options.length < 3) {
+                var sn = card.options.length + 1;
+                card.options.push({
+                  text: '',
+                  doc: createDefaultEmptyRichTextDoc(),
+                  isCorrect: sn % 2 === 1,
+                  pinPosition: 'FIXED'
+                });
               }
-              if (!foundOne && card.options.length > 0) card.options[0].isCorrect = true;
+              if (card.options.length > 5) card.options = card.options.slice(0, 5);
+              for (var cx = 0; cx < card.options.length; cx++) card.options[cx].pinPosition = 'FIXED';
+              if (card.points === '2' || card.points === '2.4') card.points = '3.2';
+            } else if (card.questionType === 'SINGLE_CHOICE' || card.questionType === 'MULTIPLE_SELECT') {
+              while (card.options.length < 5) {
+                card.options.push({
+                  text: '',
+                  doc: createDefaultEmptyRichTextDoc(),
+                  isCorrect: card.options.length === 0,
+                  pinPosition: 'NONE'
+                });
+              }
+              if (card.questionType === 'SINGLE_CHOICE') {
+                var foundOne = false;
+                for (var oi = 0; oi < card.options.length; oi++) {
+                  if (card.options[oi].isCorrect && !foundOne) {
+                    foundOne = true;
+                  } else {
+                    card.options[oi].isCorrect = false;
+                  }
+                }
+                if (!foundOne && card.options.length > 0) card.options[0].isCorrect = true;
+                if (card.points === '2' || card.points === '3.2') card.points = '2.4';
+              }
             }
             renderFormsBuilderQuestionCards();
           });
@@ -23521,15 +25031,120 @@ var qrcode = (function() {
 
           // 4. Type-Specific Answer Area
           var qType = card.questionType;
-          if (qType === 'SINGLE_CHOICE' || qType === 'MULTIPLE_SELECT' || qType === 'TRUE_FALSE') {
+          if (qType === 'COMPLEX_MULTIPLE_CHOICE') {
+            var cmcHint = document.createElement('div');
+            cmcHint.style.fontSize = '0.78rem';
+            cmcHint.style.color = '#0F766E';
+            cmcHint.style.fontWeight = '700';
+            cmcHint.style.marginBottom = '6px';
+            cmcHint.textContent = 'เลือกตอบเชิงซ้อน (ข้อความต่อไปนี้ถูกต้องใช่หรือไม่): กำหนดข้อความย่อย 3–5 ข้อ พร้อมเฉลย "ใช่" หรือ "ไม่ใช่" (ถูก 3/3 = 100%, ถูก 2/3 = 50%, ถูก ≤1/3 = 0%)';
+            cardEl.appendChild(cmcHint);
+
+            var cmcList = document.createElement('div');
+            cmcList.className = 'pb-complex-mc-card-list';
+
+            for (var sIdx = 0; sIdx < card.options.length; sIdx++) {
+              (function (stmtObj, statementIndex) {
+                var row = document.createElement('div');
+                row.className = 'pb-complex-mc-row is-decided';
+
+                var stmtWrap = document.createElement('div');
+                stmtWrap.className = 'pb-complex-mc-stmt-wrap';
+                stmtWrap.style.alignItems = 'center';
+
+                var numBadge = document.createElement('span');
+                numBadge.className = 'pb-complex-mc-num';
+                numBadge.textContent = (statementIndex + 1) + '.';
+                stmtWrap.appendChild(numBadge);
+
+                var stmtEd = PBWordRichEditor.createInput({
+                  isSingleLine: true,
+                  placeholder: 'ข้อความย่อยที่ ' + (statementIndex + 1) + ' (Ctrl+= Sub, Ctrl+Shift+= Sup, \\beta-)...',
+                  initialValue: stmtObj.doc || stmtObj.text,
+                  ariaLabel: 'Sub-statement ' + (statementIndex + 1),
+                  onChange: function (doc, plainTxt) {
+                    stmtObj.doc = doc;
+                    stmtObj.text = plainTxt;
+                    card.isDirty = true;
+                  }
+                });
+                stmtWrap.appendChild(stmtEd.element);
+                row.appendChild(stmtWrap);
+
+                var tg = document.createElement('div');
+                tg.className = 'pb-complex-mc-toggle-group';
+
+                var yesKeyBtn = document.createElement('button');
+                yesKeyBtn.type = 'button';
+                yesKeyBtn.className = 'pb-complex-mc-toggle-pill is-yes' + (stmtObj.isCorrect ? ' is-selected' : '');
+                yesKeyBtn.textContent = 'เฉลย: ใช่';
+                yesKeyBtn.addEventListener('click', function () {
+                  stmtObj.isCorrect = true;
+                  card.isDirty = true;
+                  renderFormsBuilderQuestionCards();
+                });
+                tg.appendChild(yesKeyBtn);
+
+                var noKeyBtn = document.createElement('button');
+                noKeyBtn.type = 'button';
+                noKeyBtn.className = 'pb-complex-mc-toggle-pill is-no' + (!stmtObj.isCorrect ? ' is-selected' : '');
+                noKeyBtn.textContent = 'เฉลย: ไม่ใช่';
+                noKeyBtn.addEventListener('click', function () {
+                  stmtObj.isCorrect = false;
+                  card.isDirty = true;
+                  renderFormsBuilderQuestionCards();
+                });
+                tg.appendChild(noKeyBtn);
+
+                row.appendChild(tg);
+
+                if (card.options.length > 3) {
+                  var rmStBtn = document.createElement('button');
+                  rmStBtn.type = 'button';
+                  rmStBtn.className = 'btn btn-outline btn-sm';
+                  rmStBtn.style.padding = '2px 7px';
+                  rmStBtn.textContent = '\u00D7';
+                  rmStBtn.title = 'Remove sub-statement';
+                  rmStBtn.addEventListener('click', function () {
+                    card.options.splice(statementIndex, 1);
+                    card.isDirty = true;
+                    renderFormsBuilderQuestionCards();
+                  });
+                  row.appendChild(rmStBtn);
+                }
+
+                cmcList.appendChild(row);
+              })(card.options[sIdx], sIdx);
+            }
+            cardEl.appendChild(cmcList);
+
+            if (card.options.length < 5) {
+              var addStmtBtn = document.createElement('button');
+              addStmtBtn.type = 'button';
+              addStmtBtn.className = 'btn btn-outline btn-sm';
+              addStmtBtn.style.marginTop = '8px';
+              addStmtBtn.textContent = '+ Add Sub-Statement (' + (card.options.length + 1) + ')';
+              addStmtBtn.addEventListener('click', function () {
+                card.options.push({
+                  text: '',
+                  doc: createDefaultEmptyRichTextDoc(),
+                  isCorrect: true,
+                  pinPosition: 'FIXED'
+                });
+                card.isDirty = true;
+                renderFormsBuilderQuestionCards();
+              });
+              cardEl.appendChild(addStmtBtn);
+            }
+          } else if (qType === 'SINGLE_CHOICE' || qType === 'MULTIPLE_SELECT' || qType === 'TRUE_FALSE') {
             var optHint = document.createElement('div');
             optHint.style.fontSize = '0.78rem';
             optHint.style.color = 'var(--color-text-secondary)';
             optHint.style.marginBottom = '4px';
             optHint.textContent =
               qType === 'MULTIPLE_SELECT'
-                ? 'Check the box next to ALL correct answer choices:'
-                : 'Select the radio button next to the correct answer:';
+                ? 'Check the box next to ALL correct answer choices (supports Sub/Sup & Greek):'
+                : 'Select the radio button next to the correct answer (supports Sub/Sup & Greek in choices):';
             cardEl.appendChild(optHint);
 
             var optList = document.createElement('div');
@@ -23563,17 +25178,27 @@ var qrcode = (function() {
                 pill.textContent = qType === 'TRUE_FALSE' ? (optionIndex === 0 ? 'T' : 'F') : String.fromCharCode(65 + optionIndex);
                 row.appendChild(pill);
 
-                var txtInp = document.createElement('input');
-                txtInp.type = 'text';
-                txtInp.className = 'pb-forms-opt-input';
-                txtInp.placeholder = 'Option ' + String.fromCharCode(65 + optionIndex) + '...';
-                txtInp.value = optObj.text;
-                txtInp.readOnly = qType === 'TRUE_FALSE';
-                txtInp.addEventListener('input', function () {
-                  optObj.text = txtInp.value;
-                  card.isDirty = true;
-                });
-                row.appendChild(txtInp);
+                if (qType === 'TRUE_FALSE') {
+                  var txtInp = document.createElement('input');
+                  txtInp.type = 'text';
+                  txtInp.className = 'pb-forms-opt-input';
+                  txtInp.value = optObj.text;
+                  txtInp.readOnly = true;
+                  row.appendChild(txtInp);
+                } else {
+                  var optEd = PBWordRichEditor.createInput({
+                    isSingleLine: true,
+                    placeholder: 'Option ' + String.fromCharCode(65 + optionIndex) + ' (Ctrl+= Sub, Ctrl+Shift+= Sup, \\beta-)...',
+                    initialValue: optObj.doc || optObj.text,
+                    ariaLabel: 'Option ' + String.fromCharCode(65 + optionIndex),
+                    onChange: function (doc, plainTxt) {
+                      optObj.doc = doc;
+                      optObj.text = plainTxt;
+                      card.isDirty = true;
+                    }
+                  });
+                  row.appendChild(optEd.element);
+                }
 
                 if (optObj.isCorrect) {
                   var corBadge = document.createElement('span');
@@ -23612,9 +25237,9 @@ var qrcode = (function() {
               addOptBtn.className = 'btn btn-outline btn-sm';
               addOptBtn.textContent = '+ Add Option (' + String.fromCharCode(65 + card.options.length) + ')';
               addOptBtn.addEventListener('click', function () {
-                var nextLetter = String.fromCharCode(65 + card.options.length);
                 card.options.push({
-                  text: 'Option ' + nextLetter,
+                  text: '',
+                  doc: createDefaultEmptyRichTextDoc(),
                   isCorrect: false,
                   pinPosition: 'NONE'
                 });
@@ -23723,18 +25348,20 @@ var qrcode = (function() {
           var ftr = document.createElement('div');
           ftr.className = 'pb-forms-q-footer';
 
-          var expInp = document.createElement('input');
-          expInp.type = 'text';
-          expInp.className = 'form-input';
-          expInp.style.flex = '1 1 260px';
-          expInp.style.fontSize = '0.85rem';
-          expInp.placeholder = '\uD83D\uDCA1 Answer key explanation / rationale shown to students (optional)...';
-          expInp.value = card.explanation;
-          expInp.addEventListener('input', function () {
-            card.explanation = expInp.value;
-            card.isDirty = true;
+          var expEd = PBWordRichEditor.createInput({
+            isSingleLine: false,
+            placeholder: '\uD83D\uDCA1 Answer key explanation / rationale (Ctrl+= Sub, Ctrl+Shift+= Sup, \\beta-)...',
+            initialValue: card.explanationDoc || card.explanation,
+            ariaLabel: 'Question ' + (cardIndex + 1) + ' explanation',
+            onChange: function (doc, plainTxt) {
+              card.explanationDoc = doc;
+              card.explanation = plainTxt;
+              card.isDirty = true;
+            }
           });
-          ftr.appendChild(expInp);
+          expEd.element.style.flex = '1 1 260px';
+          expEd.element.style.fontSize = '0.85rem';
+          ftr.appendChild(expEd.element);
 
           var rightFtr = document.createElement('div');
           rightFtr.style.display = 'flex';
@@ -23865,7 +25492,7 @@ var qrcode = (function() {
       if (descEl) descEl.value = '';
       if (codeEl) codeEl.value = '';
       if (modeEl) modeEl.value = 'MOCK_EXAM';
-      if (durEl) durEl.value = '45';
+      if (durEl) durEl.value = String(PB_ALEVEL_66_BIO_BLUEPRINT.examDurationMinutes);
       if (passEl) passEl.value = '60';
       if (attEl) attEl.value = '1';
       var fmAttPol = document.getElementById('select-forms-exam-attempt-policy');
@@ -23880,16 +25507,18 @@ var qrcode = (function() {
       if (exEl) exEl.value = 'WITH_SCORE';
       if (openEl) openEl.value = '';
       if (closeEl) closeEl.value = '';
-      if (secTitleEl) secTitleEl.value = 'Part I: Biology Questions';
+      activeFormsBlueprintSectionId = 'PART_1';
+      if (secTitleEl) secTitleEl.value = PB_ALEVEL_66_BIO_BLUEPRINT.sections[0].title;
       if (secModeEl) secModeEl.value = 'FIXED_ITEMS';
       if (crsEl && !crsEl.value && crsEl.options.length > 1) {
         crsEl.selectedIndex = 1;
       }
 
-      setText('pb-forms-status-badge', 'NEW EXAM / QUIZ');
+      setText('pb-forms-status-badge', 'A-LEVEL 66 BIO FORMAT');
       var prog = document.getElementById('pb-forms-progress-banner');
       if (prog) prog.classList.add('hidden');
 
+      ensureFormsWordToolbarMounted();
       formsBuilderQuestionCards = [createBlankFormsQuestionCardState()];
       renderFormsBuilderQuestionCards();
       if (titleEl) titleEl.focus();
@@ -23989,7 +25618,7 @@ var qrcode = (function() {
             var it = items[k];
             var fullQ = qbankById[it.questionId] || it.questionPreview || null;
             loadedCards.push(
-              mapQuestionDtoToFormsCardState(fullQ, it.pointsDisplay, it.negativePointsDisplay)
+              mapQuestionDtoToFormsCardState(fullQ, it.pointsDisplay, it.negativePointsDisplay, sec.title)
             );
           }
         }
@@ -24014,7 +25643,8 @@ var qrcode = (function() {
               formsBuilderQuestionCards[ci] = mapQuestionDtoToFormsCardState(
                 freshMap[c.questionId],
                 c.points,
-                c.negativePoints
+                c.negativePoints,
+                getBlueprintSectionById(c.blueprintSection).title
               );
             }
           }
@@ -24130,11 +25760,22 @@ var qrcode = (function() {
       for (var vIdx = 0; vIdx < formsBuilderQuestionCards.length; vIdx++) {
         var c = formsBuilderQuestionCards[vIdx];
         var qNum = vIdx + 1;
-        if (!String(c.stem || '').trim()) {
+        var stemChkTxt = extractPlainTextFromRichTextDoc(c.stemDoc || c.stem).trim();
+        if (!stemChkTxt) {
           return Promise.reject(new Error('Question ' + qNum + ' is missing its question prompt text.'));
         }
-        if (c.questionType === 'SINGLE_CHOICE' || c.questionType === 'MULTIPLE_SELECT' || c.questionType === 'TRUE_FALSE') {
-          var nonEmptyOpts = c.options.filter(function (o) { return String(o.text || '').trim().length > 0; });
+        c.stem = stemChkTxt;
+        if (c.questionType === 'COMPLEX_MULTIPLE_CHOICE') {
+          var nonEmptyStmts = c.options.filter(function (o) {
+            return extractPlainTextFromRichTextDoc(o.doc || o.text).trim().length > 0;
+          });
+          if (nonEmptyStmts.length < 3 || nonEmptyStmts.length > 5) {
+            return Promise.reject(new Error('Question ' + qNum + ' (Complex MC) requires 3 to 5 non-empty sub-statements.'));
+          }
+        } else if (c.questionType === 'SINGLE_CHOICE' || c.questionType === 'MULTIPLE_SELECT' || c.questionType === 'TRUE_FALSE') {
+          var nonEmptyOpts = c.options.filter(function (o) {
+            return extractPlainTextFromRichTextDoc(o.doc || o.text).trim().length > 0;
+          });
           if (nonEmptyOpts.length < 2) {
             return Promise.reject(new Error('Question ' + qNum + ' must have at least 2 non-empty answer choices.'));
           }
@@ -24172,12 +25813,14 @@ var qrcode = (function() {
             var optionsPayload = [];
             if (
               card.questionType === 'SINGLE_CHOICE' ||
+              card.questionType === 'COMPLEX_MULTIPLE_CHOICE' ||
               card.questionType === 'MULTIPLE_SELECT' ||
               card.questionType === 'TRUE_FALSE'
             ) {
               for (var oi = 0; oi < card.options.length; oi++) {
                 var o = card.options[oi];
-                var txt = String(o.text || '').trim();
+                var optDocObj = o.doc ? cloneRichTextDocSafe(o.doc) : plainTextToRichTextDocSafe(o.text || '');
+                var txt = extractPlainTextFromRichTextDoc(optDocObj).trim();
                 if (!txt) continue;
                 optionsPayload.push({
                   optionKey:
@@ -24185,10 +25828,13 @@ var qrcode = (function() {
                       ? oi === 0
                         ? 'TRUE'
                         : 'FALSE'
+                      : card.questionType === 'COMPLEX_MULTIPLE_CHOICE'
+                      ? 'S' + (optionsPayload.length + 1)
                       : String.fromCharCode(65 + optionsPayload.length),
                   text: txt,
+                  contentRichText: card.questionType === 'TRUE_FALSE' ? txt : optDocObj,
                   isCorrect: Boolean(o.isCorrect),
-                  pinPosition: o.pinPosition || 'NONE'
+                  pinPosition: card.questionType === 'COMPLEX_MULTIPLE_CHOICE' ? 'FIXED' : (o.pinPosition || 'NONE')
                 });
               }
             }
@@ -24198,6 +25844,9 @@ var qrcode = (function() {
             if (imgIds.length > 0 && !altTxt) {
               altTxt = 'Biology diagram for ' + qCode;
             }
+            var stemDocPayload = card.stemDoc ? cloneRichTextDocSafe(card.stemDoc) : plainTextToRichTextDocSafe(card.stem);
+            var expDocPayload = card.explanationDoc ? cloneRichTextDocSafe(card.explanationDoc) : plainTextToRichTextDocSafe(card.explanation || '');
+            var expFinalPayload = extractPlainTextFromRichTextDoc(expDocPayload).trim() ? expDocPayload : '';
 
             var qPayload = {
               questionId: card.questionId || '',
@@ -24206,12 +25855,12 @@ var qrcode = (function() {
               title: qTitle,
               questionType: card.questionType,
               difficulty: card.difficulty || 'MEDIUM',
-              defaultPoints: String(card.points || '2'),
+              defaultPoints: String(card.points || (card.questionType === 'COMPLEX_MULTIPLE_CHOICE' ? '3.2' : '2.4')),
               negativePoints: String(card.negativePoints || '0'),
-              topicTags: card.topicTags || 'General Biology',
+              topicTags: card.topicTags || getBlueprintSectionById(card.blueprintSection).title,
               status: 'PUBLISHED',
               stimulusId: '',
-              stemRichText: card.stem,
+              stemRichText: stemDocPayload,
               imageFileId: imgIds.join(','),
               imageFileIds: imgIds,
               imageAltText: altTxt,
@@ -24239,7 +25888,7 @@ var qrcode = (function() {
               maxLengthChars: 1500,
               acceptedAnswers: card.acceptedAnswers || '',
               sampleModelAnswer: card.sampleModelAnswer || '',
-              explanationRichText: card.explanation || '',
+              explanationRichText: expFinalPayload,
               referenceText: '',
               adminNotes: ''
             };
@@ -24260,12 +25909,14 @@ var qrcode = (function() {
 
       return chain.then(function () {
         invalidateQBankClientCachePhase2();
-        var sectionItems = [];
+        var itemsBySectionId = {};
         for (var i = 0; i < formsBuilderQuestionCards.length; i++) {
           var c = formsBuilderQuestionCards[i];
-          sectionItems.push({
+          var sId = c.blueprintSection || 'PART_1';
+          if (!itemsBySectionId[sId]) itemsBySectionId[sId] = [];
+          itemsBySectionId[sId].push({
             questionId: c.questionId,
-            points: String(c.points || '2'),
+            points: String(c.points || '2.4'),
             negativePoints: String(c.negativePoints || '0')
           });
         }
@@ -24273,15 +25924,31 @@ var qrcode = (function() {
         var examId = ((document.getElementById('input-forms-exam-id') || {}).value || '').trim();
         var examVer = ((document.getElementById('input-forms-exam-version') || {}).value || '').trim();
         var examMode = (document.getElementById('select-forms-exam-mode') || {}).value || 'MOCK_EXAM';
-        var durVal = (document.getElementById('input-forms-exam-duration') || {}).value || '45';
+        var durVal = (document.getElementById('input-forms-exam-duration') || {}).value || '90';
         if (examMode === 'MOCK_EXAM' && Number(durVal) <= 0) {
-          durVal = '45';
+          durVal = '90';
         }
         var descTxt = (document.getElementById('textarea-forms-exam-description') || {}).value || '';
         var secMode = (document.getElementById('select-forms-sec-mode') || {}).value || 'FIXED_ITEMS';
-        var poolDraw = Number((document.getElementById('input-forms-sec-pool-draw') || {}).value || 1);
-        if (secMode === 'QUESTION_POOL' && poolDraw > sectionItems.length) {
-          poolDraw = sectionItems.length;
+        var customSecTitle = ((document.getElementById('input-forms-sec-title') || {}).value || '').trim();
+
+        var builtSections = [];
+        for (var bs = 0; bs < PB_ALEVEL_66_BIO_BLUEPRINT.sections.length; bs++) {
+          var bpSec = PB_ALEVEL_66_BIO_BLUEPRINT.sections[bs];
+          var secItemList = itemsBySectionId[bpSec.id];
+          if (secItemList && secItemList.length > 0) {
+            var pDraw = Number((document.getElementById('input-forms-sec-pool-draw') || {}).value || 1);
+            if (secMode === 'QUESTION_POOL' && pDraw > secItemList.length) pDraw = secItemList.length;
+            builtSections.push({
+              title: bpSec.title,
+              selectionMode: secMode,
+              poolDrawCount: pDraw,
+              items: secItemList
+            });
+          }
+        }
+        if (builtSections.length === 1 && customSecTitle && customSecTitle !== 'Part I: Biology Questions') {
+          builtSections[0].title = customSecTitle;
         }
 
         return {
@@ -24310,16 +25977,17 @@ var qrcode = (function() {
           copyPolicyEnabled: Boolean((document.getElementById('chk-forms-copy-policy') || { checked: true }).checked),
           descriptionRichText: descTxt,
           instructionsRichText: descTxt,
-          sections: [
-            {
-              title: (document.getElementById('input-forms-sec-title') || {}).value || 'Part I: Biology Questions',
-              selectionMode: secMode,
-              poolDrawCount: poolDraw,
-              items: sectionItems
-            }
-          ]
+          sections: builtSections
         };
       });
+    }
+
+    function formatFormsSaveErrorFriendly(err) {
+      var msg = (err && err.message) || 'Failed to save exam.';
+      if (msg.indexOf('Question type must be SINGLE_CHOICE') !== -1 && msg.indexOf('COMPLEX_MULTIPLE_CHOICE') === -1) {
+        msg += ' — Note: Saving Complex Multiple Choice (เลือกตอบเชิงซ้อน) requires updating Google Apps Script from OneDrive\\PPB\\Web\\Code.gs.';
+      }
+      return msg;
     }
 
     function handleFormsSaveExamDraft(triggerBtn) {
@@ -24348,7 +26016,7 @@ var qrcode = (function() {
             PBNotify.toast('success', 'Exam Draft Saved', 'Saved ' + ((saved && saved.title) || 'exam') + ' with ' + formsBuilderQuestionCards.length + ' question(s).');
           })
           .catch(function (err) {
-            var msg = (err && err.message) || 'Failed to save exam.';
+            var msg = formatFormsSaveErrorFriendly(err);
             setFormsBuilderProgressBanner('danger', 'Could Not Save Exam', msg);
             PBNotify.toast('danger', 'Save Error', msg);
           });
@@ -24388,7 +26056,7 @@ var qrcode = (function() {
             PBNotify.toast('success', 'Exam Published!', 'Your exam is now live for students.');
           })
           .catch(function (err) {
-            var msg = (err && err.message) || 'Validation failed.';
+            var msg = formatFormsSaveErrorFriendly(err);
             setFormsBuilderProgressBanner('danger', 'Publication Blocked', msg);
             PBNotify.toast('danger', 'Publication Blocked', msg);
           });
@@ -24396,6 +26064,53 @@ var qrcode = (function() {
     }
 
     function initGoogleFormsExamStudioBindings() {
+      ensureFormsWordToolbarMounted();
+
+      var applyAlevelBtn = document.getElementById('btn-forms-apply-alevel66');
+      if (applyAlevelBtn && !(applyAlevelBtn.dataset && applyAlevelBtn.dataset.boundAlevel)) {
+        if (applyAlevelBtn.dataset) applyAlevelBtn.dataset.boundAlevel = '1';
+        applyAlevelBtn.addEventListener('click', function () {
+          var modeEl = document.getElementById('select-forms-exam-mode');
+          var durEl = document.getElementById('input-forms-exam-duration');
+          var passEl = document.getElementById('input-forms-exam-pass-pct');
+          var attPol = document.getElementById('select-forms-exam-attempt-policy');
+          var attEl = document.getElementById('input-forms-exam-attempts');
+          if (modeEl) modeEl.value = 'MOCK_EXAM';
+          if (durEl) durEl.value = String(PB_ALEVEL_66_BIO_BLUEPRINT.examDurationMinutes);
+          if (passEl) passEl.value = '60';
+          if (attPol) attPol.value = 'SINGLE';
+          if (attEl) attEl.value = '1';
+          syncExamAttemptPolicyPairFromCount(
+            'select-forms-exam-attempt-policy',
+            'input-forms-exam-attempts',
+            'wrap-forms-exam-attempt-pair',
+            1
+          );
+          renderFormsBuilderQuestionCards();
+          PBNotify.toast('success', 'A-Level 66 Bio Defaults Loaded', '90 minutes • 5-Option MC (2.4 pts) • Complex MC (3.2 pts) across 5 official topics.');
+        });
+      }
+
+      var addComplexMcBtn = document.getElementById('btn-forms-add-complex-mc');
+      if (addComplexMcBtn && !(addComplexMcBtn.dataset && addComplexMcBtn.dataset.boundAddCmc)) {
+        if (addComplexMcBtn.dataset) addComplexMcBtn.dataset.boundAddCmc = '1';
+        addComplexMcBtn.addEventListener('click', function () {
+          formsBuilderQuestionCards.push(
+            createBlankFormsQuestionCardState({
+              questionType: 'COMPLEX_MULTIPLE_CHOICE',
+              points: String(PB_ALEVEL_66_BIO_BLUEPRINT.complexMcDefaultPoints),
+              blueprintSection: activeFormsBlueprintSectionId
+            })
+          );
+          renderFormsBuilderQuestionCards();
+          var container = document.getElementById('pb-forms-questions-container');
+          if (container && container.lastElementChild) {
+            try {
+              container.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } catch (e) {}
+          }
+        });
+      }
       var studioTabBtns = document.querySelectorAll('[data-exam-studio-tab]');
       for (var i = 0; i < studioTabBtns.length; i++) {
         (function (btn) {
@@ -25285,9 +27000,13 @@ var qrcode = (function() {
       var qType = q.questionType || 'SINGLE_CHOICE';
       var selInstEl = document.getElementById('exam-ws-selection-instruction');
       if (selInstEl) {
-        selInstEl.classList.toggle('is-multi-select', qType === 'MULTIPLE_SELECT');
+        selInstEl.classList.toggle('is-multi-select', qType === 'MULTIPLE_SELECT' || qType === 'COMPLEX_MULTIPLE_CHOICE');
       }
-      var isChoice = qType === 'SINGLE_CHOICE' || qType === 'MULTIPLE_SELECT' || qType === 'TRUE_FALSE';
+      var isChoice =
+        qType === 'SINGLE_CHOICE' ||
+        qType === 'COMPLEX_MULTIPLE_CHOICE' ||
+        qType === 'MULTIPLE_SELECT' ||
+        qType === 'TRUE_FALSE';
       var optWrap = document.getElementById('exam-ws-options-wrap');
       var numWrap = document.getElementById('exam-ws-numeric-wrap');
       var saWrap = document.getElementById('exam-ws-short-answer-wrap');
@@ -25298,7 +27017,35 @@ var qrcode = (function() {
       if (saWrap) saWrap.classList.toggle('hidden', qType !== 'SHORT_ANSWER');
       if (wrWrap) wrWrap.classList.toggle('hidden', qType !== 'WRITTEN_RESPONSE');
 
-      if (isChoice) {
+      if (qType === 'COMPLEX_MULTIPLE_CHOICE') {
+        var optListCmc = document.getElementById('exam-ws-options-list');
+        if (optListCmc) {
+          while (optListCmc.firstChild) optListCmc.removeChild(optListCmc.firstChild);
+          optListCmc.classList.remove('is-true-false');
+          var curDecs =
+            respPayload.statementDecisions && typeof respPayload.statementDecisions === 'object'
+              ? respPayload.statementDecisions
+              : {};
+          renderComplexMultipleChoiceStatementsDom(
+            optListCmc,
+            q,
+            curDecs,
+            function (optId, nextVal) {
+              var nextMap = Object.assign({}, curDecs);
+              nextMap[optId] = nextVal;
+              window.PBExamAutosaveEngine.queueResponseChange(
+                item.attemptItemId,
+                { statementDecisions: nextMap },
+                false
+              );
+              renderActiveExamWorkspaceQuestionPhase5();
+              renderExamAnswerSheetNavigatorPhase5();
+              updateExamWorkspaceHeaderAndTimerPhase5();
+            },
+            snap.attempt.courseId
+          );
+        }
+      } else if (isChoice) {
         var optListEl = document.getElementById('exam-ws-options-list');
         if (optListEl) {
           while (optListEl.firstChild) optListEl.removeChild(optListEl.firstChild);
@@ -25489,9 +27236,10 @@ var qrcode = (function() {
       setText('exam-ws-code-badge', snap.exam.examCode || '');
       setText('exam-ws-title', snap.exam.title || 'Online Examination');
       setText('exam-ws-attempt-ref-badge', 'Ref: ' + (snap.attempt.attemptId || '-'));
+      var isAdmPrevWs = Boolean(snap.attempt._isAdminPreview) && isCurrentSessionAdminUser();
       var exitCourseBtn = document.getElementById('btn-exam-ws-exit-course');
       if (exitCourseBtn) {
-        exitCourseBtn.textContent = snap.attempt._isAdminPreview
+        exitCourseBtn.textContent = isAdmPrevWs
           ? 'Exit Preview to Exam Studio'
           : 'Exit to Course';
       }
@@ -25667,6 +27415,8 @@ var qrcode = (function() {
           var emptyPayload =
             qType === 'MULTIPLE_SELECT'
               ? { selectedOptionIds: [] }
+              : qType === 'COMPLEX_MULTIPLE_CHOICE'
+              ? { statementDecisions: {} }
               : { selectedOptionId: '' };
           window.PBExamAutosaveEngine.queueResponseChange(activeItem.attemptItemId, emptyPayload, false);
           renderActiveExamWorkspaceQuestionPhase5();
@@ -25755,7 +27505,7 @@ var qrcode = (function() {
       if (exitBtn) {
         exitBtn.addEventListener('click', function () {
           var snap = window.PBExamAutosaveEngine.getSnapshot();
-          var isPreview = Boolean(snap && snap.attempt && snap.attempt._isAdminPreview);
+          var isPreview = Boolean(snap && snap.attempt && snap.attempt._isAdminPreview) && isCurrentSessionAdminUser();
           if (currentExamCountdownIntervalPhase5) {
             clearInterval(currentExamCountdownIntervalPhase5);
             currentExamCountdownIntervalPhase5 = null;
@@ -25767,8 +27517,13 @@ var qrcode = (function() {
                 showSectionView('admin');
                 updateNavbarActiveForExamStudio(isExamStudioModeActive);
               } else {
-                showSectionView('courseDetail');
-                loadStudentCourseExamsCatalogPhase3(currentStudentCourseId);
+                currentStudentCourseFromAdminPreview = false;
+                if (currentStudentCourseId) {
+                  showSectionView('courseDetail');
+                  loadStudentCourseExamsCatalogPhase3(currentStudentCourseId);
+                } else {
+                  showSectionView('profile');
+                }
               }
             });
         });
@@ -25829,7 +27584,7 @@ var qrcode = (function() {
         confirmSubBtn.addEventListener('click', function () {
           var snap = window.PBExamAutosaveEngine.getSnapshot();
           if (!snap || !snap.attempt) return;
-          if (snap.attempt._isAdminPreview) {
+          if (snap.attempt._isAdminPreview && isCurrentSessionAdminUser()) {
             var modal = document.getElementById('modal-exam-submit-readiness');
             if (modal) modal.classList.add('hidden');
             showSectionView('admin');
@@ -25864,16 +27619,32 @@ var qrcode = (function() {
         }
         var activeItem = snap.items[currentExamWorkspaceQuestionIndexPhase5];
         var locResp = snap.localResponsesByItemId[activeItem.attemptItemId] || {};
-        if (snap.attempt._isAdminPreview) {
+        if (snap.attempt._isAdminPreview && isCurrentSessionAdminUser()) {
           var q = activeItem.question || {};
           var resp = locResp.responsePayload || {};
           var isCorr = false;
           var opts = Array.isArray(q.options) ? q.options : [];
           var corrLabels = [];
-          for (var oi = 0; oi < opts.length; oi++) {
-            if (opts[oi].isCorrect) {
-              corrLabels.push(opts[oi].displayLabel || opts[oi].optionKey || String(oi + 1));
-              if (resp.selectedOptionId === opts[oi].optionId) isCorr = true;
+          var scoreNote = '';
+          if (q.questionType === 'COMPLEX_MULTIPLE_CHOICE') {
+            var decs = resp.statementDecisions || {};
+            var matchCount = 0;
+            for (var ci = 0; ci < opts.length; ci++) {
+              var expAns = opts[ci].isCorrect ? 'YES' : 'NO';
+              corrLabels.push((ci + 1) + ': ' + (opts[ci].isCorrect ? 'ใช่' : 'ไม่ใช่'));
+              if (String(decs[opts[ci].optionId] || '').toUpperCase() === expAns) {
+                matchCount++;
+              }
+            }
+            var ratio = matchCount >= opts.length ? 1 : matchCount === 2 ? 0.5 : 0;
+            isCorr = ratio === 1;
+            scoreNote = 'Matched ' + matchCount + '/' + opts.length + ' (' + Math.round(ratio * 100) + '% credit)  •  ';
+          } else {
+            for (var oi = 0; oi < opts.length; oi++) {
+              if (opts[oi].isCorrect) {
+                corrLabels.push(opts[oi].displayLabel || opts[oi].optionKey || String(oi + 1));
+                if (resp.selectedOptionId === opts[oi].optionId) isCorr = true;
+              }
             }
           }
           var fbBox = document.getElementById('exam-ws-practice-feedback-box');
@@ -25881,9 +27652,10 @@ var qrcode = (function() {
           setText('exam-ws-practice-feedback-badge', isCorr ? 'CORRECT (PREVIEW)' : 'ANSWER KEY PREVIEW');
           setText(
             'exam-ws-practice-feedback-score',
-            (corrLabels.length > 0 ? 'Correct Option: ' + corrLabels.join(', ') + '  •  ' : '') +
+            scoreNote +
+              (corrLabels.length > 0 ? 'Correct Key: ' + corrLabels.join(', ') + '  •  ' : '') +
               'Max Score: ' +
-              (activeItem.pointsDisplay || '2 pts')
+              (activeItem.pointsDisplay || '2.4 pts')
           );
           renderRichTextDocumentToDom(
             document.getElementById('exam-ws-practice-feedback-richtext'),
@@ -25976,9 +27748,14 @@ var qrcode = (function() {
     function closeStudentSubmissionReceiptAndReturnPhase6() {
       var receiptModal = document.getElementById('modal-exam-submission-receipt');
       if (receiptModal) receiptModal.classList.add('hidden');
-      showSectionView('courseDetail');
       if (currentStudentCourseId) {
-        openStudentCourseDetailView(currentStudentCourseId, currentStudentCourseFromAdminPreview);
+        showSectionView('courseDetail');
+        openStudentCourseDetailView(
+          currentStudentCourseId,
+          isCurrentSessionAdminUser() && Boolean(currentStudentCourseFromAdminPreview)
+        );
+      } else {
+        showSectionView(isCurrentSessionAdminUser() ? 'admin' : 'profile');
       }
     }
 
@@ -26280,11 +28057,7 @@ var qrcode = (function() {
             var p = it.responsePayload || {};
             respDiv.textContent =
               'Student Response: ' +
-              (p.textResponse ||
-                p.numericText ||
-                p.selectedOptionId ||
-                (Array.isArray(p.selectedOptionIds) ? p.selectedOptionIds.join(', ') : '') ||
-                '(No answer submitted)');
+              formatStudentResponseSummaryText(p, it.question || null, '(No answer submitted)');
             box.appendChild(respDiv);
 
             var ctrlGrid = document.createElement('div');
@@ -26538,11 +28311,7 @@ var qrcode = (function() {
               var sr = it.studentResponse || {};
               ansP.textContent =
                 'Your Response: ' +
-                (sr.textResponse ||
-                  sr.numericText ||
-                  sr.selectedOptionId ||
-                  (Array.isArray(sr.selectedOptionIds) ? sr.selectedOptionIds.join(', ') : '') ||
-                  'Unanswered');
+                formatStudentResponseSummaryText(sr, it.question || null, 'Unanswered');
               card.appendChild(ansP);
 
               if (it.instructorFeedback) {

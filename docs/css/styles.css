@@ -12813,7 +12813,7 @@
 
   .pb-forms-sticky-toolbar {
     position: sticky;
-    top: 72px;
+    top: var(--pb-sticky-toolbar-top, 102px);
     z-index: 45;
     display: flex;
     align-items: center;
@@ -13172,7 +13172,7 @@
     }
 
     .pb-forms-sticky-toolbar {
-      top: 64px !important;
+      top: var(--pb-sticky-toolbar-top, 76px) !important;
       padding: 10px 12px !important;
     }
 
@@ -16422,4 +16422,369 @@
     margin: 0;
     border-top: 1px solid #E2E8F0;
     background: #FFFFFF;
+  }
+
+  /* ==========================================================================
+   * BLOCKING EXAM INSTRUCTIONS LOADING OVERLAY (SESSION ISOLATION GUARD)
+   * ========================================================================== */
+  .pb-exam-inst-popup-relative {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .pb-exam-inst-loading-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(248, 250, 252, 0.94);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .pb-exam-inst-loading-overlay.hidden {
+    display: none !important;
+  }
+
+  .pb-exam-inst-loading-card {
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+    padding: 26px 24px;
+    border-radius: 18px;
+    background: #FFFFFF;
+    border: 1.5px solid #A7F3D0;
+    box-shadow: 0 18px 42px rgba(4, 34, 46, 0.14);
+  }
+
+  .pb-exam-inst-spinner {
+    width: 42px;
+    height: 42px;
+    margin: 0 auto 14px auto;
+    border-radius: 50%;
+    border: 3.5px solid #D1FAE5;
+    border-top-color: #059669;
+    animation: pbSpinInst 0.78s linear infinite;
+  }
+
+  @keyframes pbSpinInst {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* ==========================================================================
+   * MyTCAS A-LEVEL 66 BIOLOGY BLUEPRINT BAR & COMPLEX MC (ใช่ / ไม่ใช่)
+   * ========================================================================== */
+  .pb-alevel-blueprint-bar {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #F0FDFA 0%, #ECFDF5 100%);
+    border: 1px solid #99F6E4;
+  }
+
+  .pb-alevel-blueprint-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .pb-alevel-blueprint-title-group {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .pb-alevel-spec-text {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #0F4C5C;
+  }
+
+  .pb-alevel-blueprint-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .pb-alevel-blueprint-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .pb-alevel-metric-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: #FFFFFF;
+    color: #0F766E;
+    border: 1px solid #CCFBF1;
+  }
+
+  .pb-alevel-metric-pill.is-target-met {
+    background: #DCFCE7;
+    color: #166534;
+    border-color: #86EFAC;
+  }
+
+  .pb-alevel-sections-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .pb-alevel-sec-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.88);
+    color: #134E4A;
+    border: 1px solid #B2F5EA;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .pb-alevel-sec-pill:hover {
+    background: #FFFFFF;
+    border-color: #0D9488;
+  }
+
+  .pb-alevel-sec-pill.is-active {
+    background: #0F766E;
+    color: #FFFFFF;
+    border-color: #0F766E;
+  }
+
+  /* ==========================================================================
+   * WORD-STYLE RICH TEXT TOOLBAR & INLINE EDITORS (SUB / SUP / GREEK / SHORTCUTS)
+   * ========================================================================== */
+  .pb-word-toolbar-dock {
+    margin-top: 12px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: #F8FAFC;
+    border: 1.5px solid #CBD5E1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .pb-word-toolbar-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .pb-word-toolbar-sep {
+    width: 1px;
+    height: 20px;
+    background: #CBD5E1;
+    margin: 0 4px;
+  }
+
+  .pb-word-fmt-btn,
+  .pb-word-greek-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 7px;
+    border-radius: 7px;
+    border: 1px solid #CBD5E1;
+    background: #FFFFFF;
+    color: #0F172A;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.12s ease;
+  }
+
+  .pb-word-fmt-btn:hover,
+  .pb-word-greek-btn:hover {
+    background: #ECFEFF;
+    border-color: #0891B2;
+    color: #0E7490;
+  }
+
+  .pb-word-fmt-btn.is-active {
+    background: #0891B2;
+    color: #FFFFFF;
+    border-color: #0891B2;
+  }
+
+  .pb-word-greek-btn {
+    font-family: "Times New Roman", Cambria, Georgia, serif;
+    font-size: 0.92rem;
+    min-width: 26px;
+    padding: 0 5px;
+  }
+
+  .pb-word-shortcut-hint {
+    margin-left: auto;
+    font-size: 0.72rem;
+    color: #475569;
+    font-weight: 600;
+  }
+
+  .pb-word-inline-editor {
+    width: 100%;
+    min-height: 38px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1.5px solid #CBD5E1;
+    background: #FFFFFF;
+    color: #0F172A;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    outline: none;
+    white-space: pre-wrap;
+    word-break: break-word;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .pb-word-inline-editor.is-stem {
+    min-height: 62px;
+    font-size: 0.96rem;
+    font-weight: 500;
+  }
+
+  .pb-word-inline-editor.is-single-line {
+    min-height: 36px;
+    padding: 6px 10px;
+    flex: 1;
+  }
+
+  .pb-word-inline-editor:focus {
+    border-color: #0891B2;
+    box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.14);
+  }
+
+  .pb-word-inline-editor:empty::before,
+  .pb-word-inline-editor.is-empty::before {
+    content: attr(data-placeholder);
+    color: #94A3B8;
+    pointer-events: none;
+  }
+
+  .pb-word-inline-editor sub {
+    font-size: 0.74em;
+    vertical-align: sub;
+    line-height: 0;
+  }
+
+  .pb-word-inline-editor sup {
+    font-size: 0.74em;
+    vertical-align: super;
+    line-height: 0;
+  }
+
+  /* ==========================================================================
+   * MYTCAS COMPLEX MULTIPLE CHOICE (เลือกตอบเชิงซ้อน: ใช่ / ไม่ใช่)
+   * ========================================================================== */
+  .pb-complex-mc-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .pb-complex-mc-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: #FFFFFF;
+    border: 1.5px solid #E2E8F0;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .pb-complex-mc-row.is-decided {
+    border-color: #0D9488;
+    background: #F0FDFA;
+  }
+
+  .pb-complex-mc-stmt-wrap {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .pb-complex-mc-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: #ECFDF5;
+    color: #0F766E;
+    font-weight: 800;
+    font-size: 0.82rem;
+    flex-shrink: 0;
+  }
+
+  .pb-complex-mc-stmt-body {
+    flex: 1;
+    font-size: 0.94rem;
+    line-height: 1.5;
+    color: #0F172A;
+  }
+
+  .pb-complex-mc-toggle-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px;
+    border-radius: 999px;
+    background: #F1F5F9;
+    border: 1px solid #CBD5E1;
+    flex-shrink: 0;
+  }
+
+  .pb-complex-mc-toggle-pill {
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: none;
+    background: transparent;
+    color: #475569;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.14s ease;
+  }
+
+  .pb-complex-mc-toggle-pill.is-yes.is-selected {
+    background: #059669;
+    color: #FFFFFF;
+    box-shadow: 0 2px 6px rgba(5, 150, 105, 0.28);
+  }
+
+  .pb-complex-mc-toggle-pill.is-no.is-selected {
+    background: #DC2626;
+    color: #FFFFFF;
+    box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
   }

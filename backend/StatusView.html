@@ -55,7 +55,7 @@
   >
     Loading Pattanabhumi Biology Portal&hellip;
   </h1>
-  <p style="margin: 0 0 16px 0; color: var(--color-text-secondary); font-size: 0.92rem;">
+  <p id="loading-subtitle-text" style="margin: 0 0 16px 0; color: var(--color-text-secondary); font-size: 0.92rem;">
     Preparing your learning workspace&hellip;
   </p>
   <div id="loading-skeleton-workspace" class="pb-login-skeleton-workspace" style="width: 100%; max-width: 780px; margin: 0 auto; text-align: left;" aria-hidden="true">
@@ -7644,8 +7644,8 @@
             <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
             <span>Back</span>
           </button>
-          <span class="badge badge-ok" id="pb-forms-status-badge">NEW EXAM</span>
-          <span class="pb-forms-live-summary" id="pb-forms-live-summary">1 Question &bull; 2.00 pts</span>
+          <span class="badge badge-ok" id="pb-forms-status-badge">A-LEVEL 66 BIO FORMAT</span>
+          <span class="pb-forms-live-summary" id="pb-forms-live-summary">1 Question &bull; 2.40 pts</span>
         </div>
         <div class="pb-forms-toolbar-right">
           <button type="button" class="btn btn-outline btn-sm" id="btn-forms-add-question-top" title="Add Question">
@@ -7720,8 +7720,8 @@
             </select>
           </div>
           <div class="form-group" style="margin: 0;">
-            <label for="input-forms-exam-duration" class="form-label" style="font-size: 0.78rem;">Time Limit (Minutes, 0 = Untimed)</label>
-            <input type="number" id="input-forms-exam-duration" class="form-input" min="0" max="600" value="45" />
+            <label for="input-forms-exam-duration" class="form-label" style="font-size: 0.78rem;">Time Limit (Minutes, A-Level = 90)</label>
+            <input type="number" id="input-forms-exam-duration" class="form-input" min="0" max="600" value="90" />
           </div>
           <div class="form-group" style="margin: 0;">
             <label for="input-forms-exam-pass-pct" class="form-label" style="font-size: 0.78rem;">Pass Threshold (%)</label>
@@ -7740,6 +7740,33 @@
           </div>
         </div>
 
+        <!-- MyTCAS A-Level 66 Biology (รหัส 66 วิชาชีววิทยา) Blueprint Overview & Quick Builders -->
+        <div id="pb-alevel-blueprint-bar" class="pb-alevel-blueprint-bar" aria-label="MyTCAS A-Level 66 Biology Blueprint">
+          <div class="pb-alevel-blueprint-top">
+            <div class="pb-alevel-blueprint-title-group">
+              <span class="badge badge-ok" style="font-size: 0.72rem;">MyTCAS A-Level 66 Bio Blueprint</span>
+              <span class="pb-alevel-spec-text">90 นาที &bull; 40 ข้อ &bull; 100 คะแนน (ปรนัย 5 ตัวเลือก 35 ข้อ &times; 2.4 + เชิงซ้อน 5 ข้อ &times; 3.2)</span>
+            </div>
+            <div class="pb-alevel-blueprint-actions">
+              <button type="button" class="btn btn-outline btn-sm" id="btn-forms-apply-alevel66" title="Reset settings to official MyTCAS A-Level 66 Biology defaults">
+                Load A-Level 66 Defaults (90m)
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-forms-add-complex-mc" title="Add Complex Multiple Choice question (3 statements Yes/No, 3.2 pts)">
+                + Complex MC (3.2 pts)
+              </button>
+            </div>
+          </div>
+          <div class="pb-alevel-blueprint-metrics">
+            <span class="pb-alevel-metric-pill" id="pb-alevel-count-5opt">5-Option MC: 1 / 35</span>
+            <span class="pb-alevel-metric-pill" id="pb-alevel-count-complex">Complex MC (ใช่/ไม่ใช่): 0 / 5</span>
+            <span class="pb-alevel-metric-pill" id="pb-alevel-score-total">Total Score: 2.40 / 100.00</span>
+          </div>
+          <div id="pb-alevel-blueprint-sections" class="pb-alevel-sections-strip" aria-label="A-Level Biology Topic Blueprint Sections"></div>
+        </div>
+
+        <!-- Word-Style Shared Formatting Dock for Question Prompt & Choices -->
+        <div id="pb-forms-word-toolbar-dock" class="pb-word-toolbar-dock" aria-label="Word-Style Question & Answer Formatting Toolbar"></div>
+
         <!-- Collapsible Advanced Exam Policies Drawer -->
         <details class="pb-forms-advanced-drawer" id="pb-forms-exam-policies-drawer">
           <summary class="pb-forms-advanced-summary">
@@ -7749,7 +7776,7 @@
             <div class="form-grid-2col">
               <div class="form-group">
                 <label for="input-forms-exam-code" class="form-label">Exam Code (Auto-generated if left blank)</label>
-                <input type="text" id="input-forms-exam-code" class="form-input" placeholder="Auto-generated e.g. BIO-EXAM-..." />
+                <input type="text" id="input-forms-exam-code" class="form-input" placeholder="Auto-generated e.g. ALEVEL66-BIO-01" />
               </div>
               <div class="form-group">
                 <label for="select-forms-score-policy" class="form-label">Score Release Policy</label>
@@ -7778,7 +7805,7 @@
               </div>
               <div class="form-group">
                 <label for="input-forms-sec-title" class="form-label">Section Header Title</label>
-                <input type="text" id="input-forms-sec-title" class="form-input" value="Part I: Biology Questions" />
+                <input type="text" id="input-forms-sec-title" class="form-input" value="A-Level 66 ชีววิทยา (90 นาที • 40 ข้อ)" />
               </div>
               <div class="form-group">
                 <label for="select-forms-sec-mode" class="form-label">Question Delivery Mode</label>
@@ -7798,7 +7825,7 @@
               </label>
               <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem;">
                 <input type="checkbox" id="chk-forms-rand-options" checked />
-                Shuffle answer choices (A, B, C, D)
+                Shuffle answer choices (A–E)
               </label>
               <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem;">
                 <input type="checkbox" id="chk-forms-practice-feedback" />
@@ -8499,12 +8526,13 @@
           <div class="form-group">
             <label class="form-label" for="select-qbank-type">Question Type *</label>
             <select class="form-input" id="select-qbank-type">
-              <option value="SINGLE_CHOICE">1. SINGLE_CHOICE (One Correct Option)</option>
-              <option value="MULTIPLE_SELECT">2. MULTIPLE_SELECT (Multiple Correct Options)</option>
-              <option value="TRUE_FALSE">3. TRUE_FALSE (True / False Statement)</option>
-              <option value="NUMERIC_RESPONSE">4. NUMERIC_RESPONSE (Exact / Tolerance / Range)</option>
-              <option value="SHORT_ANSWER">5. SHORT_ANSWER (Manual or Normalized Auto-Match)</option>
-              <option value="WRITTEN_RESPONSE">6. WRITTEN_RESPONSE (Extended Essay + Rubric)</option>
+              <option value="SINGLE_CHOICE">1. SINGLE_CHOICE (5-Option A-Level / Single Best)</option>
+              <option value="COMPLEX_MULTIPLE_CHOICE">2. COMPLEX_MULTIPLE_CHOICE (3 Statements Yes/No • A-Level)</option>
+              <option value="MULTIPLE_SELECT">3. MULTIPLE_SELECT (Multiple Correct Options)</option>
+              <option value="TRUE_FALSE">4. TRUE_FALSE (True / False Statement)</option>
+              <option value="NUMERIC_RESPONSE">5. NUMERIC_RESPONSE (Exact / Tolerance / Range)</option>
+              <option value="SHORT_ANSWER">6. SHORT_ANSWER (Manual or Normalized Auto-Match)</option>
+              <option value="WRITTEN_RESPONSE">7. WRITTEN_RESPONSE (Extended Essay + Rubric)</option>
             </select>
           </div>
           <div class="form-group">
@@ -8518,11 +8546,11 @@
           </div>
           <div class="form-group">
             <label class="form-label" for="input-qbank-points">Default Points *</label>
-            <input type="number" step="0.25" min="0.25" max="100" class="form-input" id="input-qbank-points" value="2" required />
+            <input type="number" step="0.1" min="0.1" max="100" class="form-input" id="input-qbank-points" value="2.4" required />
           </div>
           <div class="form-group">
             <label class="form-label" for="input-qbank-neg-points">Negative Marking Penalty (0 = None)</label>
-            <input type="number" step="0.25" min="0" max="100" class="form-input" id="input-qbank-neg-points" value="0" />
+            <input type="number" step="0.1" min="0" max="100" class="form-input" id="input-qbank-neg-points" value="0" />
           </div>
           <div class="form-group">
             <label class="form-label" for="input-qbank-topics">Topic Tags (Comma-separated)</label>
@@ -8545,8 +8573,11 @@
           </select>
         </div>
 
+        <!-- Shared Word-Style Formatting Toolbar for QBank Stem, Options & Explanation -->
+        <div id="qbank-word-toolbar-dock" class="pb-word-toolbar-dock" aria-label="Word-Style Rich Text & Greek Formatting Toolbar" style="margin-bottom: 12px;"></div>
+
         <div class="form-group">
-          <label class="form-label" for="textarea-qbank-stem">Question Stem *</label>
+          <label class="form-label" for="textarea-qbank-stem">Question Stem * <small style="font-weight:500; color:var(--color-text-muted);">(Supports Subscript Ctrl+=, Superscript Ctrl+Shift+=, &amp; Greek letters e.g. β-glycosidic)</small></label>
           <textarea class="form-textarea" id="textarea-qbank-stem" rows="3" placeholder="Enter the biology question stem..." required></textarea>
         </div>
 
@@ -10756,7 +10787,20 @@
   aria-modal="true"
   aria-labelledby="exam-inst-title"
 >
-  <div id="exam-inst-popup-dialog" class="pb-modal-dialog pb-exam-inst-popup-dialog is-mode-assigned" style="max-width: 820px; width: 95%;">
+  <div id="exam-inst-popup-dialog" class="pb-modal-dialog pb-exam-inst-popup-dialog pb-exam-inst-popup-relative is-mode-assigned" style="max-width: 820px; width: 95%;">
+    <!-- Blocking Loading Curtain shown until backend session & exam rules verify -->
+    <div id="exam-inst-loading-overlay" class="pb-exam-inst-loading-overlay hidden" aria-live="polite" aria-busy="true">
+      <div class="pb-exam-inst-loading-card">
+        <div class="pb-exam-inst-spinner" aria-hidden="true"></div>
+        <h3 id="exam-inst-loading-title" style="margin: 0 0 6px 0; font-size: 1.08rem; color: var(--color-brand-deep);">
+          Verifying Session &amp; Loading Assessment&hellip;
+        </h3>
+        <p id="exam-inst-loading-subtitle" style="margin: 0; font-size: 0.86rem; color: var(--color-text-secondary);">
+          Checking your authorization and fetching official rules. Controls are locked until verification completes.
+        </p>
+      </div>
+    </div>
+
     <div class="pb-modal-header pb-exam-inst-popup-header">
       <div class="pb-exam-inst-header-main">
         <div class="pb-exam-inst-badges-row">
@@ -10893,8 +10937,8 @@
         <button type="button" class="btn btn-outline btn-sm" id="btn-exam-inst-close">
           Close
         </button>
-        <button type="button" class="btn btn-primary btn-sm" id="btn-exam-inst-start-attempt">
-          Start Assessment
+        <button type="button" class="btn btn-primary btn-sm" id="btn-exam-inst-start-attempt" disabled>
+          Verifying Session...
         </button>
       </div>
     </div>
