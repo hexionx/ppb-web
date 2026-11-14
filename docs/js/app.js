@@ -2776,8 +2776,8 @@
           badge: 'Contact School',
           title: 'Official Contact Channels',
           items: [
-            { label: 'Telephone (Tel.0966821528)', targetId: 'contact-phone-card' },
-            { label: 'LINE Official (ID: poowadatch)', targetId: 'contact-line-card' },
+            { label: 'Telephone (0966821528)', targetId: 'contact-phone-card' },
+            { label: 'LINE Official (poowadatch)', targetId: 'contact-line-card' },
             { label: 'School Email (Mahidol)', targetId: 'contact-email-card' }
           ]
         },
@@ -4148,7 +4148,7 @@
           forgotLink.setAttribute('rel', 'noopener noreferrer');
           forgotLink.setAttribute('data-line-configured', 'true');
           forgotLink.textContent =
-            'Forgot username or password? Contact Line: ID: ' + effectiveLineId;
+            'Forgot username or password? Contact LINE (' + effectiveLineId + ')';
         } else {
           forgotLink.setAttribute('href', '#forgot-password-fallback');
           forgotLink.removeAttribute('target');
@@ -4162,20 +4162,26 @@
       var phoneBadge = document.getElementById('contact-phone-status-badge');
       var phoneLink = document.getElementById('contact-phone-link');
       var phoneDesc = document.getElementById('contact-phone-desc');
+      var phoneValueEl = document.getElementById('contact-phone-value');
+      var phoneCopyBtn = document.getElementById('btn-copy-contact-phone');
       if (phoneBadge) {
-        phoneBadge.className = phoneConfigured ? 'badge badge-ok' : 'badge badge-incomplete';
-        phoneBadge.textContent = phoneConfigured ? 'Configured' : 'Not Configured Yet';
+        phoneBadge.className = phoneConfigured ? 'badge badge-ok hidden' : 'badge badge-incomplete';
+        phoneBadge.textContent = phoneConfigured ? 'Active' : 'Unavailable';
+      }
+      if (phoneValueEl) {
+        phoneValueEl.textContent = phoneConfigured ? effectivePhone : 'Not set';
+      }
+      if (phoneCopyBtn && phoneConfigured) {
+        phoneCopyBtn.setAttribute('data-copy-contact-val', effectivePhone);
       }
       if (phoneDesc && phoneConfigured) {
         phoneDesc.textContent =
-          'Direct telephone support for course enrollment, schedule, or tuition inquiries: Tel.' +
-          effectivePhone;
+          'Call directly for urgent course enrollment, class schedule, or tuition questions.';
       }
       if (phoneLink) {
         if (phoneConfigured) {
           phoneLink.setAttribute('href', 'tel:' + phoneDigits);
           phoneLink.setAttribute('target', '_top');
-          phoneLink.textContent = 'Tel.' + effectivePhone;
           phoneLink.classList.remove('hidden');
         } else {
           phoneLink.classList.add('hidden');
@@ -4186,29 +4192,32 @@
       var lineBadge = document.getElementById('contact-line-status-badge');
       var lineLink = document.getElementById('contact-line-link');
       var lineDesc = document.getElementById('contact-line-desc');
+      var lineValueEl = document.getElementById('contact-line-value');
+      var lineCopyBtn = document.getElementById('btn-copy-contact-line');
       var lineFallback = document.getElementById('contact-line-fallback-note');
       if (lineBadge) {
         lineBadge.className = lineConfigured
           ? 'badge badge-ok'
           : 'badge badge-incomplete';
         lineBadge.textContent = lineConfigured
-          ? 'Configured'
-          : 'Not Configured Yet';
+          ? 'Fastest'
+          : 'Unavailable';
+      }
+      if (lineValueEl) {
+        lineValueEl.textContent = lineConfigured ? effectiveLineId : 'Not set';
+      }
+      if (lineCopyBtn && lineConfigured) {
+        lineCopyBtn.setAttribute('data-copy-contact-val', effectiveLineId);
       }
       if (lineDesc && lineConfigured) {
         lineDesc.textContent =
-          'Primary channel for username/password recovery and student support — Line: ID: ' +
-          effectiveLineId +
-          ' (' +
-          effectiveLineUrl +
-          ')';
+          'Recommended channel for username or password recovery and day-to-day student support.';
       }
       if (lineLink) {
         if (lineConfigured) {
           lineLink.setAttribute('href', effectiveLineUrl);
           lineLink.setAttribute('target', '_blank');
           lineLink.setAttribute('rel', 'noopener noreferrer');
-          lineLink.textContent = 'Line: ID: ' + effectiveLineId;
           lineLink.classList.remove('hidden');
         } else {
           lineLink.classList.add('hidden');
@@ -4218,35 +4227,39 @@
         lineFallback.classList.toggle('hidden', lineConfigured);
         if (!lineConfigured) {
           lineFallback.textContent =
-            'Fallback active: The administrator has not configured a school LINE URL yet.';
+            'LINE link has not been configured by the administrator yet.';
         }
       }
 
-      /* Contact options strictly limited to 3 channels: Telephone, LINE, and Email */
-
-      /* 4. Contact Page - Email Card */
+      /* 3. Contact Page - Email Card */
       var emailBadge = document.getElementById('contact-email-status-badge');
       var emailLink = document.getElementById('contact-email-link');
       var emailDesc = document.getElementById('contact-email-desc');
+      var emailValueEl = document.getElementById('contact-email-value');
+      var emailCopyBtn = document.getElementById('btn-copy-contact-email');
       var emailFallback = document.getElementById('contact-email-fallback-note');
       if (emailBadge) {
         emailBadge.className = emailConfigured
-          ? 'badge badge-ok'
+          ? 'badge badge-ok hidden'
           : 'badge badge-incomplete';
         emailBadge.textContent = emailConfigured
-          ? 'Configured'
-          : 'Not Configured Yet';
+          ? 'Active'
+          : 'Unavailable';
+      }
+      if (emailValueEl) {
+        emailValueEl.textContent = emailConfigured ? effectiveEmail : 'Not set';
+      }
+      if (emailCopyBtn && emailConfigured) {
+        emailCopyBtn.setAttribute('data-copy-contact-val', effectiveEmail);
       }
       if (emailDesc && emailConfigured) {
         emailDesc.textContent =
-          'Send general inquiries or formal documentation by email — mail: ' +
-          effectiveEmail;
+          'Send general academic questions, enrollment documents, or official requests by email.';
       }
       if (emailLink) {
         if (emailConfigured) {
           emailLink.setAttribute('href', 'mailto:' + effectiveEmail);
           emailLink.setAttribute('target', '_top');
-          emailLink.textContent = 'mail: ' + effectiveEmail;
           emailLink.classList.remove('hidden');
         } else {
           emailLink.classList.add('hidden');
@@ -4256,7 +4269,7 @@
         emailFallback.classList.toggle('hidden', emailConfigured);
         if (!emailConfigured) {
           emailFallback.textContent =
-            'Fallback active: Official school contact email has not been configured by the administrator yet.';
+            'School contact email has not been configured by the administrator yet.';
         }
       }
     }
@@ -33738,13 +33751,29 @@ var qrcode = (function() {
       });
 
 
-            /* Phase 5: Contact Page Copy Buttons */
+      /* Phase 5: Contact Page Copy Buttons */
       var contactCopyBtns = document.querySelectorAll('[data-copy-contact-val]');
       for (var ccIdx = 0; ccIdx < contactCopyBtns.length; ccIdx++) {
         contactCopyBtns[ccIdx].addEventListener('click', function () {
-          var val = this.getAttribute('data-copy-contact-val') || '';
-          var lbl = this.getAttribute('data-copy-contact-label') || 'Contact Detail';
-          copyContactChannelValuePhase5(val, lbl);
+          var btnEl = this;
+          var val = btnEl.getAttribute('data-copy-contact-val') || '';
+          var lbl = btnEl.getAttribute('data-copy-contact-label') || 'Contact Detail';
+          Promise.resolve(copyContactChannelValuePhase5(val, lbl)).then(function (outcome) {
+            if (outcome && outcome.copiedViaClipboard) {
+              var spanEl = btnEl.querySelector('span');
+              if (spanEl) {
+                var origTxt = btnEl.dataset.pbCopyOrig || spanEl.textContent || 'Copy';
+                btnEl.dataset.pbCopyOrig = origTxt;
+                spanEl.textContent = 'Copied!';
+                btnEl.classList.add('is-copied');
+                clearTimeout(btnEl._pbCopyResetTimer);
+                btnEl._pbCopyResetTimer = setTimeout(function () {
+                  spanEl.textContent = origTxt;
+                  btnEl.classList.remove('is-copied');
+                }, 1600);
+              }
+            }
+          });
         });
       }
 

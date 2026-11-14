@@ -1311,9 +1311,9 @@
           Need Assistance with Enrollment or Sign-In?
         </h2>
         <p style="margin: 0; font-size: 0.96rem; color: var(--pb-text-secondary); line-height: 1.65;">
-          Reach Pattanabhumi Biology directly by telephone (<a href="tel:0966821528" target="_top" style="font-weight: 700; color: var(--pb-brand-primary);">Tel.0966821528</a>),
-          LINE (<a href="https://line.me/ti/p/JpDoXL9lYv" target="_blank" rel="noopener noreferrer" style="font-weight: 700; color: var(--pb-brand-primary);">Line: ID: poowadatch</a>),
-          or email (<a href="mailto:phuwadet.khu@student.mahidol.edu" target="_top" style="font-weight: 700; color: var(--pb-brand-primary);">mail: phuwadet.khu@student.mahidol.edu</a>).
+          Reach Pattanabhumi Biology directly by telephone (<a href="tel:0966821528" target="_top" style="font-weight: 700; color: var(--pb-brand-primary);">0966821528</a>),
+          LINE (<a href="https://line.me/ti/p/JpDoXL9lYv" target="_blank" rel="noopener noreferrer" style="font-weight: 700; color: var(--pb-brand-primary);">poowadatch</a>),
+          or email (<a href="mailto:phuwadet.khu@student.mahidol.edu" target="_top" style="font-weight: 700; color: var(--pb-brand-primary);">phuwadet.khu@student.mahidol.edu</a>).
         </p>
       </div>
       <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
@@ -9749,90 +9749,98 @@
   class="hidden"
   aria-labelledby="contact-view-heading"
 >
-  <div class="card">
-    <span class="badge badge-ok">Official School Contact Channels</span>
-    <h1
-      id="contact-view-heading"
-      style="margin: 8px 0 6px 0; font-size: 1.55rem; color: var(--color-brand-deep);"
-    >
-      Contact Pattanabhumi Biology
-    </h1>
-    <p style="margin: 0; font-size: 0.94rem; color: var(--color-text-secondary);">
-      Need help with courses, account access, schedules, or tuition payments? Contact us via
-      <strong>Tel.0966821528</strong>, <strong>Line: ID: poowadatch</strong>
-      (<code>https://line.me/ti/p/JpDoXL9lYv</code>), or
-      <strong>mail: phuwadet.khu@student.mahidol.edu</strong>.
-    </p>
+  <div class="card pb-contact-shell-card">
+    <div class="pb-contact-hero">
+      <span class="pb-public-eyebrow pb-eyebrow-cyan">
+        <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+        <span>Official School Contact Channels</span>
+      </span>
+      <h1 id="contact-view-heading" class="pb-contact-hero-title">
+        Contact Pattanabhumi Biology
+      </h1>
+      <p class="pb-contact-hero-lead">
+        Need help with course enrollment, account recovery, class schedules, or tuition verification? Choose a direct support channel below.
+      </p>
+    </div>
 
-    <div class="contact-grid">
-      <!-- Telephone Contact Card -->
-      <div class="pb-contact-channel-card" id="contact-phone-card">
+    <div class="contact-grid pb-contact-grid-v2">
+      <!-- Channel 1: Telephone -->
+      <article class="pb-contact-channel-card is-phone" id="contact-phone-card">
         <div class="pb-contact-channel-header">
           <div class="pb-contact-channel-title-group">
             <span class="pb-contact-channel-icon" aria-hidden="true">
               <svg class="pb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.58 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
             </span>
-            <div class="status-label" style="margin: 0;">Telephone</div>
+            <div class="pb-contact-channel-heading-stack">
+              <h2 class="pb-contact-channel-title">Telephone</h2>
+              <span class="pb-contact-channel-kicker">Direct Voice Support</span>
+            </div>
           </div>
-          <span class="badge badge-ok" id="contact-phone-status-badge">Configured</span>
+          <span class="badge badge-incomplete hidden" id="contact-phone-status-badge">Unavailable</span>
         </div>
-        <p
-          id="contact-phone-desc"
-          style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);"
-        >
-          Direct telephone support for course enrollment, schedule, or tuition inquiries: Tel.0966821528
+
+        <p id="contact-phone-desc" class="pb-contact-channel-desc">
+          Call directly for urgent course enrollment, class schedule, or tuition questions.
         </p>
+
+        <div class="pb-contact-handle-box">
+          <div class="pb-contact-handle-meta">
+            <span class="pb-contact-handle-label">Phone Number</span>
+            <span class="pb-contact-handle-value" id="contact-phone-value">0966821528</span>
+          </div>
+          <button
+            type="button"
+            class="btn btn-secondary btn-sm pb-contact-copy-btn"
+            id="btn-copy-contact-phone"
+            data-copy-contact-val="0966821528"
+            data-copy-contact-label="Phone Number"
+            title="Copy Phone Number"
+          >
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span>Copy</span>
+          </button>
+        </div>
+
         <div class="pb-contact-channel-actions">
           <a
             id="contact-phone-link"
-            class="btn btn-primary btn-sm"
+            class="btn btn-primary pb-contact-cta-btn is-phone"
             href="tel:0966821528"
             target="_top"
           >
-            Tel.0966821528
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.58 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+            <span>Call School</span>
           </a>
-          <button
-            type="button"
-            class="btn btn-secondary btn-sm"
-            id="btn-copy-contact-phone"
-            data-copy-contact-val="0966821528"
-            data-copy-contact-label="Telephone Number"
-          >
-            Copy Number
-          </button>
         </div>
-      </div>
+      </article>
 
-      <!-- LINE Contact Card -->
-      <div class="pb-contact-channel-card" id="contact-line-card">
+      <!-- Channel 2: LINE Official -->
+      <article class="pb-contact-channel-card is-line" id="contact-line-card">
         <div class="pb-contact-channel-header">
           <div class="pb-contact-channel-title-group">
             <span class="pb-contact-channel-icon" aria-hidden="true">
               <svg class="pb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>
             </span>
-            <div class="status-label" style="margin: 0;">LINE (ID: poowadatch)</div>
+            <div class="pb-contact-channel-heading-stack">
+              <h2 class="pb-contact-channel-title">LINE Official</h2>
+              <span class="pb-contact-channel-kicker">Chat &amp; Account Recovery</span>
+            </div>
           </div>
-          <span class="badge badge-ok" id="contact-line-status-badge">Configured</span>
+          <span class="badge badge-ok" id="contact-line-status-badge">Fastest</span>
         </div>
-        <p
-          id="contact-line-desc"
-          style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);"
-        >
-          Primary channel for username/password recovery and student support — Line: ID: poowadatch (https://line.me/ti/p/JpDoXL9lYv)
+
+        <p id="contact-line-desc" class="pb-contact-channel-desc">
+          Recommended channel for username or password recovery and day-to-day student support.
         </p>
-        <div class="pb-contact-channel-actions">
-          <a
-            id="contact-line-link"
-            class="btn btn-primary btn-sm"
-            href="https://line.me/ti/p/JpDoXL9lYv"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Line: ID: poowadatch
-          </a>
+
+        <div class="pb-contact-handle-box">
+          <div class="pb-contact-handle-meta">
+            <span class="pb-contact-handle-label">LINE ID</span>
+            <span class="pb-contact-handle-value" id="contact-line-value">poowadatch</span>
+          </div>
           <button
             type="button"
-            class="btn btn-secondary btn-sm"
+            class="btn btn-secondary btn-sm pb-contact-copy-btn"
             id="btn-copy-contact-line"
             data-copy-contact-val="poowadatch"
             data-copy-contact-label="LINE ID"
@@ -9842,44 +9850,56 @@
             <span>Copy</span>
           </button>
         </div>
+
+        <div class="pb-contact-channel-actions">
+          <a
+            id="contact-line-link"
+            class="btn btn-primary pb-contact-cta-btn is-line"
+            href="https://line.me/ti/p/JpDoXL9lYv"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>
+            <span>Open LINE Chat</span>
+          </a>
+        </div>
+
         <p
           id="contact-line-fallback-note"
           class="hidden"
-          style="margin: 0; font-size: 0.86rem; font-weight: 600; color: var(--color-warning-text);"
+          style="margin: 0; font-size: 0.84rem; font-weight: 600; color: var(--color-warning-text);"
         >
-          LINE URL has not been configured by the administrator yet.
+          LINE link has not been configured by the administrator yet.
         </p>
-      </div>
+      </article>
 
-      <!-- Email Contact Card -->
-      <div class="pb-contact-channel-card" id="contact-email-card">
+      <!-- Channel 3: School Email -->
+      <article class="pb-contact-channel-card is-email" id="contact-email-card">
         <div class="pb-contact-channel-header">
           <div class="pb-contact-channel-title-group">
             <span class="pb-contact-channel-icon" aria-hidden="true">
               <svg class="pb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>
             </span>
-            <div class="status-label" style="margin: 0;">School Email</div>
+            <div class="pb-contact-channel-heading-stack">
+              <h2 class="pb-contact-channel-title">School Email</h2>
+              <span class="pb-contact-channel-kicker">Formal Inquiries &amp; Docs</span>
+            </div>
           </div>
-          <span class="badge badge-ok" id="contact-email-status-badge">Configured</span>
+          <span class="badge badge-incomplete hidden" id="contact-email-status-badge">Unavailable</span>
         </div>
-        <p
-          id="contact-email-desc"
-          style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);"
-        >
-          Send general inquiries or formal documentation by email — mail: phuwadet.khu@student.mahidol.edu
+
+        <p id="contact-email-desc" class="pb-contact-channel-desc">
+          Send general academic questions, enrollment documents, or official requests by email.
         </p>
-        <div class="pb-contact-channel-actions">
-          <a
-            id="contact-email-link"
-            class="btn btn-outline btn-sm"
-            href="mailto:phuwadet.khu@student.mahidol.edu"
-            target="_top"
-          >
-            mail: phuwadet.khu@student.mahidol.edu
-          </a>
+
+        <div class="pb-contact-handle-box">
+          <div class="pb-contact-handle-meta">
+            <span class="pb-contact-handle-label">Email Address</span>
+            <span class="pb-contact-handle-value" id="contact-email-value">phuwadet.khu@student.mahidol.edu</span>
+          </div>
           <button
             type="button"
-            class="btn btn-secondary btn-sm"
+            class="btn btn-secondary btn-sm pb-contact-copy-btn"
             id="btn-copy-contact-email"
             data-copy-contact-val="phuwadet.khu@student.mahidol.edu"
             data-copy-contact-label="Email Address"
@@ -9889,16 +9909,36 @@
             <span>Copy</span>
           </button>
         </div>
+
+        <div class="pb-contact-channel-actions">
+          <a
+            id="contact-email-link"
+            class="btn btn-primary pb-contact-cta-btn is-email"
+            href="mailto:phuwadet.khu@student.mahidol.edu"
+            target="_top"
+          >
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>
+            <span>Send Email</span>
+          </a>
+        </div>
+
         <p
           id="contact-email-fallback-note"
           class="hidden"
-          style="margin: 0; font-size: 0.86rem; font-weight: 600; color: var(--color-warning-text);"
+          style="margin: 0; font-size: 0.84rem; font-weight: 600; color: var(--color-warning-text);"
         >
           School contact email has not been configured by the administrator yet.
         </p>
-      </div>
+      </article>
+    </div>
 
-
+    <div class="pb-contact-support-strip">
+      <span class="pb-contact-support-strip-icon" aria-hidden="true">
+        <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      </span>
+      <p style="margin: 0;">
+        <strong>Account Recovery Tip:</strong> Include your full name and student username when messaging on LINE so the instructor can verify and assist right away.
+      </p>
     </div>
 
     <!-- Manual-Copy Fallback Box on Contact Page (Revealed automatically if clipboard access is blocked) -->
@@ -11513,7 +11553,7 @@
                 </span>
                 <div>
                   <span class="pb-footer-contact-label">Phone</span>
-                  <a href="tel:0966821528" target="_top" class="pb-footer-contact-link">Tel.0966821528</a>
+                  <a href="tel:0966821528" target="_top" class="pb-footer-contact-link">0966821528</a>
                 </div>
               </li>
               <li class="pb-footer-contact-item">
@@ -11521,8 +11561,8 @@
                   <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>
                 </span>
                 <div>
-                  <span class="pb-footer-contact-label">LINE Official / ID</span>
-                  <a href="https://line.me/ti/p/JpDoXL9lYv" target="_blank" rel="noopener noreferrer" class="pb-footer-contact-link">Line: ID: poowadatch</a>
+                  <span class="pb-footer-contact-label">LINE Official ID</span>
+                  <a href="https://line.me/ti/p/JpDoXL9lYv" target="_blank" rel="noopener noreferrer" class="pb-footer-contact-link">poowadatch</a>
                 </div>
               </li>
               <li class="pb-footer-contact-item">
@@ -11531,7 +11571,7 @@
                 </span>
                 <div>
                   <span class="pb-footer-contact-label">Email</span>
-                  <a href="mailto:phuwadet.khu@student.mahidol.edu" target="_top" class="pb-footer-contact-link">mail: phuwadet.khu@student.mahidol.edu</a>
+                  <a href="mailto:phuwadet.khu@student.mahidol.edu" target="_top" class="pb-footer-contact-link">phuwadet.khu@student.mahidol.edu</a>
                 </div>
               </li>
             </ul>

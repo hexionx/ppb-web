@@ -3334,29 +3334,137 @@
     box-shadow: var(--pb-shadow-md);
   }
 
-  /* Contact Channel Cards with Copy & Direct Action Controls */
-  .pb-contact-channel-card {
+  /* Contact Page V2 Redesign: Equal-Height Channel Cards, Handle Box & Support Strip */
+  .pb-contact-shell-card {
+    background: linear-gradient(180deg, rgba(236, 254, 255, 0.52) 0%, #FFFFFF 170px);
+    padding: 28px !important;
+  }
+
+  .pb-contact-hero {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    max-width: 66ch;
+  }
+
+  .pb-contact-hero-title {
+    margin: 4px 0 0 0;
+    font-family: var(--pb-font-display, inherit);
+    font-size: clamp(1.5rem, 2.4vw, 1.9rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--pb-brand-deep, #0F2419);
+    line-height: 1.2;
+  }
+
+  .pb-contact-hero-lead {
+    margin: 0;
+    font-size: 0.96rem;
+    color: var(--pb-text-secondary, #475569);
+    line-height: 1.6;
+  }
+
+  #view-contact .contact-grid.pb-contact-grid-v2 {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 18px !important;
+    margin-top: 24px !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  @media (min-width: 860px) {
+    #view-contact .contact-grid.pb-contact-grid-v2 {
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+  }
+
+  @media (min-width: 860px) and (max-width: 1180px) {
+    #view-contact .pb-contact-shell-card {
+      padding: 24px 20px !important;
+    }
+
+    #view-contact .contact-grid.pb-contact-grid-v2 {
+      gap: 14px !important;
+    }
+
+    #view-contact .pb-contact-channel-card {
+      padding: 20px 16px 18px;
+    }
+
+    #view-contact .pb-contact-handle-box {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+      padding: 10px;
+    }
+
+    #view-contact .pb-contact-handle-value {
+      font-size: 0.78rem;
+    }
+
+    #view-contact .pb-contact-copy-btn {
+      width: 100%;
+      justify-content: center;
+      min-height: 30px !important;
+      padding: 5px 10px !important;
+    }
+  }
+
+  .pb-contact-channel-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
     min-width: 0;
     overflow: hidden;
     background-color: var(--pb-bg-surface, #FFFFFF);
-    border: 1.5px solid var(--pb-border-subtle, #D5E2DA);
-    border-radius: var(--pb-radius-lg, 16px);
-    padding: 20px;
-    box-shadow: var(--pb-shadow-xs);
-    gap: 12px;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 20px;
+    padding: 24px 20px 20px 20px;
+    box-shadow: 0 8px 24px -12px rgba(15, 23, 42, 0.08);
+    gap: 14px;
     transition:
       transform var(--pb-duration-fast, 130ms) var(--pb-ease-out, ease),
       box-shadow var(--pb-duration-fast, 130ms) var(--pb-ease-out, ease),
       border-color var(--pb-duration-fast, 130ms) var(--pb-ease-out, ease);
   }
 
+  .pb-contact-channel-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #06B6D4 0%, #10B981 100%);
+  }
+
+  .pb-contact-channel-card.is-phone::before {
+    background: linear-gradient(90deg, #0891B2 0%, #06B6D4 100%);
+  }
+
+  .pb-contact-channel-card.is-line::before {
+    background: linear-gradient(90deg, #059669 0%, #10B981 100%);
+  }
+
+  .pb-contact-channel-card.is-email::before {
+    background: linear-gradient(90deg, #0F766E 0%, #0284C7 100%);
+  }
+
   .pb-contact-channel-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--pb-shadow-md);
-    border-color: var(--pb-brand-primary, #0F6E43);
+    transform: translateY(-3px);
+    box-shadow: 0 18px 34px -12px rgba(15, 23, 42, 0.12);
+    border-color: #99F6E4;
+  }
+
+  .pb-contact-channel-card.is-line:hover {
+    border-color: #6EE7B7;
+  }
+
+  .pb-contact-channel-card.is-email:hover {
+    border-color: #BAE6FD;
   }
 
   .pb-contact-channel-header {
@@ -3367,46 +3475,176 @@
   }
 
   .pb-contact-channel-title-group {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
+    min-width: 0;
   }
 
   .pb-contact-channel-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: var(--pb-radius-md, 12px);
-    background-color: var(--pb-brand-tint, #E3F3EB);
-    color: var(--pb-brand-primary, #0F6E43);
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+    background-color: #ECFEFF;
+    color: #0891B2;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
   }
 
+  .pb-contact-channel-card.is-line .pb-contact-channel-icon {
+    background-color: #ECFDF5;
+    color: #059669;
+  }
+
+  .pb-contact-channel-card.is-email .pb-contact-channel-icon {
+    background-color: #F0F9FF;
+    color: #0369A1;
+  }
+
+  .pb-contact-channel-heading-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .pb-contact-channel-title {
+    margin: 0;
+    font-size: 1.04rem;
+    font-weight: 800;
+    color: #0F172A;
+    line-height: 1.25;
+  }
+
+  .pb-contact-channel-kicker {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: #64748B;
+  }
+
+  .pb-contact-channel-desc,
   .pb-contact-channel-card p {
+    margin: 0;
+    font-size: 0.89rem;
+    line-height: 1.55;
+    color: var(--pb-text-secondary, #475569);
     overflow-wrap: anywhere;
     word-break: break-word;
+  }
+
+  .pb-contact-handle-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    margin-top: auto;
+  }
+
+  .pb-contact-handle-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .pb-contact-handle-label {
+    font-size: 0.67rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #64748B;
+  }
+
+  .pb-contact-handle-value {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #0F172A;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.35;
+  }
+
+  .pb-contact-copy-btn {
+    flex-shrink: 0;
+    padding: 6px 10px !important;
+    min-height: 32px !important;
+    border-radius: 10px !important;
+    font-size: 0.78rem !important;
+  }
+
+  .pb-contact-copy-btn.is-copied {
+    background-color: #ECFDF5 !important;
+    border-color: #10B981 !important;
+    color: #047857 !important;
   }
 
   .pb-contact-channel-actions {
     display: flex;
-    align-items: center;
-    flex-wrap: wrap;
+    align-items: stretch;
     min-width: 0;
-    gap: 8px;
-    margin-top: auto;
   }
 
-  .pb-contact-channel-actions .btn {
-    max-width: 100%;
-    white-space: normal;
-    overflow-wrap: anywhere;
-    word-break: break-word;
-    height: auto;
-    min-height: 40px;
-    line-height: 1.3;
-    text-align: center;
+  .pb-contact-cta-btn {
+    width: 100%;
+    min-height: 44px;
+    border-radius: 12px !important;
+    font-weight: 700 !important;
+    font-size: 0.9rem !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-decoration: none;
+  }
+
+  .pb-contact-cta-btn.is-phone {
+    background: linear-gradient(135deg, #0891B2 0%, #0D9488 100%) !important;
+    border-color: transparent !important;
+    color: #FFFFFF !important;
+  }
+
+  .pb-contact-cta-btn.is-line {
+    background: linear-gradient(135deg, #059669 0%, #10B981 100%) !important;
+    border-color: transparent !important;
+    color: #FFFFFF !important;
+  }
+
+  .pb-contact-cta-btn.is-email {
+    background: linear-gradient(135deg, #0F766E 0%, #0284C7 100%) !important;
+    border-color: transparent !important;
+    color: #FFFFFF !important;
+  }
+
+  .pb-contact-cta-btn:hover {
+    filter: brightness(1.05);
+  }
+
+  .pb-contact-support-strip {
+    margin-top: 20px;
+    padding: 13px 16px;
+    border-radius: 14px;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 0.87rem;
+    line-height: 1.5;
+    color: #475569;
+  }
+
+  .pb-contact-support-strip-icon {
+    color: #0891B2;
+    flex-shrink: 0;
+    margin-top: 1px;
   }
 
   .pb-calendar-guide-grid {
