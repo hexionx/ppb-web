@@ -1725,7 +1725,7 @@
     </div>
   </div>
 
-  <div class="card" id="student-course-header-card">
+  <div class="card pb-course-hero-card" id="student-course-header-card">
     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
       <div style="display: flex; gap: 8px; flex-wrap: wrap;">
         <button type="button" class="btn btn-outline btn-sm" id="btn-course-detail-back-profile">
@@ -1738,28 +1738,29 @@
         </button>
       </div>
       <button type="button" class="btn btn-secondary btn-sm" id="btn-course-detail-refresh">
-        Refresh Course Content
+        <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        <span>Refresh Course Content</span>
       </button>
     </div>
 
-    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
       <span class="badge badge-ok" id="student-course-code-badge">BIO-COURSE</span>
       <span class="badge badge-ok" id="student-course-status-badge">PUBLISHED</span>
-      <span style="font-size: 0.85rem; color: var(--color-text-muted);" id="student-course-updated-at">
+      <span style="font-size: 0.82rem; font-weight: 600; color: #64748B;" id="student-course-updated-at">
         Updated: -
       </span>
     </div>
 
-    <div id="student-course-cover-banner" class="hidden" style="margin-bottom: 12px;"></div>
+    <div id="student-course-cover-banner" class="hidden" style="margin-bottom: 16px;"></div>
     <h1
       id="student-course-title"
-      style="margin: 4px 0 6px 0; font-size: 1.55rem; color: var(--color-brand-deep);"
+      style="margin: 2px 0 6px 0; font-size: 1.65rem; font-weight: 900; letter-spacing: -0.02em; color: #0F172A;"
     >
       Course Title
     </h1>
     <p
       id="student-course-subtitle"
-      style="margin: 0 0 12px 0; font-size: 0.96rem; color: var(--color-text-secondary);"
+      style="margin: 0 0 8px 0; font-size: 0.98rem; color: #475569; line-height: 1.55;"
     ></p>
 
     <div class="banner banner-warning hidden pb-public-launch-hidden" style="display: none !important;" aria-hidden="true">
@@ -1804,14 +1805,24 @@
       </div>
     </div>
 
-    <div class="form-grid-2col" style="margin-top: 12px;">
-      <div class="status-item">
-        <div class="status-label">Course Objectives</div>
-        <div id="student-course-objectives-box" class="pb-rt-rendered" style="margin-top: 8px;"></div>
+    <div class="form-grid-2col" style="margin-top: 12px; gap: 14px;">
+      <div class="pb-course-overview-panel">
+        <div class="pb-course-overview-panel-head">
+          <span class="pb-course-overview-panel-icon" aria-hidden="true">
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+          </span>
+          <div class="status-label" style="margin: 0;">Course Objectives</div>
+        </div>
+        <div id="student-course-objectives-box" class="pb-rt-rendered" style="margin-top: 6px;"></div>
       </div>
-      <div class="status-item">
-        <div class="status-label">Course Learning Outcomes</div>
-        <div id="student-course-outcomes-box" class="pb-rt-rendered" style="margin-top: 8px;"></div>
+      <div class="pb-course-overview-panel">
+        <div class="pb-course-overview-panel-head">
+          <span class="pb-course-overview-panel-icon" aria-hidden="true">
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          </span>
+          <div class="status-label" style="margin: 0;">Course Learning Outcomes</div>
+        </div>
+        <div id="student-course-outcomes-box" class="pb-rt-rendered" style="margin-top: 6px;"></div>
       </div>
     </div>
 
@@ -2682,6 +2693,17 @@
         <button
           type="button"
           class="pb-pay-subview-tab"
+          id="btn-admin-billing-tab-analytics"
+          data-admin-billing-tab="analytics"
+          role="tab"
+          aria-selected="false"
+        >
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          <span>3. Income &amp; Analytics</span>
+        </button>
+        <button
+          type="button"
+          class="pb-pay-subview-tab"
           id="btn-admin-billing-tab-all"
           data-admin-billing-tab="all"
           role="tab"
@@ -2690,6 +2712,85 @@
           <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
           <span>All-in-One View</span>
         </button>
+      </div>
+    </div>
+
+    <!-- Financial Performance & Income Statistics Dashboard -->
+    <div class="card pb-fin-dash-card" id="admin-financial-dashboard-card" style="margin-bottom: 18px;">
+      <div class="pb-fin-dash-header">
+        <div>
+          <span class="badge badge-ok">Financial Performance Overview</span>
+          <h2 style="margin: 6px 0 3px 0; font-size: 1.22rem; color: #0F172A; font-weight: 800;">
+            Income Statistics &amp; Tuition Revenue Dashboard
+          </h2>
+          <p style="margin: 0; font-size: 0.86rem; color: #64748B;">
+            Live income breakdown from verified paid installments, payment verification queue, and billed student invoices.
+          </p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <div class="pb-fin-period-pills" id="admin-fin-period-pills" role="group" aria-label="Income statistics timeframe">
+            <button type="button" class="pb-fin-period-btn is-active" data-fin-period="ALL">All Time</button>
+            <button type="button" class="pb-fin-period-btn" data-fin-period="THIS_MONTH">This Month</button>
+            <button type="button" class="pb-fin-period-btn" data-fin-period="LAST_30D">Last 30 Days</button>
+            <button type="button" class="pb-fin-period-btn" data-fin-period="LAST_90D">Last 90 Days</button>
+          </div>
+          <button
+            type="button"
+            class="btn btn-outline btn-sm"
+            id="btn-admin-toggle-fin-dashboard"
+            aria-expanded="true"
+            title="Show or collapse financial dashboard charts"
+          >
+            Collapse Charts
+          </button>
+        </div>
+      </div>
+
+      <div id="admin-financial-dashboard-body">
+        <div class="pb-fin-kpi-grid">
+          <div class="pb-fin-kpi-box is-highlight">
+            <span class="pb-fin-kpi-lbl">Collected Income (Paid)</span>
+            <span class="pb-fin-kpi-num is-green" id="fin-stat-collected-thb">0.00 THB</span>
+            <span class="pb-fin-kpi-sub" id="fin-stat-collected-sub">0 paid invoices</span>
+          </div>
+          <div class="pb-fin-kpi-box">
+            <span class="pb-fin-kpi-lbl">Collection Rate</span>
+            <span class="pb-fin-kpi-num" id="fin-stat-collection-rate">0.0%</span>
+            <div class="pb-fin-progress-track" aria-hidden="true">
+              <div class="pb-fin-progress-fill" id="fin-stat-collection-bar" style="width: 0%;"></div>
+            </div>
+            <span class="pb-fin-kpi-sub" id="fin-stat-collection-sub">Of 0.00 THB billed</span>
+          </div>
+          <div class="pb-fin-kpi-box">
+            <span class="pb-fin-kpi-lbl">Average Paid Payment</span>
+            <span class="pb-fin-kpi-num" id="fin-stat-avg-ticket-thb">0.00 THB</span>
+            <span class="pb-fin-kpi-sub" id="fin-stat-avg-ticket-sub">Per settled installment</span>
+          </div>
+          <div class="pb-fin-kpi-box">
+            <span class="pb-fin-kpi-lbl">Pending &amp; Outstanding</span>
+            <span class="pb-fin-kpi-num" id="fin-stat-pipeline-thb">0.00 THB</span>
+            <span class="pb-fin-kpi-sub" id="fin-stat-pipeline-sub">Awaiting slip review + unpaid</span>
+          </div>
+        </div>
+
+        <div class="pb-fin-charts-grid">
+          <div class="pb-fin-chart-box">
+            <div class="pb-fin-chart-title">
+              <span>Monthly Collected Income Trend (THB)</span>
+              <span class="badge badge-ok" id="fin-chart-trend-badge">Last 6 Months</span>
+            </div>
+            <div class="pb-fin-svg-wrap" id="fin-monthly-income-chart-wrap" aria-live="polite"></div>
+          </div>
+
+          <div class="pb-fin-chart-box">
+            <div class="pb-fin-chart-title">
+              <span>Income by Course &amp; Payment Method</span>
+              <span class="badge" id="fin-chart-courses-badge" style="background: #F1F5F9; color: #334155;">Top Courses</span>
+            </div>
+            <div class="pb-fin-course-list" id="fin-course-income-list"></div>
+            <div class="pb-fin-split-grid" id="fin-payment-method-split"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -2766,10 +2867,58 @@
         <p class="banner-text" id="admin-payment-halted-journals-text" style="margin-bottom: 0;"></p>
       </div>
 
+      <!-- Bulk Multi-Student Payment Approval Toolbar -->
+      <div class="pb-pay-bulk-toolbar" id="admin-payments-bulk-bar" aria-live="polite">
+        <div class="pb-pay-bulk-left">
+          <label style="display: inline-flex; align-items: center; gap: 7px; font-size: 0.85rem; font-weight: 700; color: #0F172A; cursor: pointer;">
+            <input type="checkbox" class="pb-pay-row-checkbox" id="chk-admin-payments-select-all-bar" />
+            <span>Select All Pending</span>
+          </label>
+          <span class="badge badge-ok" id="admin-payments-bulk-count-badge">0 selected</span>
+          <span style="font-size: 0.84rem; font-weight: 800; color: #065F46;" id="admin-payments-bulk-total-thb">0.00 THB</span>
+          <span id="admin-payments-bulk-progress" style="font-size: 0.8rem; font-weight: 700; color: #0F766E;"></span>
+        </div>
+        <div class="pb-pay-bulk-right">
+          <input
+            type="text"
+            class="form-input"
+            id="input-admin-bulk-approve-note"
+            placeholder="Shared approval note for selected slips (optional)"
+            maxlength="240"
+            style="min-width: 210px; max-width: 300px; flex: 1; font-size: 0.82rem; padding: 6px 10px;"
+          />
+          <button
+            type="button"
+            class="btn btn-outline btn-sm"
+            id="btn-admin-bulk-clear-selection"
+            disabled
+          >
+            Clear
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary btn-sm"
+            id="btn-admin-bulk-approve-payments"
+            disabled
+          >
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+            <span>Approve Selected</span>
+          </button>
+        </div>
+      </div>
+
       <div class="table-responsive" aria-live="polite">
         <table class="data-table" aria-label="Administrator Payment Verification Queue">
           <thead>
             <tr>
+              <th style="width: 42px; text-align: center;">
+                <input
+                  type="checkbox"
+                  class="pb-pay-row-checkbox"
+                  id="chk-admin-payments-select-all"
+                  aria-label="Select all pending payments in table"
+                />
+              </th>
               <th>Student &amp; Reference</th>
               <th>Method &amp; Installments</th>
               <th>Amount</th>
@@ -2780,7 +2929,7 @@
           </thead>
           <tbody id="admin-pending-payments-tbody">
             <tr>
-              <td colspan="6" style="text-align: center; padding: 18px; color: var(--color-text-secondary);">
+              <td colspan="7" style="text-align: center; padding: 18px; color: var(--color-text-secondary);">
                 Click "Refresh" to inspect student payment submissions.
               </td>
             </tr>
@@ -6662,9 +6811,14 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="input-course-editor-cover-file-id">
-            Course Cover Image (PNG, JPEG, or WebP)
-          </label>
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
+            <label class="form-label" for="input-course-editor-cover-file-id" style="margin: 0;">
+              Course Cover Banner (PNG, JPEG, or WebP)
+            </label>
+            <span class="badge badge-ok" id="course-editor-cover-size-recommendation">
+              Recommended: 1600 &times; 400 px (4:1 aspect ratio)
+            </span>
+          </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
             <input
               type="text"
@@ -6674,6 +6828,14 @@
               maxlength="100"
               style="flex: 1; min-width: 240px;"
             />
+            <button
+              type="button"
+              class="btn btn-secondary btn-sm"
+              id="btn-course-editor-load-current-crop"
+              title="Open currently saved cover image inside the 1600x400 banner cropper"
+            >
+              Crop Current Cover (4:1)
+            </button>
             <button
               type="button"
               class="btn btn-outline btn-sm"
@@ -6702,6 +6864,53 @@
               style="font-size: 0.84rem; font-weight: 600; color: var(--color-brand-medium);"
             ></span>
           </div>
+
+          <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.83rem; font-weight: 600; color: #0F172A; cursor: pointer;">
+              <input type="checkbox" id="chk-course-editor-autocrop-banner" checked />
+              <span>Crop selected image to exact <strong>1600 &times; 400 px (4:1 banner)</strong> before upload</span>
+            </label>
+          </div>
+
+          <!-- Interactive 4:1 Banner Cropper Panel -->
+          <div id="course-cover-cropper-panel" class="pb-cropper-panel hidden" aria-live="polite">
+            <div class="pb-cropper-header">
+              <div>
+                <span class="badge badge-ok" id="course-cover-cropper-dim-badge">Output: 1600 &times; 400 px (4:1)</span>
+                <span style="font-size: 0.82rem; font-weight: 700; color: #0F172A; margin-left: 6px;" id="course-cover-cropper-source-meta">
+                  Drag image inside the frame &amp; zoom to compose your course banner
+                </span>
+              </div>
+              <button type="button" class="btn btn-outline btn-sm" id="btn-course-cropper-close">
+                Close Cropper
+              </button>
+            </div>
+
+            <div class="pb-cropper-stage" id="course-cover-cropper-stage" aria-label="Interactive 4:1 banner crop area">
+              <img id="course-cover-cropper-img" class="pb-cropper-img hidden" alt="Course cover banner crop preview" />
+              <div class="pb-cropper-guides" aria-hidden="true"></div>
+              <span class="pb-cropper-hint-pill">Drag to reposition &bull; 4:1 Frame</span>
+            </div>
+
+            <div class="pb-cropper-controls">
+              <div class="pb-cropper-zoom-group">
+                <button type="button" class="btn btn-outline btn-sm" id="btn-course-cropper-zoom-out" title="Zoom out">-</button>
+                <label for="input-course-cropper-zoom" style="font-size: 0.8rem; font-weight: 700; color: #334155; white-space: nowrap;">Zoom</label>
+                <input type="range" id="input-course-cropper-zoom" min="1" max="3.5" step="0.02" value="1" />
+                <button type="button" class="btn btn-outline btn-sm" id="btn-course-cropper-zoom-in" title="Zoom in">+</button>
+                <span id="course-cropper-zoom-value" style="font-size: 0.8rem; font-weight: 800; color: #0F766E; min-width: 44px; text-align: right;">1.00&times;</span>
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button type="button" class="btn btn-outline btn-sm" id="btn-course-cropper-reset">
+                  Re-Center
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-course-cropper-apply-upload">
+                  Crop (1600&times;400) &amp; Upload
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div id="course-editor-cover-preview-box" class="hidden" style="margin-top: 8px;"></div>
         </div>
 

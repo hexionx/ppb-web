@@ -1372,28 +1372,33 @@
     border: 2px solid var(--color-brand-border);
     border-radius: var(--radius-lg);
     overflow: hidden;
-    box-shadow: var(--shadow-card);
+    box-shadow: 0 10px 26px -14px rgba(15, 23, 42, 0.1);
     cursor: pointer;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease, border-color 0.22s ease;
     position: relative;
   }
 
   .student-course-card:hover,
   .student-course-card:focus-visible,
   .student-course-card:focus-within {
-    transform: scale(1.02);
-    border-color: var(--color-brand-deep);
-    box-shadow: 0 10px 26px rgba(27, 67, 50, 0.15);
+    transform: translateY(-4px);
+    border-color: #0D9488;
+    box-shadow: 0 20px 38px -16px rgba(13, 148, 136, 0.26);
     outline: none;
   }
 
   .student-course-card:focus-visible {
-    box-shadow: var(--focus-ring), 0 10px 26px rgba(27, 67, 50, 0.15);
+    box-shadow: var(--focus-ring), 0 20px 38px -16px rgba(13, 148, 136, 0.26);
   }
 
   .student-course-cover {
-    height: 156px;
-    background: linear-gradient(135deg, #1B4332 0%, #2D6A4F 60%, #40916C 100%);
+    aspect-ratio: 16 / 6;
+    min-height: 124px;
+    max-height: 175px;
+    background:
+      radial-gradient(circle at 88% 18%, rgba(45, 212, 191, 0.26) 0%, transparent 45%),
+      radial-gradient(circle at 12% 88%, rgba(16, 185, 129, 0.22) 0%, transparent 45%),
+      linear-gradient(135deg, #064E3B 0%, #0F766E 58%, #0E7490 100%);
     color: #FFFFFF;
     position: relative;
     display: flex;
@@ -1403,11 +1408,11 @@
   }
 
   .student-course-cover.has-cover-img {
-    height: auto;
-    min-height: 0;
+    aspect-ratio: 16 / 6;
+    min-height: 124px;
+    max-height: 175px;
     padding: 0;
-    flex-direction: column;
-    align-items: stretch;
+    background: #0F172A;
   }
 
   .student-course-cover-img {
@@ -1416,76 +1421,101 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center 35%;
     z-index: 1;
+    transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1), filter 520ms cubic-bezier(0.22, 1, 0.36, 1), opacity 420ms ease;
+  }
+
+  .student-course-card:hover .student-course-cover-img {
+    transform: scale(1.03);
   }
 
   .student-course-cover.has-cover-img .student-course-cover-img {
-    position: relative;
-    inset: auto;
+    position: absolute;
+    inset: 0;
     width: 100%;
-    height: auto;
+    height: 100%;
     max-height: none !important;
-    object-fit: contain;
+    object-fit: cover;
     border-radius: 0;
     display: block;
   }
 
   .student-course-cover-overlay {
-    position: relative;
-    z-index: 2;
-    width: 100%;
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    right: 12px;
+    z-index: 3;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    background: rgba(16, 42, 30, 0.72);
-    padding: 6px 10px;
-    border-radius: var(--radius-sm);
+    background: transparent;
+    padding: 0;
+  }
+
+  .student-course-cover::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.42) 0%, rgba(15, 23, 42, 0.04) 48%, rgba(15, 23, 42, 0.28) 100%);
   }
 
   .student-course-cover.has-cover-img .student-course-cover-overlay {
-    border-radius: 0;
-    padding: 8px 12px;
-    background: rgba(16, 42, 30, 0.9);
+    padding: 0;
+    background: transparent;
   }
 
   .student-course-body {
-    padding: 18px;
+    padding: 18px 20px 20px 20px;
     display: flex;
     flex-direction: column;
     flex: 1;
-    gap: 8px;
+    gap: 10px;
+    background: linear-gradient(180deg, #FFFFFF 0%, #FBFEFD 100%);
   }
 
   .student-course-title {
     margin: 0;
-    font-size: 1.15rem;
+    font-size: 1.14rem;
     font-weight: 800;
-    color: var(--color-brand-deep);
+    color: #0F172A;
     line-height: 1.35;
+    letter-spacing: -0.015em;
   }
 
   .student-course-subtitle {
     margin: 0;
-    font-size: 0.9rem;
-    color: var(--color-text-secondary);
+    font-size: 0.89rem;
+    color: #475569;
+    line-height: 1.48;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .student-course-meta {
     margin-top: auto;
-    padding-top: 10px;
-    border-top: 1px solid var(--color-brand-border);
-    font-size: 0.82rem;
-    color: var(--color-text-muted);
+    padding-top: 12px;
+    border-top: 1px solid #E2E8F0;
+    font-size: 0.8rem;
+    color: #64748B;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
   }
 
   .student-course-cta {
-    margin-top: 10px;
+    margin-top: 4px;
     min-height: 44px;
     width: 100%;
+    border-radius: 14px;
+    font-weight: 700;
+    gap: 8px;
   }
 
   /* Administrator-Defined Section Cards Grid on Course Page */
@@ -6052,10 +6082,13 @@
 
   .pb-blur-up-stage.is-banner {
     padding: 0;
-    min-height: 0;
-    background: transparent;
-    border: 1px solid var(--color-brand-border);
-    border-radius: 16px;
+    width: 100%;
+    aspect-ratio: 4 / 1;
+    min-height: 108px;
+    background: linear-gradient(135deg, #064E3B 0%, #0F766E 55%, #0F172A 100%);
+    border: 1px solid rgba(13, 148, 136, 0.24);
+    border-radius: 18px;
+    box-shadow: 0 12px 28px -14px rgba(15, 23, 42, 0.22);
   }
 
   .pb-blur-up-stage.is-uploading::after {
@@ -6093,10 +6126,12 @@
   .pb-blur-up-stage.is-banner .pb-blur-up-img {
     width: 100%;
     max-width: 100%;
-    height: auto;
+    height: 100%;
     max-height: none;
-    border-radius: 15px;
-    object-fit: contain;
+    border-radius: 17px;
+    object-fit: cover;
+    object-position: center center;
+    display: block;
   }
 
   .pb-blur-up-img.is-sharp {
@@ -14617,6 +14652,545 @@
     .pb-inst-kpi-grid {
       grid-template-columns: 1fr !important;
     }
+  }
+
+  /* ==========================================================================
+   * PRE-COURSE SECTION POLISH (GLASS BADGES, STAT CHIPS, HERO & OVERVIEW)
+   * ========================================================================== */
+  .pb-course-glass-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.62);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    color: #F8FAFC;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.14);
+  }
+
+  .pb-course-glass-chip.is-status {
+    background: rgba(5, 150, 105, 0.85);
+    border-color: rgba(167, 243, 208, 0.45);
+    color: #FFFFFF;
+  }
+
+  .pb-course-cover-watermark {
+    position: relative;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .pb-course-card-stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .pb-course-card-stat-pill {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    padding: 7px 9px;
+    border-radius: 10px;
+    background: #F1F5F9;
+    border: 1px solid #E2E8F0;
+  }
+
+  .pb-course-card-stat-pill .stat-val {
+    font-size: 0.94rem;
+    font-weight: 800;
+    color: #0F172A;
+    line-height: 1.1;
+  }
+
+  .pb-course-card-stat-pill .stat-lbl {
+    font-size: 0.69rem;
+    font-weight: 700;
+    color: #64748B;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .pb-course-card-stat-pill.is-accent {
+    background: #ECFDF5;
+    border-color: #A7F3D0;
+  }
+
+  .pb-course-card-stat-pill.is-accent .stat-val {
+    color: #065F46;
+  }
+
+  .pb-course-card-updated {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.77rem;
+    font-weight: 600;
+    color: #64748B;
+  }
+
+  .pb-course-hero-card {
+    background:
+      radial-gradient(circle at 96% 4%, rgba(20, 184, 166, 0.1) 0%, transparent 40%),
+      radial-gradient(circle at 4% 96%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
+      linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%) !important;
+    border: 1.5px solid #CCFBF1 !important;
+    border-radius: 24px !important;
+    box-shadow: 0 18px 40px -18px rgba(15, 23, 42, 0.12) !important;
+  }
+
+  .pb-course-overview-panel {
+    background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+    border: 1.5px solid #E2E8F0;
+    border-radius: 16px;
+    padding: 16px 18px;
+    box-shadow: 0 6px 18px -12px rgba(15, 23, 42, 0.1);
+  }
+
+  .pb-course-overview-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .pb-course-overview-panel-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #CCFBF1;
+    color: #0F766E;
+    flex-shrink: 0;
+  }
+
+  #student-course-section-cards-card {
+    border-radius: 22px !important;
+    border: 1.5px solid #E2E8F0 !important;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%) !important;
+  }
+
+  #student-course-assessment-overview {
+    border-radius: 22px !important;
+    border: 1.5px solid #E2E8F0 !important;
+  }
+
+  /* ==========================================================================
+   * ADMIN 1600x400 (4:1) COURSE BANNER CROPPER STUDIO
+   * ========================================================================== */
+  .pb-cropper-panel {
+    margin-top: 12px;
+    padding: 16px 18px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #F0FDFA 0%, #F8FAFC 100%);
+    border: 1.5px solid #99F6E4;
+    box-shadow: 0 12px 28px -14px rgba(13, 148, 136, 0.22);
+  }
+
+  .pb-cropper-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .pb-cropper-stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 1;
+    min-height: 112px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: repeating-conic-gradient(#1E293B 0% 25%, #0F172A 0% 50%) 50% / 20px 20px;
+    border: 2px solid #0D9488;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .pb-cropper-stage.is-dragging {
+    cursor: grabbing;
+    box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.22);
+  }
+
+  .pb-cropper-img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    max-width: none !important;
+    max-height: none !important;
+    transform-origin: 0 0;
+    pointer-events: none;
+    user-select: none;
+    display: block;
+  }
+
+  .pb-cropper-guides {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.22) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.22) 1px, transparent 1px);
+    background-size: 33.333% 33.333%;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+  }
+
+  .pb-cropper-hint-pill {
+    position: absolute;
+    bottom: 8px;
+    right: 10px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.72);
+    color: #F8FAFC;
+    font-size: 0.72rem;
+    font-weight: 700;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+  }
+
+  .pb-cropper-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .pb-cropper-zoom-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 260px;
+    min-width: 220px;
+  }
+
+  .pb-cropper-zoom-group input[type='range'] {
+    flex: 1;
+    accent-color: #0D9488;
+    cursor: pointer;
+  }
+
+  /* ==========================================================================
+   * ADMIN BULK PAYMENT APPROVAL TOOLBAR & CHECKBOXES
+   * ========================================================================== */
+  .pb-pay-bulk-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #F0FDFA 0%, #ECFEFF 100%);
+    border: 1.5px solid #99F6E4;
+  }
+
+  .pb-pay-bulk-toolbar.has-selection {
+    background: linear-gradient(135deg, #ECFDF5 0%, #CCFBF1 100%);
+    border-color: #10B981;
+    box-shadow: 0 8px 22px -12px rgba(16, 185, 129, 0.35);
+  }
+
+  .pb-pay-bulk-left {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .pb-pay-bulk-right {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex: 1 1 360px;
+    justify-content: flex-end;
+  }
+
+  .pb-pay-row-checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: #059669;
+    cursor: pointer;
+    vertical-align: middle;
+  }
+
+  tr.pb-pay-row-selected {
+    background-color: #ECFDF5 !important;
+  }
+
+  #admin-payment-verification-card .data-table th,
+  #admin-payment-verification-card .data-table td {
+    padding: 10px 10px;
+    font-size: 0.84rem;
+    vertical-align: top;
+  }
+
+  #admin-payment-verification-card .data-table td code,
+  #admin-payment-verification-card .data-table td div {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  /* ==========================================================================
+   * ADMIN FINANCIAL PERFORMANCE & INCOME DASHBOARD
+   * ========================================================================== */
+  .pb-fin-dash-card {
+    border-radius: 22px !important;
+    border: 1.5px solid #CCFBF1 !important;
+    background:
+      radial-gradient(circle at 96% 4%, rgba(6, 182, 212, 0.08) 0%, transparent 42%),
+      linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%) !important;
+    box-shadow: 0 16px 36px -18px rgba(15, 23, 42, 0.12) !important;
+  }
+
+  .pb-fin-dash-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .pb-fin-period-pills {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 12px;
+    background: #F1F5F9;
+    border: 1px solid #E2E8F0;
+  }
+
+  .pb-fin-period-btn {
+    border: none;
+    background: transparent;
+    color: #475569;
+    font-family: var(--pb-font-sans);
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 6px 11px;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: all 0.16s ease;
+  }
+
+  .pb-fin-period-btn:hover:not(.is-active) {
+    color: #0F172A;
+    background: rgba(255, 255, 255, 0.7);
+  }
+
+  .pb-fin-period-btn.is-active {
+    background: #FFFFFF;
+    color: #0F766E;
+    box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.12);
+  }
+
+  .pb-fin-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  @media (max-width: 980px) {
+    .pb-fin-kpi-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 540px) {
+    .pb-fin-kpi-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .pb-fin-kpi-box {
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: #FFFFFF;
+    border: 1.5px solid #E2E8F0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .pb-fin-kpi-box.is-highlight {
+    border-color: #99F6E4;
+    background: linear-gradient(135deg, #FFFFFF 0%, #F0FDFA 100%);
+  }
+
+  .pb-fin-kpi-lbl {
+    font-size: 0.73rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748B;
+  }
+
+  .pb-fin-kpi-num {
+    font-size: 1.38rem;
+    font-weight: 900;
+    color: #0F172A;
+    line-height: 1.2;
+  }
+
+  .pb-fin-kpi-num.is-green {
+    color: #059669;
+  }
+
+  .pb-fin-kpi-sub {
+    font-size: 0.76rem;
+    color: #64748B;
+  }
+
+  .pb-fin-progress-track {
+    width: 100%;
+    height: 8px;
+    border-radius: 999px;
+    background: #E2E8F0;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+
+  .pb-fin-progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #0D9488 0%, #10B981 100%);
+    transition: width 0.35s ease;
+  }
+
+  .pb-fin-charts-grid {
+    display: grid;
+    grid-template-columns: 1.25fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 960px) {
+    .pb-fin-charts-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .pb-fin-chart-box {
+    padding: 16px;
+    border-radius: 16px;
+    background: #FFFFFF;
+    border: 1.5px solid #E2E8F0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .pb-fin-chart-title {
+    margin: 0;
+    font-size: 0.94rem;
+    font-weight: 800;
+    color: #0F172A;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .pb-fin-svg-wrap {
+    width: 100%;
+    min-height: 186px;
+  }
+
+  .pb-fin-course-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .pb-fin-course-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .pb-fin-course-row-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.82rem;
+  }
+
+  .pb-fin-course-name {
+    font-weight: 700;
+    color: #0F172A;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .pb-fin-course-amt {
+    font-weight: 800;
+    color: #059669;
+    white-space: nowrap;
+  }
+
+  .pb-fin-split-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  @media (max-width: 520px) {
+    .pb-fin-split-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .pb-fin-split-pill {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .pb-fin-split-pill .lbl {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #64748B;
+    text-transform: uppercase;
+  }
+
+  .pb-fin-split-pill .val {
+    font-size: 0.96rem;
+    font-weight: 800;
+    color: #0F172A;
   }
 
 </style>

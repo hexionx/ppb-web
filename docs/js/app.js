@@ -3547,19 +3547,30 @@
           coverOverlay.className = 'student-course-cover-overlay';
 
           var codeBadge = document.createElement('span');
-          codeBadge.className = 'badge badge-ok';
+          codeBadge.className = 'pb-course-glass-chip';
           codeBadge.textContent = c.courseCode || c.courseId;
 
           var statusBadge = document.createElement('span');
-          statusBadge.className = 'badge badge-ok';
-          statusBadge.textContent = 'ENROLLED - PUBLISHED';
+          statusBadge.className = 'pb-course-glass-chip is-status';
+          statusBadge.textContent = 'ENROLLED';
 
           coverOverlay.appendChild(codeBadge);
           coverOverlay.appendChild(statusBadge);
           coverDiv.appendChild(coverOverlay);
+
+          if (!c.coverFileId || !/^fil_[a-z0-9_-]{4,64}$/i.test(c.coverFileId)) {
+            var watermark = document.createElement('div');
+            watermark.className = 'pb-course-cover-watermark';
+            watermark.innerHTML =
+              '<svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" aria-hidden="true">' +
+              '<path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path>' +
+              '</svg><span>Biology Course Curriculum</span>';
+            coverDiv.appendChild(watermark);
+          }
+
           card.appendChild(coverDiv);
 
-          /* Card Body: Title, Subtitle, Metadata & Touch-Friendly Action Button */
+          /* Card Body: Title, Subtitle, Stat Pills & Elevated CTA Button */
           var bodyDiv = document.createElement('div');
           bodyDiv.className = 'student-course-body';
 
@@ -3578,21 +3589,55 @@
           var metaDiv = document.createElement('div');
           metaDiv.className = 'student-course-meta';
 
-          var countsSpan = document.createElement('div');
-          countsSpan.textContent =
-            'Sections: ' +
-            String(c.publishedSectionCount !== undefined ? c.publishedSectionCount : 3) +
-            ' | Published Cards: ' +
-            String(c.publishedCardCount !== undefined ? c.publishedCardCount : 0) +
-            ' | Published Scores: ' +
-            String(c.publishedScoreCount !== undefined ? c.publishedScoreCount : 0);
-          metaDiv.appendChild(countsSpan);
+          var statsRow = document.createElement('div');
+          statsRow.className = 'pb-course-card-stats-row';
+          var statSpecs = [
+            {
+              val: c.publishedSectionCount !== undefined ? c.publishedSectionCount : 3,
+              lbl: 'Sections',
+              accent: false
+            },
+            {
+              val: c.publishedCardCount !== undefined ? c.publishedCardCount : 0,
+              lbl: 'Cards',
+              accent: true
+            },
+            {
+              val: c.publishedScoreCount !== undefined ? c.publishedScoreCount : 0,
+              lbl: 'Scores',
+              accent: false
+            }
+          ];
+          for (var stIdx = 0; stIdx < statSpecs.length; stIdx++) {
+            var sp = statSpecs[stIdx];
+            var pill = document.createElement('div');
+            pill.className = 'pb-course-card-stat-pill' + (sp.accent ? ' is-accent' : '');
+            var valEl = document.createElement('span');
+            valEl.className = 'stat-val';
+            valEl.textContent = String(sp.val);
+            var lblEl = document.createElement('span');
+            lblEl.className = 'stat-lbl';
+            lblEl.textContent = sp.lbl;
+            pill.appendChild(valEl);
+            pill.appendChild(lblEl);
+            statsRow.appendChild(pill);
+          }
+          metaDiv.appendChild(statsRow);
 
-          if (c.updatedAtBangkok || c.assignedAtBangkok) {
+          var rawUpdated = String(c.updatedAtBangkok || c.assignedAtBangkok || '').trim();
+          if (rawUpdated) {
+            var shortDateMatch = rawUpdated.match(/^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})/);
+            var compactUpdated = shortDateMatch ? shortDateMatch[1] + ' ICT' : rawUpdated;
             var timeSpan = document.createElement('div');
-            timeSpan.textContent =
-              'Updated (Asia/Bangkok): ' +
-              (c.updatedAtBangkok || c.assignedAtBangkok || '-');
+            timeSpan.className = 'pb-course-card-updated';
+            timeSpan.title = 'Updated (Asia/Bangkok): ' + rawUpdated;
+            timeSpan.innerHTML =
+              '<svg class="pb-icon pb-icon-xs" viewBox="0 0 24 24" aria-hidden="true">' +
+              '<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>' +
+              '</svg>';
+            var timeTxt = document.createElement('span');
+            timeTxt.textContent = 'Updated ' + compactUpdated;
+            timeSpan.appendChild(timeTxt);
             metaDiv.appendChild(timeSpan);
           }
 
@@ -3601,7 +3646,11 @@
           var openBtn = document.createElement('button');
           openBtn.type = 'button';
           openBtn.className = 'btn btn-primary student-course-cta';
-          openBtn.textContent = 'Open Course Page';
+          openBtn.innerHTML =
+            '<span>Open Course</span>' +
+            '<svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" aria-hidden="true">' +
+            '<line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline>' +
+            '</svg>';
           openBtn.setAttribute('data-open-course-id', c.courseId);
           openBtn.addEventListener('click', function (evt) {
             evt.stopPropagation();
@@ -5388,16 +5437,38 @@
       }
     }
 
+    var isAdminFinDashboardCollapsed = false;
+
+    function setAdminFinDashboardCollapsedState(collapsed) {
+      isAdminFinDashboardCollapsed = Boolean(collapsed);
+      var bodyEl = document.getElementById('admin-financial-dashboard-body');
+      var toggleBtn = document.getElementById('btn-admin-toggle-fin-dashboard');
+      if (bodyEl) {
+        bodyEl.classList.toggle('hidden', isAdminFinDashboardCollapsed);
+      }
+      if (toggleBtn) {
+        toggleBtn.setAttribute('aria-expanded', isAdminFinDashboardCollapsed ? 'false' : 'true');
+        toggleBtn.textContent = isAdminFinDashboardCollapsed ? 'Expand Charts' : 'Collapse Charts';
+      }
+    }
+
     function switchAdminBillingSubView(subViewKey) {
       var mode = subViewKey || 'queue';
       currentAdminBillingSubView = mode;
+      var finCard = document.getElementById('admin-financial-dashboard-card');
       var queueCard = document.getElementById('admin-payment-verification-card');
       var invCard = document.getElementById('admin-invoices-management-card');
+      if (finCard) {
+        finCard.classList.toggle('hidden', mode === 'invoices');
+      }
+      if (mode === 'analytics') {
+        setAdminFinDashboardCollapsedState(false);
+      }
       if (queueCard) {
-        queueCard.classList.toggle('hidden', mode === 'invoices');
+        queueCard.classList.toggle('hidden', mode !== 'queue' && mode !== 'all');
       }
       if (invCard) {
-        invCard.classList.toggle('hidden', mode === 'queue');
+        invCard.classList.toggle('hidden', mode !== 'invoices' && mode !== 'all');
       }
       var btns = document.querySelectorAll('[data-admin-billing-tab], [data-admin-billing-subview]');
       for (var i = 0; i < btns.length; i++) {
@@ -9653,7 +9724,13 @@
           'Save or select a course to view its PB_COURSE_ID: [course UUID] marker'
         );
         setInputValue('input-course-editor-cover-file-id', '');
-        renderPrivateImagePreviewStep8('course-editor-cover-preview-box', '', '', '');
+        renderPrivateImagePreviewStep8('course-editor-cover-preview-box', '', '', '', {
+          variant: 'banner',
+          showCaption: false
+        });
+        if (typeof PBCourseBannerCropper === 'object' && PBCourseBannerCropper && PBCourseBannerCropper.close) {
+          PBCourseBannerCropper.close(true);
+        }
         setText('course-editor-mode-badge', 'Create New Course Mode');
         setText('course-editor-version-badge', 'Version: New (v1 on save)');
         if (previewBtn) {
@@ -9690,7 +9767,16 @@
         'PB_COURSE_ID: [' + courseObj.courseId + ']'
       );
       setInputValue('input-course-editor-cover-file-id', courseObj.coverFileId || '');
-      renderPrivateImagePreviewStep8('course-editor-cover-preview-box', courseObj.coverFileId || '', courseObj.courseId || '', courseObj.title || '');
+      renderPrivateImagePreviewStep8(
+        'course-editor-cover-preview-box',
+        courseObj.coverFileId || '',
+        courseObj.courseId || '',
+        courseObj.title || '',
+        { variant: 'banner', showCaption: false }
+      );
+      if (typeof PBCourseBannerCropper === 'object' && PBCourseBannerCropper && PBCourseBannerCropper.close) {
+        PBCourseBannerCropper.close(true);
+      }
       setText(
         'course-editor-mode-badge',
         'Editing Course: [' + courseObj.courseCode + '] ' + courseObj.title
@@ -12255,6 +12341,466 @@
       }
     }
 
+    var adminCachedInvoicesAllStep10 = [];
+    var adminCachedInvoicesCoursesStep10 = [];
+    var adminCachedPaymentsAllStep11 = [];
+    var currentAdminFinDashboardPeriod = 'ALL';
+
+    function formatSatangThbShortStep10(satangVal) {
+      var thbNum = Math.round(Number(satangVal || 0)) / 100;
+      try {
+        return (
+          thbNum.toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          }) + ' THB'
+        );
+      } catch (e) {
+        return thbNum.toFixed(2) + ' THB';
+      }
+    }
+
+    function getInvoiceAmountSatangStep10(inv) {
+      if (!inv || typeof inv !== 'object') return 0;
+      if (inv.amountSatang !== undefined && inv.amountSatang !== null && !isNaN(Number(inv.amountSatang))) {
+        return Math.round(Number(inv.amountSatang));
+      }
+      var thb = parseFloat(String(inv.amountThbFormatted || inv.amountThb || '0').replace(/[^\d.-]/g, ''));
+      return isNaN(thb) ? 0 : Math.round(thb * 100);
+    }
+
+    function parseFinRecordDateMetaStep10(rec, dateFields) {
+      if (!rec || typeof rec !== 'object') return { ms: 0, monthKey: '' };
+      var raw = '';
+      for (var i = 0; i < dateFields.length; i++) {
+        var val = String(rec[dateFields[i]] || '').trim();
+        if (val) {
+          raw = val;
+          break;
+        }
+      }
+      if (!raw) return { ms: 0, monthKey: '' };
+      var ymMatch = raw.match(/^(\d{4}-\d{2})/);
+      var monthKey = ymMatch ? ymMatch[1] : '';
+      var parsedMs = Date.parse(raw);
+      if (isNaN(parsedMs)) {
+        var bkkMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?/);
+        if (bkkMatch) {
+          parsedMs =
+            Date.UTC(
+              Number(bkkMatch[1]),
+              Number(bkkMatch[2]) - 1,
+              Number(bkkMatch[3]),
+              Number(bkkMatch[4]),
+              Number(bkkMatch[5]),
+              Number(bkkMatch[6] || 0)
+            ) -
+            7 * 3600 * 1000;
+        } else {
+          parsedMs = 0;
+        }
+      } else if (!monthKey) {
+        var d = new Date(parsedMs + 7 * 3600 * 1000);
+        var m = String(d.getUTCMonth() + 1);
+        monthKey = String(d.getUTCFullYear()) + '-' + (m.length < 2 ? '0' + m : m);
+      }
+      return { ms: parsedMs, monthKey: monthKey };
+    }
+
+    function filterFinRecordsByPeriodStep10(records, dateFields, periodKey) {
+      var list = Array.isArray(records) ? records : [];
+      if (!periodKey || periodKey === 'ALL') return list;
+      var curYm = typeof getCurrentBangkokYearMonthStep13 === 'function'
+        ? getCurrentBangkokYearMonthStep13()
+        : '';
+      var nowMs = Date.now();
+      var cutoffMs = periodKey === 'LAST_30D'
+        ? nowMs - 30 * 86400000
+        : periodKey === 'LAST_90D'
+          ? nowMs - 90 * 86400000
+          : 0;
+      var out = [];
+      for (var i = 0; i < list.length; i++) {
+        var meta = parseFinRecordDateMetaStep10(list[i], dateFields);
+        if (periodKey === 'THIS_MONTH') {
+          if (meta.monthKey && meta.monthKey === curYm) {
+            out.push(list[i]);
+          }
+        } else if (cutoffMs > 0) {
+          if (meta.ms >= cutoffMs) {
+            out.push(list[i]);
+          }
+        }
+      }
+      return out;
+    }
+
+    function shiftYearMonthStep10(ymStr, deltaMonths) {
+      var m = String(ymStr || '').match(/^(\d{4})-(\d{2})$/);
+      if (!m) return ymStr;
+      var totalMonths = Number(m[1]) * 12 + (Number(m[2]) - 1) + Number(deltaMonths || 0);
+      var yr = Math.floor(totalMonths / 12);
+      var mo = (totalMonths % 12) + 1;
+      return String(yr) + '-' + (mo < 10 ? '0' + mo : String(mo));
+    }
+
+    function formatShortMonthLabelStep10(ymStr) {
+      var names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      var m = String(ymStr || '').match(/^(\d{4})-(\d{2})$/);
+      if (!m) return ymStr;
+      var idx = Number(m[2]) - 1;
+      return (names[idx] || m[2]) + ' ' + m[1].slice(2);
+    }
+
+    function renderAdminFinancialDashboardStep10() {
+      var invAll = Array.isArray(adminCachedInvoicesAllStep10) ? adminCachedInvoicesAllStep10 : [];
+      var payAll = Array.isArray(adminCachedPaymentsAllStep11) ? adminCachedPaymentsAllStep11 : [];
+      var period = currentAdminFinDashboardPeriod || 'ALL';
+
+      var filteredInvoices = filterFinRecordsByPeriodStep10(
+        invAll,
+        ['paidAtBangkok', 'paidAtUtc', 'updatedAtBangkok', 'updatedAtUtc', 'createdAtBangkok', 'createdAtUtc'],
+        period
+      );
+      var filteredPayments = filterFinRecordsByPeriodStep10(
+        payAll,
+        ['verifiedAtBangkok', 'verifiedAtUtc', 'submittedAtBangkok', 'submittedAtUtc', 'createdAtBangkok', 'createdAtUtc'],
+        period
+      );
+
+      var collectedSatang = 0;
+      var paidCount = 0;
+      var awaitingSatang = 0;
+      var awaitingCount = 0;
+      var unpaidSatang = 0;
+      var unpaidCount = 0;
+      var totalBilledSatang = 0;
+
+      var monthPaidMap = {};
+      var latestPaidYm = '';
+      var courseStatsMap = {};
+      var courseTitleLookup = {};
+      for (var cIdx = 0; cIdx < adminCachedInvoicesCoursesStep10.length; cIdx++) {
+        var cObj = adminCachedInvoicesCoursesStep10[cIdx];
+        if (cObj && cObj.courseId) {
+          courseTitleLookup[cObj.courseId] =
+            (cObj.courseCode ? cObj.courseCode + ' — ' : '') + (cObj.title || cObj.courseId);
+        }
+      }
+
+      for (var i = 0; i < filteredInvoices.length; i++) {
+        var inv = filteredInvoices[i];
+        var st = String(inv.status || '').toUpperCase();
+        var sat = getInvoiceAmountSatangStep10(inv);
+        totalBilledSatang += sat;
+
+        var cKey = inv.courseId || '_GENERAL_';
+        if (!courseStatsMap[cKey]) {
+          courseStatsMap[cKey] = {
+            courseId: cKey,
+            label:
+              courseTitleLookup[cKey] ||
+              ((inv.courseCode ? inv.courseCode + ' — ' : '') + (inv.courseTitle || inv.courseId || 'Other Tuition')),
+            collectedSatang: 0,
+            billedSatang: 0,
+            paidCount: 0,
+            totalCount: 0
+          };
+        }
+        courseStatsMap[cKey].billedSatang += sat;
+        courseStatsMap[cKey].totalCount += 1;
+
+        if (st === 'PAID') {
+          collectedSatang += sat;
+          paidCount += 1;
+          courseStatsMap[cKey].collectedSatang += sat;
+          courseStatsMap[cKey].paidCount += 1;
+          var dMeta = parseFinRecordDateMetaStep10(inv, [
+            'paidAtBangkok',
+            'paidAtUtc',
+            'updatedAtBangkok',
+            'updatedAtUtc',
+            'createdAtBangkok',
+            'createdAtUtc'
+          ]);
+          if (dMeta.monthKey) {
+            monthPaidMap[dMeta.monthKey] = (monthPaidMap[dMeta.monthKey] || 0) + sat;
+            if (!latestPaidYm || dMeta.monthKey > latestPaidYm) {
+              latestPaidYm = dMeta.monthKey;
+            }
+          }
+        } else if (st === 'AWAITING_VERIFICATION' || st === 'APPROVING') {
+          awaitingSatang += sat;
+          awaitingCount += 1;
+        } else {
+          unpaidSatang += sat;
+          unpaidCount += 1;
+        }
+      }
+
+      var avgTicketSatang = paidCount > 0 ? Math.round(collectedSatang / paidCount) : 0;
+      var collectionRatePct = totalBilledSatang > 0 ? (collectedSatang / totalBilledSatang) * 100 : 0;
+      var pipelineSatang = awaitingSatang + unpaidSatang;
+
+      setText('fin-stat-collected-thb', formatSatangThbShortStep10(collectedSatang));
+      setText(
+        'fin-stat-collected-sub',
+        String(paidCount) + ' paid invoice' + (paidCount === 1 ? '' : 's')
+      );
+      setText('fin-stat-collection-rate', collectionRatePct.toFixed(1) + '%');
+      var barEl = document.getElementById('fin-stat-collection-bar');
+      if (barEl) {
+        barEl.style.width = Math.max(0, Math.min(100, collectionRatePct)).toFixed(1) + '%';
+      }
+      setText('fin-stat-collection-sub', 'Of ' + formatSatangThbShortStep10(totalBilledSatang) + ' billed');
+      setText('fin-stat-avg-ticket-thb', formatSatangThbShortStep10(avgTicketSatang));
+      setText(
+        'fin-stat-avg-ticket-sub',
+        paidCount > 0 ? 'Across ' + String(paidCount) + ' settled receipts' : 'No paid receipts yet'
+      );
+      setText('fin-stat-pipeline-thb', formatSatangThbShortStep10(pipelineSatang));
+      setText(
+        'fin-stat-pipeline-sub',
+        String(awaitingCount) +
+          ' reviewing (' +
+          formatSatangThbShortStep10(awaitingSatang) +
+          ') • ' +
+          String(unpaidCount) +
+          ' unpaid'
+      );
+
+      /* Chart 1: Monthly Collected Income SVG Column Chart */
+      var chartWrap = document.getElementById('fin-monthly-income-chart-wrap');
+      if (chartWrap) {
+        clearChildren(chartWrap);
+        var curBkkYm =
+          typeof getCurrentBangkokYearMonthStep13 === 'function'
+            ? getCurrentBangkokYearMonthStep13()
+            : '2026-11';
+        var anchorYm = latestPaidYm && latestPaidYm > curBkkYm ? latestPaidYm : curBkkYm;
+        var months = [];
+        var maxSat = 0;
+        for (var mOff = -5; mOff <= 0; mOff++) {
+          var ym = shiftYearMonthStep10(anchorYm, mOff);
+          var mSat = monthPaidMap[ym] || 0;
+          if (mSat > maxSat) maxSat = mSat;
+          months.push({ ym: ym, satang: mSat });
+        }
+        setText(
+          'fin-chart-trend-badge',
+          formatShortMonthLabelStep10(months[0].ym) + ' – ' + formatShortMonthLabelStep10(months[5].ym)
+        );
+
+        var svgNs = 'http://www.w3.org/2000/svg';
+        var svg = document.createElementNS(svgNs, 'svg');
+        svg.setAttribute('viewBox', '0 0 560 186');
+        svg.setAttribute('width', '100%');
+        svg.setAttribute('height', '186');
+        svg.setAttribute('role', 'img');
+        svg.setAttribute('aria-label', 'Monthly collected tuition income chart');
+
+        var defs = document.createElementNS(svgNs, 'defs');
+        var grad = document.createElementNS(svgNs, 'linearGradient');
+        grad.setAttribute('id', 'pbFinBarGrad');
+        grad.setAttribute('x1', '0');
+        grad.setAttribute('y1', '0');
+        grad.setAttribute('x2', '0');
+        grad.setAttribute('y2', '1');
+        var stop1 = document.createElementNS(svgNs, 'stop');
+        stop1.setAttribute('offset', '0%');
+        stop1.setAttribute('stop-color', '#06B6D4');
+        var stop2 = document.createElementNS(svgNs, 'stop');
+        stop2.setAttribute('offset', '100%');
+        stop2.setAttribute('stop-color', '#10B981');
+        grad.appendChild(stop1);
+        grad.appendChild(stop2);
+        defs.appendChild(grad);
+        svg.appendChild(defs);
+
+        var chartTop = 26;
+        var chartBottom = 152;
+        var chartH = chartBottom - chartTop;
+        for (var g = 0; g <= 3; g++) {
+          var gy = chartTop + (chartH / 3) * g;
+          var line = document.createElementNS(svgNs, 'line');
+          line.setAttribute('x1', '14');
+          line.setAttribute('y1', String(gy));
+          line.setAttribute('x2', '546');
+          line.setAttribute('y2', String(gy));
+          line.setAttribute('stroke', g === 3 ? '#CBD5E1' : '#E2E8F0');
+          line.setAttribute('stroke-width', '1');
+          if (g < 3) line.setAttribute('stroke-dasharray', '4 4');
+          svg.appendChild(line);
+        }
+
+        var slotW = 520 / months.length;
+        var barW = 46;
+        for (var bi = 0; bi < months.length; bi++) {
+          var item = months[bi];
+          var cx = 20 + slotW * bi + slotW / 2;
+          var ratio = maxSat > 0 ? item.satang / maxSat : 0;
+          var bh = item.satang > 0 ? Math.max(8, Math.round(ratio * (chartH - 12))) : 4;
+          var bx = cx - barW / 2;
+          var by = chartBottom - bh;
+
+          var rect = document.createElementNS(svgNs, 'rect');
+          rect.setAttribute('x', String(bx));
+          rect.setAttribute('y', String(by));
+          rect.setAttribute('width', String(barW));
+          rect.setAttribute('height', String(bh));
+          rect.setAttribute('rx', '6');
+          rect.setAttribute('fill', item.satang > 0 ? 'url(#pbFinBarGrad)' : '#E2E8F0');
+          var titleNode = document.createElementNS(svgNs, 'title');
+          titleNode.textContent = item.ym + ': ' + formatSatangThbShortStep10(item.satang);
+          rect.appendChild(titleNode);
+          svg.appendChild(rect);
+
+          if (item.satang > 0) {
+            var valTxt = document.createElementNS(svgNs, 'text');
+            valTxt.setAttribute('x', String(cx));
+            valTxt.setAttribute('y', String(by - 6));
+            valTxt.setAttribute('text-anchor', 'middle');
+            valTxt.setAttribute('font-size', '11');
+            valTxt.setAttribute('font-weight', '700');
+            valTxt.setAttribute('fill', '#0F766E');
+            var thb = item.satang / 100;
+            valTxt.textContent =
+              thb >= 10000
+                ? (thb / 1000).toFixed(1) + 'k'
+                : thb.toLocaleString('en-US', { maximumFractionDigits: 0 });
+            svg.appendChild(valTxt);
+          }
+
+          var lblTxt = document.createElementNS(svgNs, 'text');
+          lblTxt.setAttribute('x', String(cx));
+          lblTxt.setAttribute('y', '172');
+          lblTxt.setAttribute('text-anchor', 'middle');
+          lblTxt.setAttribute('font-size', '11');
+          lblTxt.setAttribute('font-weight', '600');
+          lblTxt.setAttribute('fill', '#64748B');
+          lblTxt.textContent = formatShortMonthLabelStep10(item.ym);
+          svg.appendChild(lblTxt);
+        }
+
+        chartWrap.appendChild(svg);
+      }
+
+      /* Chart 2: Income by Course List */
+      var courseListEl = document.getElementById('fin-course-income-list');
+      if (courseListEl) {
+        clearChildren(courseListEl);
+        var courseRows = Object.keys(courseStatsMap).map(function (k) {
+          return courseStatsMap[k];
+        });
+        courseRows.sort(function (a, b) {
+          if (b.collectedSatang !== a.collectedSatang) {
+            return b.collectedSatang - a.collectedSatang;
+          }
+          return b.billedSatang - a.billedSatang;
+        });
+
+        setText(
+          'fin-chart-courses-badge',
+          String(courseRows.length) + ' Course' + (courseRows.length === 1 ? '' : 's')
+        );
+
+        if (courseRows.length === 0) {
+          var emptyCourseMsg = document.createElement('p');
+          emptyCourseMsg.style.margin = '4px 0';
+          emptyCourseMsg.style.fontSize = '0.84rem';
+          emptyCourseMsg.style.color = '#64748B';
+          emptyCourseMsg.textContent = 'No invoice records found for this period.';
+          courseListEl.appendChild(emptyCourseMsg);
+        } else {
+          var topSlice = courseRows.slice(0, 5);
+          for (var ci = 0; ci < topSlice.length; ci++) {
+            var cr = topSlice[ci];
+            var pct = cr.billedSatang > 0 ? Math.round((cr.collectedSatang / cr.billedSatang) * 100) : 0;
+            var rowEl = document.createElement('div');
+            rowEl.className = 'pb-fin-course-row';
+
+            var topEl = document.createElement('div');
+            topEl.className = 'pb-fin-course-row-top';
+            var nameEl = document.createElement('span');
+            nameEl.className = 'pb-fin-course-name';
+            nameEl.textContent = cr.label;
+            nameEl.title = cr.label;
+            var amtEl = document.createElement('span');
+            amtEl.className = 'pb-fin-course-amt';
+            amtEl.textContent =
+              formatSatangThbShortStep10(cr.collectedSatang) + ' (' + String(pct) + '%)';
+            topEl.appendChild(nameEl);
+            topEl.appendChild(amtEl);
+
+            var trackEl = document.createElement('div');
+            trackEl.className = 'pb-fin-progress-track';
+            trackEl.style.marginTop = '2px';
+            var fillEl = document.createElement('div');
+            fillEl.className = 'pb-fin-progress-fill';
+            fillEl.style.width = String(Math.max(0, Math.min(100, pct))) + '%';
+            trackEl.appendChild(fillEl);
+
+            rowEl.appendChild(topEl);
+            rowEl.appendChild(trackEl);
+            courseListEl.appendChild(rowEl);
+          }
+        }
+      }
+
+      /* Payment Method Breakdown (from PAID Payment Sessions) */
+      var splitEl = document.getElementById('fin-payment-method-split');
+      if (splitEl) {
+        clearChildren(splitEl);
+        var ppSat = 0;
+        var ppCnt = 0;
+        var btSat = 0;
+        var btCnt = 0;
+        for (var pi = 0; pi < filteredPayments.length; pi++) {
+          var pObj = filteredPayments[pi];
+          if (String(pObj.status || '').toUpperCase() !== 'PAID') continue;
+          var pSat = Math.round(Number(pObj.totalAmountSatang || 0));
+          var meth = String(pObj.method || '').toUpperCase();
+          if (meth === 'PROMPTPAY_QR') {
+            ppSat += pSat;
+            ppCnt += 1;
+          } else {
+            btSat += pSat;
+            btCnt += 1;
+          }
+        }
+        var splitItems = [
+          {
+            lbl: 'PromptPay QR Paid',
+            val: formatSatangThbShortStep10(ppSat),
+            sub: String(ppCnt) + ' verified session' + (ppCnt === 1 ? '' : 's')
+          },
+          {
+            lbl: 'Bank Transfer Paid',
+            val: formatSatangThbShortStep10(btSat),
+            sub: String(btCnt) + ' verified session' + (btCnt === 1 ? '' : 's')
+          }
+        ];
+        for (var si = 0; si < splitItems.length; si++) {
+          var spBox = document.createElement('div');
+          spBox.className = 'pb-fin-split-pill';
+          var spLbl = document.createElement('span');
+          spLbl.className = 'lbl';
+          spLbl.textContent = splitItems[si].lbl;
+          var spVal = document.createElement('span');
+          spVal.className = 'val';
+          spVal.textContent = splitItems[si].val;
+          var spSub = document.createElement('span');
+          spSub.style.fontSize = '0.73rem';
+          spSub.style.color = '#64748B';
+          spSub.textContent = splitItems[si].sub;
+          spBox.appendChild(spLbl);
+          spBox.appendChild(spVal);
+          spBox.appendChild(spSub);
+          splitEl.appendChild(spBox);
+        }
+      }
+    }
+
     function loadAdminInvoicesStep10() {
       if (
         !currentSessionMeta ||
@@ -12267,12 +12813,14 @@
 
       var filterStuSel = document.getElementById('select-admin-invoices-filter-student');
       var filterStSel = document.getElementById('select-admin-invoices-filter-status');
+      var userIdFilterVal = filterStuSel ? filterStuSel.value : 'ALL';
+      var statusFilterVal = filterStSel ? filterStSel.value : 'ALL';
 
       return rpcCallEnvelope(
         'admin.listInvoices',
         {
-          userId: filterStuSel ? filterStuSel.value : 'ALL',
-          statusFilter: filterStSel ? filterStSel.value : 'ALL'
+          userId: userIdFilterVal,
+          statusFilter: statusFilterVal
         },
         { suppressErrorBanner: true }
       )
@@ -12280,6 +12828,25 @@
           var d = env.data || {};
           populateAdminInvoiceDropdownsStep10(d.studentsList || [], d.coursesList || []);
           renderAdminInvoicesTableStep10(d.invoices || []);
+          if (Array.isArray(d.coursesList)) {
+            adminCachedInvoicesCoursesStep10 = d.coursesList;
+          }
+          if (userIdFilterVal === 'ALL' && statusFilterVal === 'ALL') {
+            adminCachedInvoicesAllStep10 = d.invoices || [];
+            renderAdminFinancialDashboardStep10();
+          } else {
+            rpcCallEnvelope(
+              'admin.listInvoices',
+              { userId: 'ALL', statusFilter: 'ALL' },
+              { suppressErrorBanner: true }
+            )
+              .then(function (allEnv) {
+                var allD = (allEnv && allEnv.data) || {};
+                adminCachedInvoicesAllStep10 = allD.invoices || [];
+                renderAdminFinancialDashboardStep10();
+              })
+              .catch(function () {});
+          }
           loadAdminPendingPaymentsStep11();
 
           var counts = d.summaryCounts || {};
@@ -14577,6 +15144,69 @@ var qrcode = (function() {
       currentModalReceiptPaymentDtoStep12 = null;
     }
 
+    var adminSelectedPaymentIdsMapStep11 = {};
+    var adminRenderedPaymentsByIdStep11 = {};
+    var adminIsBulkApprovingStep11 = false;
+
+    function isPaymentApprovableStatusStep11(statusStr) {
+      return statusStr === 'AWAITING_VERIFICATION' || statusStr === 'APPROVING';
+    }
+
+    function syncAdminBulkApproveToolbarStep11() {
+      var barEl = document.getElementById('admin-payments-bulk-bar');
+      var selAllHdr = document.getElementById('chk-admin-payments-select-all');
+      var selAllBar = document.getElementById('chk-admin-payments-select-all-bar');
+      var clearBtn = document.getElementById('btn-admin-bulk-clear-selection');
+      var approveBtn = document.getElementById('btn-admin-bulk-approve-payments');
+
+      var rowChecks = document.querySelectorAll('.pb-pay-row-checkbox[data-bulk-payment-id]');
+      var approvableTotal = 0;
+      var selectedCount = 0;
+      var selectedSatang = 0;
+
+      for (var i = 0; i < rowChecks.length; i++) {
+        var cb = rowChecks[i];
+        var pid = cb.getAttribute('data-bulk-payment-id');
+        var pObj = pid ? adminRenderedPaymentsByIdStep11[pid] : null;
+        if (!pObj || !isPaymentApprovableStatusStep11(pObj.status)) continue;
+        approvableTotal += 1;
+        var checked = Boolean(adminSelectedPaymentIdsMapStep11[pid]);
+        cb.checked = checked;
+        var tr = cb.closest('tr');
+        if (tr) {
+          tr.classList.toggle('pb-pay-row-selected', checked);
+        }
+        if (checked) {
+          selectedCount += 1;
+          selectedSatang += Math.round(Number(pObj.totalAmountSatang || 0));
+        }
+      }
+
+      if (barEl) {
+        barEl.classList.toggle('has-selection', selectedCount > 0);
+      }
+      setText(
+        'admin-payments-bulk-count-badge',
+        String(selectedCount) + ' selected' + (approvableTotal > 0 ? ' / ' + String(approvableTotal) + ' pending' : '')
+      );
+      setText('admin-payments-bulk-total-thb', formatSatangThbShortStep10(selectedSatang));
+
+      var allChecked = approvableTotal > 0 && selectedCount === approvableTotal;
+      var someChecked = selectedCount > 0 && selectedCount < approvableTotal;
+      [selAllHdr, selAllBar].forEach(function (chk) {
+        if (!chk) return;
+        chk.disabled = approvableTotal === 0 || adminIsBulkApprovingStep11;
+        chk.checked = allChecked;
+        chk.indeterminate = someChecked;
+      });
+      if (clearBtn) {
+        clearBtn.disabled = selectedCount === 0 || adminIsBulkApprovingStep11;
+      }
+      if (approveBtn) {
+        approveBtn.disabled = selectedCount === 0 || adminIsBulkApprovingStep11;
+      }
+    }
+
     function renderAdminPendingPaymentsTableStep11(payments, opt_bundle) {
       var tbody = document.getElementById('admin-pending-payments-tbody');
       var bundle = opt_bundle && typeof opt_bundle === 'object' ? opt_bundle : {};
@@ -14642,23 +15272,72 @@ var qrcode = (function() {
       }
       clearChildren(tbody);
       var rows = Array.isArray(payments) ? payments : [];
+      adminRenderedPaymentsByIdStep11 = {};
+      var nextSelectedMap = {};
+      for (var k = 0; k < rows.length; k++) {
+        var rowObj = rows[k];
+        if (rowObj && rowObj.paymentId) {
+          adminRenderedPaymentsByIdStep11[rowObj.paymentId] = rowObj;
+          if (
+            adminSelectedPaymentIdsMapStep11[rowObj.paymentId] &&
+            isPaymentApprovableStatusStep11(rowObj.status)
+          ) {
+            nextSelectedMap[rowObj.paymentId] = true;
+          }
+        }
+      }
+      adminSelectedPaymentIdsMapStep11 = nextSelectedMap;
 
       if (rows.length === 0) {
         var trE = document.createElement('tr');
         var tdE = document.createElement('td');
-        tdE.colSpan = 6;
+        tdE.colSpan = 7;
         tdE.style.textAlign = 'center';
         tdE.style.padding = '16px';
         tdE.style.color = 'var(--color-text-secondary)';
         tdE.textContent = 'No student payment sessions match the selected filter.';
         trE.appendChild(tdE);
         tbody.appendChild(trE);
+        syncAdminBulkApproveToolbarStep11();
         return;
       }
 
       for (var i = 0; i < rows.length; i++) {
         (function (p) {
           var tr = document.createElement('tr');
+
+          /* Column 0: Bulk Selection Checkbox */
+          var tdChk = document.createElement('td');
+          tdChk.style.textAlign = 'center';
+          tdChk.style.verticalAlign = 'middle';
+          if (isPaymentApprovableStatusStep11(p.status)) {
+            var chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.className = 'pb-pay-row-checkbox';
+            chk.setAttribute('data-bulk-payment-id', p.paymentId);
+            chk.setAttribute(
+              'aria-label',
+              'Select payment ' + p.paymentId + ' for bulk approval'
+            );
+            chk.checked = Boolean(adminSelectedPaymentIdsMapStep11[p.paymentId]);
+            chk.addEventListener('change', function () {
+              if (chk.checked) {
+                adminSelectedPaymentIdsMapStep11[p.paymentId] = true;
+              } else {
+                delete adminSelectedPaymentIdsMapStep11[p.paymentId];
+              }
+              syncAdminBulkApproveToolbarStep11();
+            });
+            tdChk.appendChild(chk);
+          } else {
+            var doneDash = document.createElement('span');
+            doneDash.style.color = '#94A3B8';
+            doneDash.style.fontWeight = '700';
+            doneDash.textContent = '—';
+            doneDash.title = 'Status ' + String(p.status || '') + ' cannot be batch approved';
+            tdChk.appendChild(doneDash);
+          }
+          tr.appendChild(tdChk);
 
           /* Column 1: Student & Payment Reference */
           var tdStu = document.createElement('td');
@@ -14946,6 +15625,7 @@ var qrcode = (function() {
           tbody.appendChild(tr);
         })(rows[i]);
       }
+      syncAdminBulkApproveToolbarStep11();
     }
 
     function loadAdminPendingPaymentsStep11() {
@@ -14966,6 +15646,22 @@ var qrcode = (function() {
         .then(function (env) {
           var d = env.data || {};
           renderAdminPendingPaymentsTableStep11(d.payments || [], d);
+          if (statusFilterVal === 'ALL') {
+            adminCachedPaymentsAllStep11 = d.payments || [];
+            renderAdminFinancialDashboardStep10();
+          } else {
+            rpcCallEnvelope(
+              'admin.listPendingPayments',
+              { statusFilter: 'ALL' },
+              { suppressErrorBanner: true }
+            )
+              .then(function (allEnv) {
+                var allD = (allEnv && allEnv.data) || {};
+                adminCachedPaymentsAllStep11 = allD.payments || [];
+                renderAdminFinancialDashboardStep10();
+              })
+              .catch(function () {});
+          }
           return d;
         })
         .catch(function () {});
@@ -28078,20 +28774,338 @@ var qrcode = (function() {
           });
       });
 
-      bindActionButton('btn-course-editor-upload-cover', function () {
-        var courseId = document.getElementById('input-course-editor-id').value.trim();
-        if (!courseId) {
-          setText(
-            'course-editor-cover-upload-status',
-            'Save or select the course first so cover_file_id can be associated with its courseId.'
-          );
-          return Promise.resolve();
+      var PBCourseBannerCropper = (function () {
+        var OUTPUT_W = 1600;
+        var OUTPUT_H = 400;
+        var active = false;
+        var natW = 0;
+        var natH = 0;
+        var zoom = 1;
+        var offsetX = 0;
+        var offsetY = 0;
+        var baseScale = 1;
+        var sourceFilename = 'course_banner.jpg';
+        var ownedObjectUrl = '';
+        var dragging = false;
+        var dragStartClientX = 0;
+        var dragStartClientY = 0;
+        var dragStartOffsetX = 0;
+        var dragStartOffsetY = 0;
+
+        function getEls() {
+          return {
+            panel: document.getElementById('course-cover-cropper-panel'),
+            stage: document.getElementById('course-cover-cropper-stage'),
+            img: document.getElementById('course-cover-cropper-img'),
+            zoomInp: document.getElementById('input-course-cropper-zoom'),
+            zoomVal: document.getElementById('course-cropper-zoom-value'),
+            meta: document.getElementById('course-cover-cropper-source-meta')
+          };
         }
-        var fileInp = document.getElementById('input-course-editor-cover-file');
-        var fileObj = fileInp && fileInp.files && fileInp.files[0];
-        setText('course-editor-cover-upload-status', 'Uploading cover image...');
-        return readBrowserFileAsBase64Step8(fileObj, 'input-course-editor-cover-file')
+
+        function getTotalScale() {
+          return baseScale * zoom;
+        }
+
+        function clampOffsets() {
+          if (!natW || !natH) return;
+          var totalScale = getTotalScale();
+          var drawnW = natW * totalScale;
+          var drawnH = natH * totalScale;
+          var minX = OUTPUT_W - drawnW;
+          var minY = OUTPUT_H - drawnH;
+          if (offsetX > 0) offsetX = 0;
+          if (offsetX < minX) offsetX = minX;
+          if (offsetY > 0) offsetY = 0;
+          if (offsetY < minY) offsetY = minY;
+        }
+
+        function renderStage() {
+          var els = getEls();
+          if (!active || !els.img || !els.stage || !natW || !natH) return;
+          var stageW = els.stage.clientWidth || 640;
+          var displayRatio = stageW / OUTPUT_W;
+          var totalScale = getTotalScale();
+          var cssW = natW * totalScale * displayRatio;
+          var cssH = natH * totalScale * displayRatio;
+          var cssX = offsetX * displayRatio;
+          var cssY = offsetY * displayRatio;
+          els.img.style.width = cssW.toFixed(2) + 'px';
+          els.img.style.height = cssH.toFixed(2) + 'px';
+          els.img.style.transform =
+            'translate3d(' + cssX.toFixed(2) + 'px, ' + cssY.toFixed(2) + 'px, 0)';
+          if (els.zoomInp) {
+            els.zoomInp.value = String(zoom.toFixed(2));
+          }
+          if (els.zoomVal) {
+            els.zoomVal.textContent = zoom.toFixed(2) + '×';
+          }
+        }
+
+        function centerAndReset() {
+          if (!natW || !natH) return;
+          baseScale = Math.max(OUTPUT_W / natW, OUTPUT_H / natH);
+          zoom = 1;
+          offsetX = (OUTPUT_W - natW * baseScale) / 2;
+          offsetY = (OUTPUT_H - natH * baseScale) / 2;
+          clampOffsets();
+          renderStage();
+        }
+
+        function setZoom(nextZoomVal) {
+          if (!active || !natW || !natH) return;
+          var clampedZoom = Math.max(1, Math.min(3.5, Number(nextZoomVal) || 1));
+          var oldScale = getTotalScale();
+          var centerImgX = (OUTPUT_W / 2 - offsetX) / oldScale;
+          var centerImgY = (OUTPUT_H / 2 - offsetY) / oldScale;
+          zoom = clampedZoom;
+          var newScale = getTotalScale();
+          offsetX = OUTPUT_W / 2 - centerImgX * newScale;
+          offsetY = OUTPUT_H / 2 - centerImgY * newScale;
+          clampOffsets();
+          renderStage();
+        }
+
+        function revokeOwnedUrl() {
+          if (ownedObjectUrl) {
+            try {
+              URL.revokeObjectURL(ownedObjectUrl);
+            } catch (e) {}
+            ownedObjectUrl = '';
+          }
+        }
+
+        function close(clearFileInput) {
+          var els = getEls();
+          active = false;
+          natW = 0;
+          natH = 0;
+          dragging = false;
+          revokeOwnedUrl();
+          if (els.img) {
+            els.img.classList.add('hidden');
+            els.img.removeAttribute('src');
+          }
+          if (els.panel) {
+            els.panel.classList.add('hidden');
+          }
+          if (clearFileInput) {
+            var inp = document.getElementById('input-course-editor-cover-file');
+            if (inp) {
+              try {
+                inp.value = '';
+              } catch (e) {}
+            }
+          }
+        }
+
+        function openWithImageUrl(urlStr, filenameStr, isOwnedLocalUrl) {
+          var els = getEls();
+          if (!els.panel || !els.img || !urlStr) return Promise.reject(new Error('Missing image source.'));
+          revokeOwnedUrl();
+          if (isOwnedLocalUrl) {
+            ownedObjectUrl = urlStr;
+          }
+          sourceFilename = String(filenameStr || 'course_banner.jpg');
+          return new Promise(function (resolve, reject) {
+            els.img.onload = function () {
+              natW = els.img.naturalWidth || 0;
+              natH = els.img.naturalHeight || 0;
+              if (!natW || !natH) {
+                reject(new Error('Image dimensions could not be read.'));
+                return;
+              }
+              active = true;
+              els.img.classList.remove('hidden');
+              els.panel.classList.remove('hidden');
+              if (els.meta) {
+                els.meta.textContent =
+                  'Source: ' +
+                  String(natW) +
+                  ' × ' +
+                  String(natH) +
+                  ' px • Drag to compose 1600 × 400 (4:1)';
+              }
+              requestAnimationFrame(function () {
+                centerAndReset();
+                resolve();
+              });
+            };
+            els.img.onerror = function () {
+              reject({ code: 'ERR_FILE_INVALID', message: 'Selected image could not be decoded for cropping.' });
+            };
+            els.img.src = urlStr;
+          });
+        }
+
+        function loadFromFile(fileObj) {
+          if (!fileObj) return Promise.reject({ code: 'ERR_FILE_INVALID', message: 'Please choose an image file first.' });
+          var blobUrl = URL.createObjectURL(fileObj);
+          return openWithImageUrl(blobUrl, fileObj.name || 'course_banner.jpg', true);
+        }
+
+        function exportCroppedData() {
+          var els = getEls();
+          return new Promise(function (resolve, reject) {
+            if (!active || !els.img || !natW || !natH) {
+              reject({ code: 'ERR_FILE_INVALID', message: 'Cropper has no active image loaded.' });
+              return;
+            }
+            try {
+              var canvas = document.createElement('canvas');
+              canvas.width = OUTPUT_W;
+              canvas.height = OUTPUT_H;
+              var ctx = canvas.getContext('2d');
+              ctx.fillStyle = '#FFFFFF';
+              ctx.fillRect(0, 0, OUTPUT_W, OUTPUT_H);
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = 'high';
+              var totalScale = getTotalScale();
+              ctx.drawImage(
+                els.img,
+                0,
+                0,
+                natW,
+                natH,
+                offsetX,
+                offsetY,
+                natW * totalScale,
+                natH * totalScale
+              );
+              var dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+              var commaIdx = dataUrl.indexOf(',');
+              var b64 = commaIdx !== -1 ? dataUrl.slice(commaIdx + 1) : '';
+              var baseName = sourceFilename.replace(/\.[^.]+$/, '') || 'course_banner';
+              baseName = baseName.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 48);
+              resolve({
+                originalFilename: baseName + '_1600x400.jpg',
+                mimeType: 'image/jpeg',
+                sizeBytes: Math.floor((b64.length * 3) / 4),
+                dataBase64: b64
+              });
+            } catch (err) {
+              reject({
+                code: 'ERR_CROP_FAILED',
+                message: 'Failed to export 1600×400 cropped banner: ' + (err && err.message ? err.message : '')
+              });
+            }
+          });
+        }
+
+        function bindEvents() {
+          var els = getEls();
+          if (els.stage) {
+            els.stage.addEventListener('pointerdown', function (evt) {
+              if (!active) return;
+              dragging = true;
+              dragStartClientX = evt.clientX;
+              dragStartClientY = evt.clientY;
+              dragStartOffsetX = offsetX;
+              dragStartOffsetY = offsetY;
+              els.stage.classList.add('is-dragging');
+              if (els.stage.setPointerCapture) {
+                try {
+                  els.stage.setPointerCapture(evt.pointerId);
+                } catch (e) {}
+              }
+              evt.preventDefault();
+            });
+
+            window.addEventListener('pointermove', function (evt) {
+              if (!dragging || !active || !els.stage) return;
+              var stageW = els.stage.clientWidth || 640;
+              var displayRatio = stageW / OUTPUT_W;
+              offsetX = dragStartOffsetX + (evt.clientX - dragStartClientX) / displayRatio;
+              offsetY = dragStartOffsetY + (evt.clientY - dragStartClientY) / displayRatio;
+              clampOffsets();
+              renderStage();
+            });
+
+            var endDrag = function () {
+              if (!dragging) return;
+              dragging = false;
+              if (els.stage) els.stage.classList.remove('is-dragging');
+            };
+            window.addEventListener('pointerup', endDrag);
+            window.addEventListener('pointercancel', endDrag);
+          }
+
+          if (els.zoomInp) {
+            els.zoomInp.addEventListener('input', function () {
+              setZoom(els.zoomInp.value);
+            });
+          }
+          var btnZoomIn = document.getElementById('btn-course-cropper-zoom-in');
+          if (btnZoomIn) {
+            btnZoomIn.addEventListener('click', function () {
+              setZoom(zoom + 0.15);
+            });
+          }
+          var btnZoomOut = document.getElementById('btn-course-cropper-zoom-out');
+          if (btnZoomOut) {
+            btnZoomOut.addEventListener('click', function () {
+              setZoom(zoom - 0.15);
+            });
+          }
+          var btnReset = document.getElementById('btn-course-cropper-reset');
+          if (btnReset) {
+            btnReset.addEventListener('click', function () {
+              centerAndReset();
+            });
+          }
+          var btnClose = document.getElementById('btn-course-cropper-close');
+          if (btnClose) {
+            btnClose.addEventListener('click', function () {
+              close(false);
+            });
+          }
+          window.addEventListener('resize', function () {
+            if (active) renderStage();
+          });
+        }
+
+        bindEvents();
+
+        return {
+          isActive: function () {
+            return active;
+          },
+          loadFromFile: loadFromFile,
+          openWithImageUrl: openWithImageUrl,
+          exportCroppedData: exportCroppedData,
+          renderStage: renderStage,
+          centerAndReset: centerAndReset,
+          setZoom: setZoom,
+          close: close
+        };
+      })();
+      window.PBCourseBannerCropper = PBCourseBannerCropper;
+
+      var coverFileInputEl = document.getElementById('input-course-editor-cover-file');
+      if (coverFileInputEl) {
+        coverFileInputEl.addEventListener('change', function () {
+          var fObj = coverFileInputEl.files && coverFileInputEl.files[0];
+          if (!fObj) {
+            PBCourseBannerCropper.close(false);
+            return;
+          }
+          PBCourseBannerCropper.loadFromFile(fObj).catch(function (err) {
+            setText(
+              'course-editor-cover-upload-status',
+              'Preview warning: ' + (err && err.message ? err.message : 'Unable to open cropper')
+            );
+          });
+        });
+      }
+
+      function uploadCourseCoverPayloadStep8(courseId, fileDataPromise, opt_statusMsgSuccess) {
+        setText('course-editor-cover-upload-status', 'Uploading cover banner...');
+        return fileDataPromise
           .then(function (fileData) {
+            PBUploadProgress.updateStage2Indeterminate(
+              'input-course-editor-cover-file',
+              'Uploading "' + (fileData.originalFilename || 'banner.jpg') + '"...'
+            );
             return rpcCallEnvelope('admin.uploadFile', {
               purpose: 'COURSE_COVER',
               courseId: courseId,
@@ -28119,13 +29133,14 @@ var qrcode = (function() {
             }
             setText(
               'course-editor-cover-upload-status',
-              'Cover image updated.'
+              opt_statusMsgSuccess || 'Course cover banner updated.'
             );
             renderPrivateImagePreviewStep8(
               'course-editor-cover-preview-box',
               uploaded.fileId || '',
               courseId,
-              'Course Cover'
+              'Course Cover',
+              { variant: 'banner', showCaption: false }
             );
             if (
               courseId &&
@@ -28139,6 +29154,7 @@ var qrcode = (function() {
               }
               syncCourseCachesAfterMutation(currentSelectedCourseDetail);
             }
+            PBCourseBannerCropper.close(false);
             renderDiagnosticResult('PASS: Course cover uploaded via admin.uploadFile', d);
           })
           .catch(function (err) {
@@ -28146,6 +29162,89 @@ var qrcode = (function() {
             setText(
               'course-editor-cover-upload-status',
               'Rejected (' + (err.code || 'ERR') + '): ' + (err.message || '')
+            );
+          });
+      }
+
+      bindActionButton('btn-course-editor-upload-cover', function () {
+        var courseId = document.getElementById('input-course-editor-id').value.trim();
+        if (!courseId) {
+          setText(
+            'course-editor-cover-upload-status',
+            'Save or select the course first so cover_file_id can be associated with its courseId.'
+          );
+          return Promise.resolve();
+        }
+        var autoCropChk = document.getElementById('chk-course-editor-autocrop-banner');
+        var shouldCrop = Boolean(autoCropChk && autoCropChk.checked);
+        var fileInp = document.getElementById('input-course-editor-cover-file');
+        var fileObj = fileInp && fileInp.files && fileInp.files[0];
+
+        if (shouldCrop && PBCourseBannerCropper.isActive()) {
+          return uploadCourseCoverPayloadStep8(
+            courseId,
+            PBCourseBannerCropper.exportCroppedData(),
+            'Cropped (1600×400 px) and uploaded course cover banner.'
+          );
+        }
+        if (shouldCrop && fileObj) {
+          return uploadCourseCoverPayloadStep8(
+            courseId,
+            PBCourseBannerCropper.loadFromFile(fileObj).then(function () {
+              return PBCourseBannerCropper.exportCroppedData();
+            }),
+            'Cropped (1600×400 px) and uploaded course cover banner.'
+          );
+        }
+        return uploadCourseCoverPayloadStep8(
+          courseId,
+          readBrowserFileAsBase64Step8(fileObj, 'input-course-editor-cover-file'),
+          'Cover image updated.'
+        );
+      });
+
+      bindActionButton('btn-course-cropper-apply-upload', function () {
+        var courseId = document.getElementById('input-course-editor-id').value.trim();
+        if (!courseId) {
+          setText(
+            'course-editor-cover-upload-status',
+            'Save or select the course first so cover_file_id can be associated with its courseId.'
+          );
+          return Promise.resolve();
+        }
+        return uploadCourseCoverPayloadStep8(
+          courseId,
+          PBCourseBannerCropper.exportCroppedData(),
+          'Cropped (1600×400 px) and uploaded course cover banner.'
+        );
+      });
+
+      bindActionButton('btn-course-editor-load-current-crop', function () {
+        var courseId = document.getElementById('input-course-editor-id').value.trim();
+        var fileId = document.getElementById('input-course-editor-cover-file-id').value.trim();
+        if (!fileId || !/^fil_[a-z0-9_-]{4,64}$/i.test(fileId)) {
+          setText(
+            'course-editor-cover-upload-status',
+            'No existing cover file ID is currently set for this course.'
+          );
+          return Promise.resolve();
+        }
+        setText('course-editor-cover-upload-status', 'Loading saved cover into 1600×400 cropper...');
+        return PBObjectUrlManager.fetchAndCreateObjectUrl(fileId, courseId || '')
+          .then(function (entry) {
+            return PBCourseBannerCropper.openWithImageUrl(
+              entry.objectUrl,
+              'course_cover_' + (courseId || 'banner') + '.jpg',
+              false
+            );
+          })
+          .then(function () {
+            setText('course-editor-cover-upload-status', 'Saved cover loaded in 1600×400 cropper. Adjust and click Crop & Upload.');
+          })
+          .catch(function (err) {
+            setText(
+              'course-editor-cover-upload-status',
+              'Could not load cover (' + (err.code || 'ERR') + '): ' + (err.message || '')
             );
           });
       });
@@ -28158,7 +29257,13 @@ var qrcode = (function() {
           return Promise.resolve();
         }
         setInputValue('input-course-editor-cover-file-id', '');
-        renderPrivateImagePreviewStep8('course-editor-cover-preview-box', '', '', '');
+        renderPrivateImagePreviewStep8('course-editor-cover-preview-box', '', '', '', {
+          variant: 'banner',
+          showCaption: false
+        });
+        if (typeof PBCourseBannerCropper === 'object' && PBCourseBannerCropper && PBCourseBannerCropper.close) {
+          PBCourseBannerCropper.close(true);
+        }
         if (
           currentSelectedCourseDetail &&
           currentSelectedCourseDetail.course &&
@@ -28592,6 +29697,142 @@ var qrcode = (function() {
           });
         })(adminBillingTabBtns[abIdx]);
       }
+
+      /* Admin Financial Dashboard Period Filter & Collapse Toggle */
+      var finPeriodBtns = document.querySelectorAll('#admin-fin-period-pills [data-fin-period]');
+      for (var fpIdx = 0; fpIdx < finPeriodBtns.length; fpIdx++) {
+        (function (pBtn) {
+          pBtn.addEventListener('click', function () {
+            currentAdminFinDashboardPeriod = pBtn.getAttribute('data-fin-period') || 'ALL';
+            for (var j = 0; j < finPeriodBtns.length; j++) {
+              finPeriodBtns[j].classList.toggle('is-active', finPeriodBtns[j] === pBtn);
+            }
+            renderAdminFinancialDashboardStep10();
+          });
+        })(finPeriodBtns[fpIdx]);
+      }
+
+      var btnToggleFinDash = document.getElementById('btn-admin-toggle-fin-dashboard');
+      if (btnToggleFinDash) {
+        btnToggleFinDash.addEventListener('click', function () {
+          setAdminFinDashboardCollapsedState(!isAdminFinDashboardCollapsed);
+        });
+      }
+
+      /* Admin Bulk Multi-Student Payment Approval Toolbar Bindings */
+      function toggleAllPendingPaymentsSelectionStep11(shouldSelect) {
+        var rowChecks = document.querySelectorAll('.pb-pay-row-checkbox[data-bulk-payment-id]');
+        for (var i = 0; i < rowChecks.length; i++) {
+          var pid = rowChecks[i].getAttribute('data-bulk-payment-id');
+          if (!pid) continue;
+          if (shouldSelect) {
+            adminSelectedPaymentIdsMapStep11[pid] = true;
+          } else {
+            delete adminSelectedPaymentIdsMapStep11[pid];
+          }
+        }
+        syncAdminBulkApproveToolbarStep11();
+      }
+
+      ['chk-admin-payments-select-all', 'chk-admin-payments-select-all-bar'].forEach(function (chkId) {
+        var el = document.getElementById(chkId);
+        if (el) {
+          el.addEventListener('change', function () {
+            toggleAllPendingPaymentsSelectionStep11(Boolean(el.checked));
+          });
+        }
+      });
+
+      var btnBulkClearSel = document.getElementById('btn-admin-bulk-clear-selection');
+      if (btnBulkClearSel) {
+        btnBulkClearSel.addEventListener('click', function () {
+          adminSelectedPaymentIdsMapStep11 = {};
+          syncAdminBulkApproveToolbarStep11();
+        });
+      }
+
+      bindActionButton('btn-admin-bulk-approve-payments', function () {
+        var selectedIds = Object.keys(adminSelectedPaymentIdsMapStep11).filter(function (pid) {
+          var pObj = adminRenderedPaymentsByIdStep11[pid];
+          return Boolean(
+            adminSelectedPaymentIdsMapStep11[pid] &&
+              pObj &&
+              isPaymentApprovableStatusStep11(pObj.status)
+          );
+        });
+        if (selectedIds.length === 0) {
+          setAdminInvoicesAlert(
+            'warning',
+            'No Pending Payments Selected',
+            'Select at least one Awaiting Verification payment checkbox before clicking Approve Selected.'
+          );
+          return Promise.resolve();
+        }
+        var bulkNoteEl = document.getElementById('input-admin-bulk-approve-note');
+        var sharedNote = bulkNoteEl ? String(bulkNoteEl.value || '').trim() : '';
+        adminIsBulkApprovingStep11 = true;
+        syncAdminBulkApproveToolbarStep11();
+
+        var approvedIds = [];
+        var failedList = [];
+
+        function processNext(idx) {
+          if (idx >= selectedIds.length) {
+            return Promise.resolve();
+          }
+          var pid = selectedIds[idx];
+          setText(
+            'admin-payments-bulk-progress',
+            'Approving ' + String(idx + 1) + ' of ' + String(selectedIds.length) + '...'
+          );
+          var rowNoteEl = document.getElementById('input-admin-approve-note-' + pid);
+          var rowNote = rowNoteEl ? String(rowNoteEl.value || '').trim() : '';
+          var finalNote =
+            sharedNote ||
+            rowNote ||
+            'Verified bank credit, recipient, and satang amount in official bank statement';
+          return rpcCallEnvelope('admin.reviewPayment', {
+            paymentId: pid,
+            decision: 'APPROVE',
+            reviewNote: finalNote,
+            idempotencyKey: 'adm_app_' + pid
+          })
+            .then(function () {
+              approvedIds.push(pid);
+              delete adminSelectedPaymentIdsMapStep11[pid];
+            })
+            .catch(function (err) {
+              failedList.push(pid + ' (' + ((err && err.message) || 'ERR') + ')');
+            })
+            .then(function () {
+              return processNext(idx + 1);
+            });
+        }
+
+        return processNext(0).then(function () {
+          adminIsBulkApprovingStep11 = false;
+          setText('admin-payments-bulk-progress', '');
+          if (failedList.length === 0) {
+            if (bulkNoteEl) bulkNoteEl.value = '';
+            setAdminInvoicesAlert(
+              'success',
+              'Bulk Approved ' + String(approvedIds.length) + ' Payment(s)',
+              'Successfully verified and marked PAID: ' + approvedIds.join(', ') + '.'
+            );
+          } else {
+            setAdminInvoicesAlert(
+              'warning',
+              'Bulk Approval Partially Completed (' +
+                String(approvedIds.length) +
+                ' approved, ' +
+                String(failedList.length) +
+                ' failed)',
+              'Failed: ' + failedList.join(' | ')
+            );
+          }
+          return loadAdminInvoicesStep10();
+        });
+      });
 
       var studentPayTabBtns = document.querySelectorAll('[data-student-pay-tab], [data-student-pay-subview]');
       for (var spIdx = 0; spIdx < studentPayTabBtns.length; spIdx++) {
