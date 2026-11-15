@@ -1371,6 +1371,24 @@ function isFileReferencedWithinCourseStep8_(fileId, courseId) {
       }
     }
   }
+
+  try {
+    if (typeof PB_SHEET_SCHEMAS_ === 'object' && PB_SHEET_SCHEMAS_ && PB_SHEET_SCHEMAS_.ExamSets) {
+      var examSetsRefTbl = readSheetTable_('ExamSets');
+      for (var exi = 0; exi < examSetsRefTbl.records.length; exi++) {
+        var exRec = examSetsRefTbl.records[exi];
+        if (exRec.course_id !== courseId || exRec.status !== 'PUBLISHED') {
+          continue;
+        }
+        var instStr = String(exRec.instructions_richtext_json || '');
+        var descStr = String(exRec.description_richtext_json || '');
+        if (instStr.indexOf(fileId) !== -1 || descStr.indexOf(fileId) !== -1) {
+          return true;
+        }
+      }
+    }
+  } catch (_ignoreExamCourseRefErr) {}
+
   return false;
 }
 
@@ -1410,6 +1428,124 @@ function assertStudentHasActiveCourseEnrollmentStep8_(userId, courseId) {
     );
   }
   return cRow;
+}
+
+function authorizeExamAnswerSheetAccessForStudentStep8_(userId, fileId, courseId) {
+  if (!userId || !fileId || !courseId) {
+    return;
+  }
+  try {
+    if (typeof PB_SHEET_SCHEMAS_ !== 'object' || !PB_SHEET_SCHEMAS_ || !PB_SHEET_SCHEMAS_.ExamSets) {
+      return;
+    }
+    var exSetsTbl = readSheetTable_('ExamSets');
+    var matchingExams = [];
+    for (var i = 0; i < exSetsTbl.records.length; i++) {
+      var exRec = exSetsTbl.records[i];
+      if (exRec.course_id !== courseId || exRec.status !== 'PUBLISHED') {
+        continue;
+      }
+      var rawInst = String(exRec.instructions_richtext_json || '');
+      if (rawInst.indexOf(fileId) !== -1) {
+        matchingExams.push(exRec);
+      }
+    }
+    if (matchingExams.length === 0) {
+      return;
+    }
+
+    var restrictedHits = [];
+    var hasPublicNonAnswerRef = false;
+    for (var m = 0; m < matchingExams.length; m++) {
+      var exItem = matchingExams[m];
+      var doc =
+        typeof parseStoredRichTextJsonSafe_ === 'function'
+          ? parseStoredRichTextJsonSafe_(exItem.instructions_richtext_json)
+          : null;
+      var blocks = doc && Array.isArray(doc.blocks) ? doc.blocks : [];
+      for (var bIdx = 0; bIdx < blocks.length; bIdx++) {
+        var blk = blocks[bIdx];
+        if (!blk || blk.fileId !== fileId) {
+          continue;
+        }
+        var t = String(blk.title || '').trim();
+        if (t.indexOf('[PB_ANSWER_SHEET_PDF:') === 0) {
+          var closeIdx = t.indexOf(']');
+          var rawPol =
+            closeIdx !== -1
+              ? t.slice('[PB_ANSWER_SHEET_PDF:'.length, closeIdx).trim().toUpperCase()
+              : 'AFTER_SUBMIT';
+          var policy =
+            rawPol === 'WITH_KEY' || rawPol === 'ALWAYS' || rawPol === 'AFTER_SUBMIT'
+              ? rawPol
+              : 'AFTER_SUBMIT';
+          restrictedHits.push({ examSet: exItem, policy: policy });
+        } else {
+          hasPublicNonAnswerRef = true;
+        }
+      }
+    }
+
+    if (restrictedHits.length === 0 || hasPublicNonAnswerRef) {
+      return;
+    }
+
+    var attemptsTbl = PB_SHEET_SCHEMAS_.ExamAttempts ? readSheetTable_('ExamAttempts') : { records: [] };
+    var unlocked = false;
+    var needsKeyRelease = false;
+    for (var h = 0; h < restrictedHits.length; h++) {
+      var hit = restrictedHits[h];
+      if (hit.policy === 'ALWAYS') {
+        unlocked = true;
+        break;
+      }
+      if (hit.policy === 'WITH_KEY') {
+        needsKeyRelease = true;
+      }
+      for (var aIdx = 0; aIdx < attemptsTbl.records.length; aIdx++) {
+        var att = attemptsTbl.records[aIdx];
+        if (att.exam_set_id !== hit.examSet.exam_set_id || att.user_id !== userId) {
+          continue;
+        }
+        if (att.attempt_status !== 'SUBMITTED' && att.attempt_status !== 'EXPIRED_SUBMITTED') {
+          continue;
+        }
+        if (hit.policy === 'AFTER_SUBMIT') {
+          unlocked = true;
+          break;
+        }
+        if (hit.policy === 'WITH_KEY') {
+          var relState =
+            typeof resolveEffectiveAttemptReleaseStatePhase7_ === 'function'
+              ? resolveEffectiveAttemptReleaseStatePhase7_(att, hit.examSet)
+              : null;
+          var keyOpen = relState
+            ? Boolean(relState.explanationsReleased)
+            : att.explanation_status === 'RELEASED';
+          if (keyOpen) {
+            unlocked = true;
+            break;
+          }
+        }
+      }
+      if (unlocked) {
+        break;
+      }
+    }
+
+    if (!unlocked) {
+      throw createAppError_(
+        PB_ERROR_CODES_.ERR_FORBIDDEN_RESOURCE,
+        needsKeyRelease
+          ? 'This Answer Sheet PDF is locked until answer explanations/key are released.'
+          : 'This Answer Sheet PDF will unlock after you submit an exam attempt.'
+      );
+    }
+  } catch (ansErr) {
+    if (ansErr && ansErr.isAppError) {
+      throw ansErr;
+    }
+  }
 }
 
 function handleFileGetContentStep8_(payload, context) {
@@ -1527,6 +1663,7 @@ function handleFileGetContentStep8_(payload, context) {
             '".'
         );
       }
+      authorizeExamAnswerSheetAccessForStudentStep8_(currentUserId, fileId, effectiveCourseId);
     } else {
       throw createAppError_(
         PB_ERROR_CODES_.ERR_FORBIDDEN_RESOURCE,
@@ -1556,6 +1693,34 @@ function handleFileGetContentStep8_(payload, context) {
       PB_ERROR_CODES_.ERR_NOT_FOUND,
       'Drive file pointer is missing for "' + fileId + '".'
     );
+  }
+
+  var smallFileCacheKey =
+    'pb_f2_' +
+    fileRow.file_id +
+    '_' +
+    String(fileRow.sha256_hex || fileRow.version || '1')
+      .replace(/[^A-Za-z0-9_-]/g, '')
+      .slice(0, 24);
+  if (driveFileId.indexOf('drv_step9_sample_') !== 0) {
+    try {
+      var cachedRawJson = CacheService.getScriptCache().get(smallFileCacheKey);
+      if (cachedRawJson) {
+        var cachedFilePayload = JSON.parse(cachedRawJson);
+        if (cachedFilePayload && cachedFilePayload.dataBase64) {
+          return {
+            fileId: fileRow.file_id,
+            purpose: fileRow.purpose,
+            courseId: fileRow.course_id || '',
+            originalFilename: fileRow.original_filename || 'file',
+            mimeType: cachedFilePayload.mimeType || fileRow.mime_type,
+            sizeBytes: Number(cachedFilePayload.sizeBytes) || 0,
+            sha256Hex: fileRow.sha256_hex || '',
+            dataBase64: cachedFilePayload.dataBase64
+          };
+        }
+      }
+    } catch (_cacheReadErr) {}
   }
 
   var rawBytes = null;
@@ -1606,6 +1771,21 @@ function handleFileGetContentStep8_(payload, context) {
     );
   }
 
+  var encodedBase64 = Utilities.base64Encode(rawBytes);
+  if (rawBytes.length <= 70000 && driveFileId.indexOf('drv_step9_sample_') !== 0) {
+    try {
+      CacheService.getScriptCache().put(
+        smallFileCacheKey,
+        JSON.stringify({
+          mimeType: sigInfo.detectedMimeType,
+          sizeBytes: rawBytes.length,
+          dataBase64: encodedBase64
+        }),
+        300
+      );
+    } catch (_cacheWriteErr) {}
+  }
+
   return {
     fileId: fileRow.file_id,
     purpose: fileRow.purpose,
@@ -1614,7 +1794,7 @@ function handleFileGetContentStep8_(payload, context) {
     mimeType: sigInfo.detectedMimeType,
     sizeBytes: rawBytes.length,
     sha256Hex: fileRow.sha256_hex || '',
-    dataBase64: Utilities.base64Encode(rawBytes)
+    dataBase64: encodedBase64
   };
 }
 
@@ -1740,6 +1920,21 @@ function collectAllReferencedFileIdsStep8_() {
         var qoRow = qoTbl.records[qoIdx];
         markRef(qoRow.image_file_id, 'QuestionOptions:' + qoRow.option_id + '.image_file_id');
         scanRichTextJson(qoRow.content_richtext_json, 'QuestionOptions:' + qoRow.option_id + '.content');
+      }
+    }
+    if (PB_SHEET_SCHEMAS_ && PB_SHEET_SCHEMAS_.ExamSets) {
+      var esTbl = readSheetTable_('ExamSets');
+      for (var esIdx = 0; esIdx < esTbl.records.length; esIdx++) {
+        var esRow = esTbl.records[esIdx];
+        scanRichTextJson(esRow.instructions_richtext_json, 'ExamSets:' + esRow.exam_set_id + '.instructions');
+        scanRichTextJson(esRow.description_richtext_json, 'ExamSets:' + esRow.exam_set_id + '.description');
+      }
+    }
+    if (PB_SHEET_SCHEMAS_ && PB_SHEET_SCHEMAS_.ExamVersions) {
+      var evTbl = readSheetTable_('ExamVersions');
+      for (var evIdx = 0; evIdx < evTbl.records.length; evIdx++) {
+        var evRow = evTbl.records[evIdx];
+        scanRichTextJson(evRow.snapshot_json, 'ExamVersions:' + evRow.exam_version_id + '.snapshot');
       }
     }
   } catch (ignoreExamRefScanErr) {}

@@ -2911,6 +2911,62 @@ function handleStudentGetProfileStep6_(payload, context) {
     }
   }
 
+  var pubExamCountByCourse = {};
+  try {
+    var activeCourseIdMap = {};
+    for (var aci = 0; aci < enrollmentsTbl.records.length; aci++) {
+      var aEnr = enrollmentsTbl.records[aci];
+      if (aEnr.user_id === usr.user_id && aEnr.status === 'ACTIVE' && aEnr.course_id) {
+        activeCourseIdMap[aEnr.course_id] = true;
+      }
+    }
+    if (Object.keys(activeCourseIdMap).length > 0) {
+      var examSetsTbl = readSheetTable_('ExamSets');
+      var publishedExams = [];
+      for (var exi = 0; exi < examSetsTbl.records.length; exi++) {
+        var exRow = examSetsTbl.records[exi];
+        if (exRow.status === 'PUBLISHED' && activeCourseIdMap[exRow.course_id]) {
+          publishedExams.push(exRow);
+        }
+      }
+      if (publishedExams.length > 0) {
+        var examAssignsByExam = {};
+        try {
+          var examAssignTbl = readSheetTable_('ExamAssignments');
+          for (var eai = 0; eai < examAssignTbl.records.length; eai++) {
+            var asgRow = examAssignTbl.records[eai];
+            if (!asgRow.exam_set_id) continue;
+            if (!examAssignsByExam[asgRow.exam_set_id]) {
+              examAssignsByExam[asgRow.exam_set_id] = [];
+            }
+            examAssignsByExam[asgRow.exam_set_id].push(asgRow);
+          }
+        } catch (_asgErr) {}
+        for (var pei = 0; pei < publishedExams.length; pei++) {
+          var pEx = publishedExams[pei];
+          var asgList = examAssignsByExam[pEx.exam_set_id] || [];
+          var hasCourseAsg = pEx.assignment_scope === 'COURSE_ENROLLED';
+          var hasStudentAsg = false;
+          var isRevokedForStudent = false;
+          for (var alIdx = 0; alIdx < asgList.length; alIdx++) {
+            var asgItem = asgList[alIdx];
+            if (asgItem.target_type === 'COURSE' && asgItem.course_id === pEx.course_id) {
+              if (asgItem.assignment_status === 'ASSIGNED') hasCourseAsg = true;
+              else if (asgItem.assignment_status === 'REVOKED') hasCourseAsg = false;
+            } else if (asgItem.target_type === 'STUDENT' && asgItem.student_user_id === usr.user_id) {
+              if (asgItem.assignment_status === 'ASSIGNED') hasStudentAsg = true;
+              else if (asgItem.assignment_status === 'REVOKED') isRevokedForStudent = true;
+            }
+          }
+          if (!isRevokedForStudent && (hasStudentAsg || hasCourseAsg)) {
+            pubExamCountByCourse[pEx.course_id] =
+              (pubExamCountByCourse[pEx.course_id] || 0) + 1;
+          }
+        }
+      }
+    }
+  } catch (_examCountErr) {}
+
   var assignedCourses = [];
   var withheldNonPublishedCount = 0;
 
@@ -2953,6 +3009,7 @@ function handleStudentGetProfileStep6_(payload, context) {
         canOpenCourseContent: true,
         publishedSectionCount: courseSecs.length,
         publishedCardCount: pubCardCountByCourse[c.course_id] || 0,
+        publishedExamCount: pubExamCountByCourse[c.course_id] || 0,
         sectionTitles: secTitles,
         assessmentUpdatedAtBangkok: c.assessment_updated_at_utc
           ? formatBangkokTimestamp_(c.assessment_updated_at_utc)

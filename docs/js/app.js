@@ -2468,6 +2468,10 @@
       currentStudentCourseFromAdminPreview = false;
       isExamStudioModeActive = false;
       studentCourseDetailCacheById = {};
+      if (typeof clearRpcReadCache === 'function') clearRpcReadCache();
+      if (typeof PBObjectUrlManager === 'object' && PBObjectUrlManager && typeof PBObjectUrlManager.clearPersistentCache === 'function') {
+        PBObjectUrlManager.clearPersistentCache();
+      }
       if (typeof currentAdminExamsListPhase3 !== 'undefined') currentAdminExamsListPhase3 = [];
       if (typeof currentStudentCourseExamsCatalogPhase3 !== 'undefined') currentStudentCourseExamsCatalogPhase3 = [];
       if (typeof currentQBankQuestionsPhase2 !== 'undefined') currentQBankQuestionsPhase2 = [];
@@ -2753,6 +2757,8 @@
      *
      * @param {string} modalId DOM ID of the `.modal-backdrop` element.
      */
+    var pbPdfViewerReturnModalId = null;
+
     function closeModalDialog(modalId) {
       var modalEl = document.getElementById(modalId);
       if (!modalEl) {
@@ -2761,11 +2767,24 @@
       if (modalId === 'modal-recording-detail' && typeof unmountRecordingYouTubePlayer === 'function') {
         unmountRecordingYouTubePlayer();
       }
+      if (modalId === 'modal-pb-pdf-viewer') {
+        var pdfViewerIframe = document.getElementById('iframe-pb-pdf-viewer');
+        if (pdfViewerIframe) {
+          pdfViewerIframe.src = 'about:blank';
+        }
+      }
       modalEl.classList.add('hidden');
       modalEl.setAttribute('aria-hidden', 'true');
 
       if (activeModalId === modalId) {
         activeModalId = null;
+      }
+      if (modalId === 'modal-pb-pdf-viewer' && pbPdfViewerReturnModalId) {
+        var prevModalEl = document.getElementById(pbPdfViewerReturnModalId);
+        if (prevModalEl && !prevModalEl.classList.contains('hidden')) {
+          activeModalId = pbPdfViewerReturnModalId;
+        }
+        pbPdfViewerReturnModalId = null;
       }
       if (!activeModalId && document.body && document.body.classList) {
         document.body.classList.remove('pb-modal-open');
@@ -4023,11 +4042,19 @@
               accent: true
             },
             {
+              val: c.publishedExamCount !== undefined ? c.publishedExamCount : 0,
+              lbl: 'Exams',
+              accent: false
+            },
+            {
               val: c.publishedScoreCount !== undefined ? c.publishedScoreCount : 0,
               lbl: 'Scores',
               accent: false
             }
           ];
+          if (c.publishedExamCount === undefined) {
+            statSpecs.splice(2, 1);
+          }
           for (var stIdx = 0; stIdx < statSpecs.length; stIdx++) {
             var sp = statSpecs[stIdx];
             var pill = document.createElement('div');
@@ -4535,8 +4562,20 @@
      * Invokes the single backend RPC entry point (rpcDispatch) via google.script.run.
      */
     var activeGasTransportCount = 0;
-    var MAX_CONCURRENT_GAS_TRANSPORT = 4;
+    var MAX_CONCURRENT_GAS_TRANSPORT = 6;
     var pendingGasTransportQueue = [];
+    var RPC_SHORT_READ_CACHE_ = {};
+    var RPC_SHORT_READ_TTL_MS_ = 10000;
+
+    function clearRpcReadCache() {
+      RPC_SHORT_READ_CACHE_ = {};
+    }
+
+    function isShortCacheableReadAction(actionName) {
+      return /^(public\.getBootstrap|student\.(getCourses|getCourseDetail)|exams\.list|admin\.(exams|courses|questions)\.list|calendar\.list)$/i.test(
+        String(actionName || '').trim()
+      );
+    }
 
     function pumpGasTransportQueue() {
       while (activeGasTransportCount < MAX_CONCURRENT_GAS_TRANSPORT && pendingGasTransportQueue.length > 0) {
@@ -4587,6 +4626,14 @@
       /* Coalesce identical in-flight read-only requests so admin.getCourseEditorDetail and list/get calls never fail with ERR_DUPLICATE_IN_FLIGHT */
       if (isReadOnlyAction && !options.allowConcurrent && inFlightPromises[dedupeKey]) {
         return inFlightPromises[dedupeKey];
+      }
+
+      if (isShortCacheableReadAction(safeAction) && !options.forceRefresh && RPC_SHORT_READ_CACHE_[dedupeKey]) {
+        var cachedRpcHit = RPC_SHORT_READ_CACHE_[dedupeKey];
+        if (cachedRpcHit && Date.now() - cachedRpcHit.cachedAt < RPC_SHORT_READ_TTL_MS_) {
+          return Promise.resolve(cachedRpcHit.envelope);
+        }
+        delete RPC_SHORT_READ_CACHE_[dedupeKey];
       }
 
       var requestId = nextRequestId();
@@ -4768,13 +4815,22 @@
                   return;
                 }
 
-                resolve({
+                var successEnvelope = {
                   ok: true,
                   action: response.action || safeAction,
                   requestId: echoedReqId,
                   serverTimeUtc: response.serverTimeUtc || null,
                   data: response.data || {}
-                });
+                };
+                if (!isReadOnlyAction) {
+                  clearRpcReadCache();
+                } else if (isShortCacheableReadAction(safeAction)) {
+                  RPC_SHORT_READ_CACHE_[dedupeKey] = {
+                    cachedAt: Date.now(),
+                    envelope: successEnvelope
+                  };
+                }
+                resolve(successEnvelope);
               })
               .withFailureHandler(function (nativeError) {
                 releaseGasTransportSlot();
@@ -6182,11 +6238,15 @@
       if (btnOpenAssignModal && !(btnOpenAssignModal.dataset && btnOpenAssignModal.dataset.boundSub)) {
         if (btnOpenAssignModal.dataset) btnOpenAssignModal.dataset.boundSub = '1';
         btnOpenAssignModal.addEventListener('click', function () {
-          if (typeof populateAdminExamBuilderCourseAndStudentDropdownsPhase3 === 'function') {
-            populateAdminExamBuilderCourseAndStudentDropdownsPhase3();
-          }
-          if (typeof PBAdminActionModal === 'object' && PBAdminActionModal) {
-            PBAdminActionModal.open('admin-exam-assign-modal-card', 'Student Assignments & Time Accommodations');
+          if (typeof openAdminExamAssignmentsFromHeaderPhase3 === 'function') {
+            openAdminExamAssignmentsFromHeaderPhase3();
+          } else {
+            if (typeof populateAdminExamBuilderCourseAndStudentDropdownsPhase3 === 'function') {
+              populateAdminExamBuilderCourseAndStudentDropdownsPhase3();
+            }
+            if (typeof PBAdminActionModal === 'object' && PBAdminActionModal) {
+              PBAdminActionModal.open('admin-exam-assign-modal-card', 'Student Assignments & Time Accommodations');
+            }
           }
         });
       }
@@ -8551,9 +8611,99 @@
      * ======================================================================== */
     var PBObjectUrlManager = (function () {
       var managedEntries = {};
+      var inFlightFilePromises = {};
       var simulateBlobBlocked = false;
       var totalCreatedCount = 0;
       var totalRevokedCount = 0;
+      var IDB_NAME = 'ppb_portal_blob_cache_v1';
+      var IDB_STORE = 'files';
+      var idbPromise = null;
+
+      function getCurrentUserCacheScope() {
+        var uid =
+          currentSessionMeta && currentSessionMeta.user
+            ? currentSessionMeta.user.userId || currentSessionMeta.user.user_id || ''
+            : '';
+        return uid || 'anon';
+      }
+
+      function openBlobCacheDb() {
+        if (simulateBlobBlocked || typeof window.indexedDB === 'undefined') {
+          return Promise.resolve(null);
+        }
+        if (idbPromise) return idbPromise;
+        idbPromise = new Promise(function (resolve) {
+          try {
+            var req = window.indexedDB.open(IDB_NAME, 1);
+            req.onupgradeneeded = function (evt) {
+              var db = evt.target.result;
+              if (db && !db.objectStoreNames.contains(IDB_STORE)) {
+                db.createObjectStore(IDB_STORE, { keyPath: 'storageKey' });
+              }
+            };
+            req.onsuccess = function () {
+              resolve(req.result || null);
+            };
+            req.onerror = function () {
+              resolve(null);
+            };
+            req.onblocked = function () {
+              resolve(null);
+            };
+          } catch (ignoreDbErr) {
+            resolve(null);
+          }
+        });
+        return idbPromise;
+      }
+
+      function idbGetCachedEntry(storageKey) {
+        return openBlobCacheDb().then(function (db) {
+          if (!db) return null;
+          return new Promise(function (resolve) {
+            try {
+              var tx = db.transaction(IDB_STORE, 'readonly');
+              var req = tx.objectStore(IDB_STORE).get(storageKey);
+              req.onsuccess = function () {
+                resolve(req.result || null);
+              };
+              req.onerror = function () {
+                resolve(null);
+              };
+            } catch (e) {
+              resolve(null);
+            }
+          });
+        });
+      }
+
+      function idbPutCachedBlob(storageKey, blob, mimeType, originalFilename, sizeBytes) {
+        if (!blob || blob.size > 15 * 1024 * 1024) return;
+        openBlobCacheDb().then(function (db) {
+          if (!db) return;
+          try {
+            var tx = db.transaction(IDB_STORE, 'readwrite');
+            tx.objectStore(IDB_STORE).put({
+              storageKey: storageKey,
+              blob: blob,
+              mimeType: mimeType,
+              originalFilename: originalFilename,
+              sizeBytes: sizeBytes,
+              cachedAt: Date.now()
+            });
+          } catch (ignorePutErr) {}
+        });
+      }
+
+      function clearPersistentCache() {
+        openBlobCacheDb().then(function (db) {
+          if (!db) return;
+          try {
+            var tx = db.transaction(IDB_STORE, 'readwrite');
+            tx.objectStore(IDB_STORE).clear();
+          } catch (ignoreClearErr) {}
+        });
+      }
 
       function decodeBase64ToUint8Array(base64Str) {
         var cleaned = String(base64Str || '').trim();
@@ -8594,6 +8744,12 @@
       }
 
       function revokeAll(reason) {
+        if (typeof closeInAppPdfViewerModal === 'function') {
+          var activePdfModal = document.getElementById('modal-pb-pdf-viewer');
+          if (activePdfModal && !activePdfModal.classList.contains('hidden')) {
+            closeInAppPdfViewerModal();
+          }
+        }
         var keys = Object.keys(managedEntries);
         var count = 0;
         for (var i = 0; i < keys.length; i++) {
@@ -8663,7 +8819,29 @@
         return managedEntries[key];
       }
 
-      function fetchAndCreateObjectUrl(fileId, opt_courseId) {
+      function createFromBlob(blob, mimeType, opt_cacheKey, opt_filename, opt_sizeBytes) {
+        var safeMime = String(mimeType || (blob && blob.type) || 'application/octet-stream').trim();
+        var key = String(
+          opt_cacheKey || 'tmp_' + String(new Date().getTime()) + '_' + String(totalCreatedCount + 1)
+        );
+        if (managedEntries[key]) {
+          revokeByKey(key);
+        }
+        var objUrl = window.URL.createObjectURL(blob);
+        totalCreatedCount++;
+        managedEntries[key] = {
+          cacheKey: key,
+          objectUrl: objUrl,
+          mimeType: safeMime,
+          sizeBytes: Number(opt_sizeBytes || (blob && blob.size) || 0),
+          originalFilename: opt_filename || 'attachment',
+          isFallbackDataUri: false,
+          mechanism: 'INDEXEDDB_BLOB_OBJECT_URL'
+        };
+        return managedEntries[key];
+      }
+
+      function fetchAndCreateObjectUrl(fileId, opt_courseId, opt_fetchOptions) {
         var cleanFileId = String(fileId || '').trim();
         if (!/^fil_[a-z0-9_-]{4,64}$/i.test(cleanFileId)) {
           return Promise.reject({
@@ -8674,44 +8852,168 @@
         }
         var courseId = String(opt_courseId || '').trim();
         var cacheKey = cleanFileId + (courseId ? ':' + courseId : '');
+        var idbKey = getCurrentUserCacheScope() + '|' + cacheKey;
+        var fOpts = opt_fetchOptions && typeof opt_fetchOptions === 'object' ? opt_fetchOptions : {};
 
         if (managedEntries[cacheKey]) {
           return Promise.resolve(managedEntries[cacheKey]);
         }
+        if (inFlightFilePromises[cacheKey]) {
+          return inFlightFilePromises[cacheKey];
+        }
 
-        return rpcCallEnvelope(
-          'file.getContent',
-          {
-            fileId: cleanFileId,
-            courseId: courseId
-          },
-          { suppressErrorBanner: true }
-        )
-          .then(function (envelope) {
-            var d = envelope.data || {};
-            return createFromBase64(
-              d.dataBase64,
-              d.mimeType,
-              cacheKey,
-              d.originalFilename
-            );
-          })
-          .catch(function (err) {
+        var promise = idbGetCachedEntry(idbKey)
+          .then(function (idbRec) {
             if (
-              err &&
-              err.code === 'ERR_FORBIDDEN_RESOURCE' &&
-              currentActiveViewName === 'courseDetail' &&
-              courseId &&
-              courseId === currentStudentCourseId
+              idbRec &&
+              idbRec.blob &&
+              !simulateBlobBlocked &&
+              typeof window.URL !== 'undefined' &&
+              window.URL &&
+              typeof window.URL.createObjectURL === 'function'
             ) {
-              handleCourseAccessRevokedWhileOpen(err);
+              try {
+                return createFromBlob(
+                  idbRec.blob,
+                  idbRec.mimeType,
+                  cacheKey,
+                  idbRec.originalFilename,
+                  idbRec.sizeBytes
+                );
+              } catch (ignoreRestoreErr) {}
             }
-            throw err;
-          });
+            return rpcCallEnvelope(
+              'file.getContent',
+              {
+                fileId: cleanFileId,
+                courseId: courseId
+              },
+              { suppressErrorBanner: true }
+            ).then(function (envelope) {
+              var d = envelope.data || {};
+              var created = createFromBase64(
+                d.dataBase64,
+                d.mimeType,
+                cacheKey,
+                d.originalFilename
+              );
+              if (
+                !created.isFallbackDataUri &&
+                typeof window.Blob === 'function'
+              ) {
+                try {
+                  var bytes = decodeBase64ToUint8Array(d.dataBase64);
+                  var blobCopy = new window.Blob([bytes], {
+                    type: d.mimeType || 'application/octet-stream'
+                  });
+                  idbPutCachedBlob(
+                    idbKey,
+                    blobCopy,
+                    d.mimeType || 'application/octet-stream',
+                    d.originalFilename || 'attachment',
+                    bytes.length
+                  );
+                } catch (ignorePersistErr) {}
+              }
+              return created;
+            });
+          })
+          .then(
+            function (entry) {
+              delete inFlightFilePromises[cacheKey];
+              return entry;
+            },
+            function (err) {
+              delete inFlightFilePromises[cacheKey];
+              var errMsg = String((err && err.message) || '');
+              var isEnrollmentDenied =
+                errMsg.indexOf('ACTIVE enrollment') !== -1 ||
+                errMsg.indexOf('course is not published') !== -1;
+              if (
+                !fOpts.skipRevokeCheck &&
+                isEnrollmentDenied &&
+                err &&
+                err.code === 'ERR_FORBIDDEN_RESOURCE' &&
+                currentActiveViewName === 'courseDetail' &&
+                courseId &&
+                courseId === currentStudentCourseId
+              ) {
+                handleCourseAccessRevokedWhileOpen(err);
+              }
+              throw err;
+            }
+          );
+
+        inFlightFilePromises[cacheKey] = promise;
+        return promise;
+      }
+
+      function prefetchFiles(itemsList) {
+        if (!Array.isArray(itemsList) || itemsList.length === 0) return;
+        var queue = itemsList.slice(0, 6);
+        var idx = 0;
+        function pumpNext() {
+          if (idx >= queue.length) return;
+          var item = queue[idx++];
+          if (!item || !item.fileId) {
+            pumpNext();
+            return;
+          }
+          fetchAndCreateObjectUrl(item.fileId, item.courseId || '', { skipRevokeCheck: true })
+            .catch(function () {})
+            .then(function () {
+              setTimeout(pumpNext, 120);
+            });
+        }
+        setTimeout(pumpNext, 250);
+      }
+
+      /**
+       * Seeds in-memory + IndexedDB blob caches immediately after an upload so
+       * subsequent preview/open clicks resolve without a duplicate file.getContent RPC.
+       */
+      function seedCacheFromBase64(fileId, dataBase64, mimeType, originalFilename, opt_courseId) {
+        var cleanFileId = String(fileId || '').trim();
+        if (!/^fil_[a-z0-9_-]{4,64}$/i.test(cleanFileId) || !dataBase64) {
+          return null;
+        }
+        var courseId = String(opt_courseId || '').trim();
+        var cacheKey = cleanFileId + (courseId ? ':' + courseId : '');
+        var idbKey = getCurrentUserCacheScope() + '|' + cacheKey;
+        var safeMime = String(mimeType || 'application/pdf').trim();
+        var safeName = String(originalFilename || 'document.pdf').trim();
+        var created = createFromBase64(dataBase64, safeMime, cacheKey, safeName);
+        if (!created.isFallbackDataUri && typeof window.Blob === 'function') {
+          try {
+            var bytes = decodeBase64ToUint8Array(dataBase64);
+            var blobCopy = new window.Blob([bytes], { type: safeMime });
+            idbPutCachedBlob(idbKey, blobCopy, safeMime, safeName, bytes.length);
+          } catch (ignoreSeedPersistErr) {}
+        }
+        return created;
       }
 
       function triggerAuthorizedDownload(fileId, opt_courseId, opt_openInNewTab) {
-        return fetchAndCreateObjectUrl(fileId, opt_courseId).then(function (entry) {
+        return fetchAndCreateObjectUrl(fileId, opt_courseId, { skipRevokeCheck: true }).then(function (entry) {
+          if (opt_openInNewTab) {
+            var openedWin = null;
+            try {
+              openedWin = window.open(entry.objectUrl, '_blank', 'noopener,noreferrer');
+            } catch (ignorePopErr) {
+              openedWin = null;
+            }
+            if (openedWin) {
+              return entry;
+            }
+            var mimeLower = String(entry.mimeType || '').toLowerCase();
+            if (
+              (mimeLower === 'application/pdf' || /\.pdf$/i.test(String(entry.originalFilename || ''))) &&
+              typeof openInAppPdfViewerModal === 'function'
+            ) {
+              openInAppPdfViewerModal(entry);
+              return entry;
+            }
+          }
           var a = document.createElement('a');
           a.href = entry.objectUrl;
           a.rel = 'noopener noreferrer';
@@ -8734,8 +9036,11 @@
 
       return Object.freeze({
         createFromBase64: createFromBase64,
+        seedCacheFromBase64: seedCacheFromBase64,
         fetchAndCreateObjectUrl: fetchAndCreateObjectUrl,
         triggerAuthorizedDownload: triggerAuthorizedDownload,
+        prefetchFiles: prefetchFiles,
+        clearPersistentCache: clearPersistentCache,
         revokeByKey: revokeByKey,
         revokeAll: revokeAll,
         setSimulateBlobBlocked: function (flag) {
@@ -8786,45 +9091,151 @@
           return;
         }
         if (opt_anchorIdOrEl) {
-          PBUploadProgress.updateStage1Determinate(opt_anchorIdOrEl, 0, fileObj.name);
+          PBUploadProgress.updateStage1Determinate(opt_anchorIdOrEl, 10, fileObj.name);
         }
-        var reader = new FileReader();
-        reader.onprogress = function (evt) {
-          if (evt && evt.lengthComputable && opt_anchorIdOrEl) {
-            var pct = Math.round((evt.loaded / evt.total) * 100);
-            PBUploadProgress.updateStage1Determinate(opt_anchorIdOrEl, pct, fileObj.name);
+
+        function arrayBufferToBase64Fast(buffer) {
+          var bytes = new Uint8Array(buffer);
+          var chunkSize = 0x8000;
+          var parts = [];
+          for (var i = 0; i < bytes.length; i += chunkSize) {
+            parts.push(String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize)));
           }
-        };
-        reader.onload = function () {
-          if (opt_anchorIdOrEl) {
-            PBUploadProgress.updateStage1Determinate(opt_anchorIdOrEl, 100, fileObj.name);
-            PBUploadProgress.updateStage2Indeterminate(
-              opt_anchorIdOrEl,
-              'Stage 2/2: Uploading "' +
-                (fileObj.name || 'file') +
-                '" to secure Google Drive storage and recording...'
-            );
+          return window.btoa(parts.join(''));
+        }
+
+        function maybeOptimizeUploadImage(srcFile) {
+          var mime = String((srcFile && srcFile.type) || '').toLowerCase();
+          var isOptimizableImage =
+            (mime === 'image/jpeg' || mime === 'image/png' || mime === 'image/webp') &&
+            srcFile.size > 614400 &&
+            typeof document !== 'undefined' &&
+            typeof window.createImageBitmap === 'function';
+          if (!isOptimizableImage) {
+            return Promise.resolve(srcFile);
           }
-          var resStr = String(reader.result || '');
-          var commaIdx = resStr.indexOf(',');
-          var rawB64 = commaIdx !== -1 ? resStr.slice(commaIdx + 1) : resStr;
-          resolve({
-            originalFilename: fileObj.name || 'upload.bin',
-            mimeType: fileObj.type || '',
-            sizeBytes: fileObj.size,
-            dataBase64: rawB64
-          });
-        };
-        reader.onerror = function () {
-          if (opt_anchorIdOrEl) {
-            PBUploadProgress.completeAndHide(opt_anchorIdOrEl);
+          return window
+            .createImageBitmap(srcFile)
+            .then(function (bmp) {
+              try {
+                var maxDim = 1920;
+                var w = bmp.width || 0;
+                var h = bmp.height || 0;
+                if (!w || !h || (w <= maxDim && h <= maxDim && srcFile.size <= 1500000)) {
+                  if (typeof bmp.close === 'function') bmp.close();
+                  return srcFile;
+                }
+                var scale = Math.min(1, maxDim / Math.max(w, h));
+                var targetW = Math.max(1, Math.round(w * scale));
+                var targetH = Math.max(1, Math.round(h * scale));
+                var canvas = document.createElement('canvas');
+                canvas.width = targetW;
+                canvas.height = targetH;
+                var ctx = canvas.getContext('2d');
+                if (!ctx || typeof canvas.toBlob !== 'function') {
+                  if (typeof bmp.close === 'function') bmp.close();
+                  return srcFile;
+                }
+                ctx.drawImage(bmp, 0, 0, targetW, targetH);
+                if (typeof bmp.close === 'function') bmp.close();
+                var quality = mime === 'image/png' ? undefined : 0.86;
+                return new Promise(function (resBlob) {
+                  canvas.toBlob(
+                    function (outBlob) {
+                      if (outBlob && outBlob.type === mime && outBlob.size > 0 && outBlob.size < srcFile.size) {
+                        resBlob(outBlob);
+                      } else {
+                        resBlob(srcFile);
+                      }
+                    },
+                    mime,
+                    quality
+                  );
+                });
+              } catch (ignoreOptErr) {
+                return srcFile;
+              }
+            })
+            .catch(function () {
+              return srcFile;
+            });
+        }
+
+        maybeOptimizeUploadImage(fileObj).then(function (effectiveBlob) {
+          var effectiveMime =
+            String(fileObj.type || effectiveBlob.type || '').trim() ||
+            (/\.pdf$/i.test(fileObj.name || '') ? 'application/pdf' : '');
+
+          if (typeof effectiveBlob.arrayBuffer === 'function' && typeof window.btoa === 'function') {
+            if (opt_anchorIdOrEl) {
+              PBUploadProgress.updateStage1Determinate(opt_anchorIdOrEl, 65, fileObj.name);
+            }
+            effectiveBlob
+              .arrayBuffer()
+              .then(function (buf) {
+                if (opt_anchorIdOrEl) {
+                  PBUploadProgress.updateStage1Determinate(opt_anchorIdOrEl, 100, fileObj.name);
+                  PBUploadProgress.updateStage2Indeterminate(
+                    opt_anchorIdOrEl,
+                    'Stage 2/2: Uploading "' +
+                      (fileObj.name || 'file') +
+                      '" to secure Google Drive storage...'
+                  );
+                }
+                resolve({
+                  originalFilename: fileObj.name || 'upload.bin',
+                  mimeType: effectiveMime,
+                  sizeBytes: effectiveBlob.size || fileObj.size,
+                  dataBase64: arrayBufferToBase64Fast(buf)
+                });
+              })
+              .catch(function () {
+                reject({
+                  code: 'ERR_FILE_INVALID',
+                  message: 'Browser could not read the selected file bytes.'
+                });
+              });
+            return;
           }
-          reject({
-            code: 'ERR_FILE_INVALID',
-            message: 'Browser FileReader could not read the selected file.'
-          });
-        };
-        reader.readAsDataURL(fileObj);
+
+          var reader = new FileReader();
+          reader.onprogress = function (evt) {
+            if (evt && evt.lengthComputable && opt_anchorIdOrEl) {
+              var pct = Math.round((evt.loaded / evt.total) * 100);
+              PBUploadProgress.updateStage1Determinate(opt_anchorIdOrEl, pct, fileObj.name);
+            }
+          };
+          reader.onload = function () {
+            if (opt_anchorIdOrEl) {
+              PBUploadProgress.updateStage1Determinate(opt_anchorIdOrEl, 100, fileObj.name);
+              PBUploadProgress.updateStage2Indeterminate(
+                opt_anchorIdOrEl,
+                'Stage 2/2: Uploading "' +
+                  (fileObj.name || 'file') +
+                  '" to secure Google Drive storage and recording...'
+              );
+            }
+            var resStr = String(reader.result || '');
+            var commaIdx = resStr.indexOf(',');
+            var rawB64 = commaIdx !== -1 ? resStr.slice(commaIdx + 1) : resStr;
+            resolve({
+              originalFilename: fileObj.name || 'upload.bin',
+              mimeType: effectiveMime,
+              sizeBytes: effectiveBlob.size || fileObj.size,
+              dataBase64: rawB64
+            });
+          };
+          reader.onerror = function () {
+            if (opt_anchorIdOrEl) {
+              PBUploadProgress.completeAndHide(opt_anchorIdOrEl);
+            }
+            reject({
+              code: 'ERR_FILE_INVALID',
+              message: 'Browser FileReader could not read the selected file.'
+            });
+          };
+          reader.readAsDataURL(effectiveBlob);
+        });
       });
     }
 
@@ -8891,6 +9302,468 @@
             'Preview unavailable (' + (err.code || 'ERR') + '): ' + (err.message || '');
         });
     }
+
+    var PB_EXAM_PAPER_PDF_MARKER = '[PB_EXAM_PAPER_PDF]';
+    var PB_ANSWER_SHEET_PDF_PREFIX = '[PB_ANSWER_SHEET_PDF:';
+
+    function extractExamPdfAttachmentsFromRichText(richTextDoc) {
+      var res = {
+        examPaperPdf: null,
+        answerSheetPdf: null,
+        plainText: ''
+      };
+      if (!richTextDoc) return res;
+      if (typeof richTextDoc === 'string') {
+        res.plainText = richTextDoc;
+        return res;
+      }
+      var blocks = Array.isArray(richTextDoc.blocks) ? richTextDoc.blocks : [];
+      var textParts = [];
+      for (var i = 0; i < blocks.length; i++) {
+        var b = blocks[i];
+        if (!b || typeof b !== 'object') continue;
+        if (b.type === 'pdf_attachment' && b.fileId) {
+          var t = String(b.title || '').trim();
+          if (t.indexOf(PB_EXAM_PAPER_PDF_MARKER) === 0) {
+            res.examPaperPdf = {
+              fileId: String(b.fileId).trim(),
+              filename: t.slice(PB_EXAM_PAPER_PDF_MARKER.length).trim() || 'Exam Paper.pdf'
+            };
+            continue;
+          }
+          if (t.indexOf(PB_ANSWER_SHEET_PDF_PREFIX) === 0) {
+            var closeIdx = t.indexOf(']');
+            var policy = 'AFTER_SUBMIT';
+            var fName = 'Answer Sheet.pdf';
+            if (closeIdx !== -1) {
+              var rawPol = t.slice(PB_ANSWER_SHEET_PDF_PREFIX.length, closeIdx).trim().toUpperCase();
+              if (rawPol === 'WITH_KEY' || rawPol === 'AFTER_SUBMIT' || rawPol === 'ALWAYS') {
+                policy = rawPol;
+              }
+              fName = t.slice(closeIdx + 1).trim() || fName;
+            }
+            res.answerSheetPdf = {
+              fileId: String(b.fileId).trim(),
+              filename: fName,
+              policy: policy
+            };
+            continue;
+          }
+        }
+        if (typeof b.text === 'string' && b.text.trim()) {
+          textParts.push(b.text);
+        }
+      }
+      res.plainText = textParts.join('\n\n');
+      return res;
+    }
+
+    function stripExamPdfMarkersFromRichText(richTextDoc) {
+      if (!richTextDoc || typeof richTextDoc === 'string') {
+        return richTextDoc;
+      }
+      var blocks = Array.isArray(richTextDoc.blocks) ? richTextDoc.blocks : [];
+      var filtered = [];
+      for (var i = 0; i < blocks.length; i++) {
+        var b = blocks[i];
+        if (b && b.type === 'pdf_attachment') {
+          var t = String(b.title || '').trim();
+          if (t.indexOf(PB_EXAM_PAPER_PDF_MARKER) === 0 || t.indexOf(PB_ANSWER_SHEET_PDF_PREFIX) === 0) {
+            continue;
+          }
+        }
+        filtered.push(b);
+      }
+      if (filtered.length === 0) return '';
+      return {
+        format: richTextDoc.format || 'pb-richtext-v1',
+        blocks: filtered
+      };
+    }
+
+    function composeExamInstructionsRichTextWithPdfs(plainText, examPaperPdf, answerSheetPdf) {
+      var txt = String(plainText || '').trim();
+      var blocks = [];
+      if (txt) {
+        var paras = txt.split(/\n{2,}/);
+        for (var i = 0; i < paras.length; i++) {
+          var seg = paras[i].trim();
+          if (seg) {
+            blocks.push({ type: 'paragraph', text: seg });
+          }
+        }
+      }
+      if (examPaperPdf && examPaperPdf.fileId && /^fil_[a-z0-9_-]{4,64}$/i.test(examPaperPdf.fileId)) {
+        blocks.push({
+          type: 'pdf_attachment',
+          fileId: examPaperPdf.fileId,
+          title: PB_EXAM_PAPER_PDF_MARKER + ' ' + String(examPaperPdf.filename || 'Exam Paper.pdf').slice(0, 150)
+        });
+      }
+      if (answerSheetPdf && answerSheetPdf.fileId && /^fil_[a-z0-9_-]{4,64}$/i.test(answerSheetPdf.fileId)) {
+        var safePol =
+          answerSheetPdf.policy === 'WITH_KEY' || answerSheetPdf.policy === 'ALWAYS'
+            ? answerSheetPdf.policy
+            : 'AFTER_SUBMIT';
+        blocks.push({
+          type: 'pdf_attachment',
+          fileId: answerSheetPdf.fileId,
+          title:
+            PB_ANSWER_SHEET_PDF_PREFIX +
+            safePol +
+            '] ' +
+            String(answerSheetPdf.filename || 'Answer Sheet.pdf').slice(0, 140)
+        });
+      }
+      if (blocks.length === 0) return '';
+      return { format: 'pb-richtext-v1', blocks: blocks };
+    }
+
+    function canStudentViewExamAnswerSheetPdf(answerSheetPdf, ctx) {
+      if (!answerSheetPdf || !answerSheetPdf.fileId) return false;
+      var c = ctx || {};
+      if (Boolean(c.isAdminPreview) && isCurrentSessionAdminUser()) return true;
+      var policy = String(answerSheetPdf.policy || 'AFTER_SUBMIT').toUpperCase();
+      if (policy === 'ALWAYS') return true;
+      if (policy === 'AFTER_SUBMIT') return Boolean(c.hasSubmittedAttempt);
+      if (policy === 'WITH_KEY') return Boolean(c.explanationsReleased);
+      return false;
+    }
+
+    function closeInAppPdfViewerModal() {
+      closeModalDialog('modal-pb-pdf-viewer');
+    }
+
+    function openInAppPdfViewerModal(entry) {
+      if (!entry || !entry.objectUrl) return;
+      var modalEl = document.getElementById('modal-pb-pdf-viewer');
+      if (!modalEl) return;
+      if (activeModalId && activeModalId !== 'modal-pb-pdf-viewer') {
+        pbPdfViewerReturnModalId = activeModalId;
+      }
+      var titleEl = document.getElementById('pb-pdf-viewer-title');
+      var metaEl = document.getElementById('pb-pdf-viewer-meta');
+      var openTabLink = document.getElementById('link-pb-pdf-viewer-open-tab');
+      var downloadLink = document.getElementById('link-pb-pdf-viewer-download');
+      var iframeEl = document.getElementById('iframe-pb-pdf-viewer');
+      var safeFilename = String(entry.originalFilename || 'document.pdf').trim();
+      var sizeKb = entry.sizeBytes ? Math.max(1, Math.round(Number(entry.sizeBytes) / 1024)) : 0;
+
+      if (titleEl) {
+        titleEl.textContent = safeFilename || 'Document Preview';
+      }
+      if (metaEl) {
+        metaEl.textContent =
+          (sizeKb ? String(sizeKb) + ' KB • ' : '') +
+          String(entry.mimeType || 'application/pdf') +
+          (entry.mechanism ? ' (' + String(entry.mechanism) + ')' : '');
+      }
+      if (openTabLink) {
+        openTabLink.href = entry.objectUrl;
+      }
+      if (downloadLink) {
+        downloadLink.href = entry.objectUrl;
+        downloadLink.setAttribute('download', safeFilename || 'document.pdf');
+      }
+      if (iframeEl) {
+        iframeEl.src = entry.objectUrl;
+      }
+      openModalDialog('modal-pb-pdf-viewer', 'btn-pb-pdf-viewer-close');
+    }
+
+    function openOrDownloadExamPdfWithNotice(btnEl, fileId, courseId, openInNewTab, defaultLabel) {
+      if (!fileId) return;
+      var origText = defaultLabel || (btnEl ? btnEl.textContent : 'Open PDF');
+      if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.textContent = openInNewTab ? 'Opening PDF...' : 'Downloading PDF...';
+      }
+      var actionPromise = openInNewTab
+        ? PBObjectUrlManager.fetchAndCreateObjectUrl(fileId, courseId || '', {
+            skipRevokeCheck: true
+          }).then(function (entry) {
+            if (document.getElementById('modal-pb-pdf-viewer')) {
+              openInAppPdfViewerModal(entry);
+              return entry;
+            }
+            return PBObjectUrlManager.triggerAuthorizedDownload(fileId, courseId || '', true);
+          })
+        : PBObjectUrlManager.triggerAuthorizedDownload(fileId, courseId || '', false);
+
+      actionPromise
+        .then(function () {
+          if (btnEl) {
+            btnEl.disabled = false;
+            btnEl.textContent = origText;
+          }
+        })
+        .catch(function (err) {
+          if (btnEl) {
+            btnEl.disabled = false;
+            btnEl.textContent = origText;
+          }
+          var msg = String((err && err.message) || 'Could not open PDF.');
+          if (err && err.code === 'ERR_FORBIDDEN_RESOURCE' && msg.indexOf('not actively referenced') !== -1) {
+            msg =
+              'Student PDF download for Mock Tests requires updating Google Apps Script backend files from OneDrive\\PPB\\Web\\DriveService.gs and Code.gs.';
+          }
+          if (typeof PBNotify === 'object' && PBNotify) {
+            PBNotify.toast('warning', 'PDF Access Notice', msg);
+          } else {
+            showUiErrorBanner({
+              code: (err && err.code) || 'ERR_PDF_ACCESS',
+              action: 'file.getContent',
+              message: msg
+            });
+          }
+        });
+    }
+
+    function renderStudentExamPdfResourcePanel(hostEl, instructionsRichText, ctx) {
+      if (!hostEl) return;
+      while (hostEl.firstChild) hostEl.removeChild(hostEl.firstChild);
+      var parsed = extractExamPdfAttachmentsFromRichText(instructionsRichText);
+      var paper = parsed.examPaperPdf;
+      var ans = parsed.answerSheetPdf;
+      if (!paper && !ans) {
+        hostEl.classList.add('hidden');
+        return;
+      }
+      hostEl.classList.remove('hidden');
+
+      var head = document.createElement('div');
+      head.className = 'pb-student-pdf-resources-head';
+      head.textContent = 'Mock Test Papers & Answer Sheet (PDF)';
+      hostEl.appendChild(head);
+
+      var row = document.createElement('div');
+      row.className = 'pb-student-pdf-resources-actions';
+      var c = ctx || {};
+      var courseId = c.courseId || '';
+
+      if (paper && paper.fileId) {
+        var openPaperBtn = document.createElement('button');
+        openPaperBtn.type = 'button';
+        openPaperBtn.className = 'btn btn-primary btn-sm';
+        openPaperBtn.textContent = 'Open Exam Paper (PDF)';
+        openPaperBtn.addEventListener('click', function () {
+          openOrDownloadExamPdfWithNotice(openPaperBtn, paper.fileId, courseId, true, 'Open Exam Paper (PDF)');
+        });
+        row.appendChild(openPaperBtn);
+
+        var dlPaperBtn = document.createElement('button');
+        dlPaperBtn.type = 'button';
+        dlPaperBtn.className = 'btn btn-outline btn-sm';
+        dlPaperBtn.textContent = 'Download Exam Paper';
+        dlPaperBtn.addEventListener('click', function () {
+          openOrDownloadExamPdfWithNotice(dlPaperBtn, paper.fileId, courseId, false, 'Download Exam Paper');
+        });
+        row.appendChild(dlPaperBtn);
+      }
+
+      if (ans && ans.fileId) {
+        if (canStudentViewExamAnswerSheetPdf(ans, c)) {
+          var openAnsBtn = document.createElement('button');
+          openAnsBtn.type = 'button';
+          openAnsBtn.className = 'btn btn-secondary btn-sm';
+          openAnsBtn.textContent = 'Open Answer Sheet (PDF)';
+          openAnsBtn.addEventListener('click', function () {
+            openOrDownloadExamPdfWithNotice(openAnsBtn, ans.fileId, courseId, true, 'Open Answer Sheet (PDF)');
+          });
+          row.appendChild(openAnsBtn);
+
+          var dlAnsBtn = document.createElement('button');
+          dlAnsBtn.type = 'button';
+          dlAnsBtn.className = 'btn btn-outline btn-sm';
+          dlAnsBtn.textContent = 'Download Answer Sheet';
+          dlAnsBtn.addEventListener('click', function () {
+            openOrDownloadExamPdfWithNotice(dlAnsBtn, ans.fileId, courseId, false, 'Download Answer Sheet');
+          });
+          row.appendChild(dlAnsBtn);
+        } else {
+          var lockPill = document.createElement('span');
+          lockPill.className = 'pb-pdf-lock-pill';
+          lockPill.textContent =
+            ans.policy === 'WITH_KEY'
+              ? 'Answer Sheet (PDF): Unlocks when official answer key is released'
+              : 'Answer Sheet (PDF): Unlocks after you submit this Mock Test';
+          row.appendChild(lockPill);
+        }
+      }
+
+      hostEl.appendChild(row);
+    }
+
+    function setExamPdfEditorSlotState(cfg, fileId, filename, policy) {
+      var idEl = document.getElementById(cfg.fileIdInputId);
+      var nameEl = document.getElementById(cfg.filenameInputId);
+      var statusEl = document.getElementById(cfg.statusElId);
+      var openBtn = document.getElementById(cfg.openBtnId);
+      var removeBtn = document.getElementById(cfg.removeBtnId);
+      var policySel = cfg.policySelectId ? document.getElementById(cfg.policySelectId) : null;
+      var cleanId = String(fileId || '').trim();
+      var cleanName = String(filename || '').trim();
+      if (idEl) idEl.value = cleanId;
+      if (nameEl) nameEl.value = cleanName;
+      if (policySel && policy) policySel.value = policy;
+      if (statusEl) {
+        if (cleanId) {
+          statusEl.textContent = 'Attached: ' + (cleanName || cleanId) + ' (' + cleanId + ')';
+          statusEl.classList.add('is-attached');
+        } else {
+          statusEl.textContent = cfg.emptyText || 'No PDF attached.';
+          statusEl.classList.remove('is-attached');
+        }
+      }
+      if (openBtn) openBtn.classList.toggle('hidden', !cleanId);
+      if (removeBtn) removeBtn.classList.toggle('hidden', !cleanId);
+    }
+
+    function readExamPdfEditorSlotState(cfg) {
+      var idEl = document.getElementById(cfg.fileIdInputId);
+      var nameEl = document.getElementById(cfg.filenameInputId);
+      var policySel = cfg.policySelectId ? document.getElementById(cfg.policySelectId) : null;
+      var fid = idEl ? String(idEl.value || '').trim() : '';
+      if (!fid) return null;
+      return {
+        fileId: fid,
+        filename: (nameEl ? String(nameEl.value || '').trim() : '') || cfg.defaultName || 'document.pdf',
+        policy: policySel ? String(policySel.value || 'AFTER_SUBMIT').toUpperCase() : 'AFTER_SUBMIT'
+      };
+    }
+
+    function bindAdminExamPdfSlotControls(cfg) {
+      var uploadBtn = document.getElementById(cfg.uploadBtnId);
+      var fileInp = document.getElementById(cfg.fileInputId);
+      var openBtn = document.getElementById(cfg.openBtnId);
+      var removeBtn = document.getElementById(cfg.removeBtnId);
+      if (uploadBtn && !(uploadBtn.dataset && uploadBtn.dataset.boundPdfSlot)) {
+        if (uploadBtn.dataset) uploadBtn.dataset.boundPdfSlot = '1';
+        uploadBtn.addEventListener('click', function () {
+          var fileObj = fileInp && fileInp.files && fileInp.files[0];
+          if (!fileObj) {
+            setText(cfg.statusElId, 'Please choose a PDF file (.pdf) before clicking Upload PDF.');
+            return;
+          }
+          var nameLower = String(fileObj.name || '').toLowerCase();
+          var mimeLower = String(fileObj.type || '').toLowerCase();
+          if (mimeLower && mimeLower !== 'application/pdf' && !nameLower.endsWith('.pdf')) {
+            setText(cfg.statusElId, 'Only valid PDF documents (.pdf) are allowed.');
+            return;
+          }
+          setText(cfg.statusElId, 'Uploading "' + (fileObj.name || 'document.pdf') + '"...');
+          runButtonWithLoadingState(uploadBtn, 'Uploading...', function () {
+            var uploadedBase64 = '';
+            var uploadedName = fileObj.name || cfg.defaultName || 'document.pdf';
+            return readBrowserFileAsBase64Step8(fileObj, cfg.fileInputId)
+              .then(function (fData) {
+                uploadedBase64 = (fData && fData.dataBase64) || '';
+                uploadedName = (fData && fData.originalFilename) || uploadedName;
+                return rpcCallEnvelope('admin.uploadFile', {
+                  purpose: 'PDF_ATTACHMENT',
+                  originalFilename: uploadedName,
+                  mimeType: 'application/pdf',
+                  dataBase64: uploadedBase64
+                });
+              })
+              .then(function (env) {
+                PBUploadProgress.completeAndHide(cfg.fileInputId);
+                var uploaded = (env && env.data && env.data.file) || {};
+                var finalName = uploaded.originalFilename || uploadedName || cfg.defaultName;
+                if (
+                  uploaded.fileId &&
+                  uploadedBase64 &&
+                  typeof PBObjectUrlManager === 'object' &&
+                  PBObjectUrlManager &&
+                  typeof PBObjectUrlManager.seedCacheFromBase64 === 'function'
+                ) {
+                  PBObjectUrlManager.seedCacheFromBase64(
+                    uploaded.fileId,
+                    uploadedBase64,
+                    'application/pdf',
+                    finalName,
+                    ''
+                  );
+                }
+                var policySel = cfg.policySelectId ? document.getElementById(cfg.policySelectId) : null;
+                setExamPdfEditorSlotState(
+                  cfg,
+                  uploaded.fileId || '',
+                  finalName,
+                  policySel ? policySel.value : 'AFTER_SUBMIT'
+                );
+                if (fileInp) fileInp.value = '';
+                PBNotify.toast('success', 'PDF Uploaded', (finalName || 'PDF') + ' attached. Save or Publish to persist.');
+              })
+              .catch(function (err) {
+                PBUploadProgress.completeAndHide(cfg.fileInputId);
+                setText(cfg.statusElId, 'Upload failed (' + ((err && err.code) || 'ERR') + '): ' + ((err && err.message) || ''));
+              });
+          });
+        });
+      }
+      if (openBtn && !(openBtn.dataset && openBtn.dataset.boundPdfOpen)) {
+        if (openBtn.dataset) openBtn.dataset.boundPdfOpen = '1';
+        openBtn.addEventListener('click', function () {
+          var fid = ((document.getElementById(cfg.fileIdInputId) || {}).value || '').trim();
+          openOrDownloadExamPdfWithNotice(openBtn, fid, '', true, 'Open PDF');
+        });
+      }
+      if (removeBtn && !(removeBtn.dataset && removeBtn.dataset.boundPdfRem)) {
+        if (removeBtn.dataset) removeBtn.dataset.boundPdfRem = '1';
+        removeBtn.addEventListener('click', function () {
+          setExamPdfEditorSlotState(cfg, '', '', 'AFTER_SUBMIT');
+          if (fileInp) fileInp.value = '';
+        });
+      }
+    }
+
+    var FORMS_PAPER_PDF_CFG = {
+      fileInputId: 'input-forms-exam-paper-file',
+      uploadBtnId: 'btn-forms-upload-exam-paper-pdf',
+      openBtnId: 'btn-forms-open-exam-paper-pdf',
+      removeBtnId: 'btn-forms-remove-exam-paper-pdf',
+      fileIdInputId: 'input-forms-exam-paper-file-id',
+      filenameInputId: 'input-forms-exam-paper-filename',
+      statusElId: 'forms-exam-paper-pdf-status',
+      emptyText: 'No Exam Paper PDF attached.',
+      defaultName: 'Exam Paper.pdf'
+    };
+    var FORMS_ANSWER_PDF_CFG = {
+      fileInputId: 'input-forms-answer-sheet-file',
+      uploadBtnId: 'btn-forms-upload-answer-sheet-pdf',
+      openBtnId: 'btn-forms-open-answer-sheet-pdf',
+      removeBtnId: 'btn-forms-remove-answer-sheet-pdf',
+      fileIdInputId: 'input-forms-answer-sheet-file-id',
+      filenameInputId: 'input-forms-answer-sheet-filename',
+      statusElId: 'forms-answer-sheet-pdf-status',
+      policySelectId: 'select-forms-answer-sheet-policy',
+      emptyText: 'No Answer Sheet PDF attached.',
+      defaultName: 'Answer Sheet.pdf'
+    };
+    var EDITOR_PAPER_PDF_CFG = {
+      fileInputId: 'input-exam-editor-paper-file',
+      uploadBtnId: 'btn-exam-editor-upload-paper-pdf',
+      openBtnId: 'btn-exam-editor-open-paper-pdf',
+      removeBtnId: 'btn-exam-editor-remove-paper-pdf',
+      fileIdInputId: 'input-exam-editor-paper-file-id',
+      filenameInputId: 'input-exam-editor-paper-filename',
+      statusElId: 'exam-editor-paper-pdf-status',
+      emptyText: 'No Exam Paper PDF attached.',
+      defaultName: 'Exam Paper.pdf'
+    };
+    var EDITOR_ANSWER_PDF_CFG = {
+      fileInputId: 'input-exam-editor-answer-file',
+      uploadBtnId: 'btn-exam-editor-upload-answer-pdf',
+      openBtnId: 'btn-exam-editor-open-answer-pdf',
+      removeBtnId: 'btn-exam-editor-remove-answer-pdf',
+      fileIdInputId: 'input-exam-editor-answer-file-id',
+      filenameInputId: 'input-exam-editor-answer-filename',
+      statusElId: 'exam-editor-answer-pdf-status',
+      policySelectId: 'select-exam-editor-answer-policy',
+      emptyText: 'No Answer Sheet PDF attached.',
+      defaultName: 'Answer Sheet.pdf'
+    };
 
     function renderRichTextDocumentToDom(containerEl, richTextDoc, opt_courseId) {
       if (!containerEl) {
@@ -9090,6 +9963,13 @@
             containerEl.appendChild(fig);
           })(blk);
         } else if (blk.type === 'pdf_attachment' && blk.fileId) {
+          var blkTitleCheck = String(blk.title || '').trim();
+          if (
+            blkTitleCheck.indexOf('[PB_EXAM_PAPER_PDF]') === 0 ||
+            blkTitleCheck.indexOf('[PB_ANSWER_SHEET_PDF:') === 0
+          ) {
+            continue;
+          }
           renderedAnyContent = true;
           (function (pdfBlock) {
             var card = document.createElement('div');
@@ -19362,6 +20242,7 @@ var qrcode = (function() {
         course.outcomesRichText,
         course.courseId
       );
+      syncStudentCourseObjectivesOutcomesLayout();
 
       var backAdminBtn = document.getElementById('btn-course-detail-back-admin');
       if (backAdminBtn) {
@@ -19395,6 +20276,36 @@ var qrcode = (function() {
           }
         })
         .catch(function () {});
+    }
+
+    function syncStudentCourseObjectivesOutcomesLayout() {
+      var grid = document.getElementById('student-course-objectives-outcomes-grid');
+      var objPanel = document.getElementById('student-course-objectives-panel');
+      var outPanel = document.getElementById('student-course-outcomes-panel');
+      var objBox = document.getElementById('student-course-objectives-box');
+      var outBox = document.getElementById('student-course-outcomes-box');
+      var emptyNote = document.getElementById('student-course-objectives-empty-note');
+      if (!grid || !objBox || !outBox) return;
+
+      function isEffectivelyEmptyBox(el) {
+        if (!el) return true;
+        var hasEmptyBadge = Boolean(el.querySelector && el.querySelector('.pb-rt-empty'));
+        if (hasEmptyBadge) return true;
+        return String(el.textContent || '').trim().length === 0 && !el.querySelector('img, button');
+      }
+
+      var objEmpty = isEffectivelyEmptyBox(objBox);
+      var outEmpty = isEffectivelyEmptyBox(outBox);
+      if (objEmpty && outEmpty) {
+        grid.classList.add('hidden');
+        if (emptyNote) emptyNote.classList.remove('hidden');
+      } else {
+        grid.classList.remove('hidden');
+        if (emptyNote) emptyNote.classList.add('hidden');
+        if (objPanel) objPanel.classList.toggle('hidden', objEmpty);
+        if (outPanel) outPanel.classList.toggle('hidden', outEmpty);
+        grid.style.gridTemplateColumns = !objEmpty && !outEmpty ? '' : 'minmax(0, 1fr)';
+      }
     }
 
     var currentAdminPreviewPopupCourseId = '';
@@ -20000,6 +20911,7 @@ var qrcode = (function() {
             course.outcomesRichText,
             course.courseId
           );
+          syncStudentCourseObjectivesOutcomesLayout();
 
           var backAdminBtn = document.getElementById('btn-course-detail-back-admin');
           if (backAdminBtn) {
@@ -23010,6 +23922,10 @@ var qrcode = (function() {
       if (pfEl) pfEl.checked = false;
       if (descEl) descEl.value = '';
       if (instEl) instEl.value = '';
+      if (typeof setExamPdfEditorSlotState === 'function') {
+        setExamPdfEditorSlotState(EDITOR_PAPER_PDF_CFG, '', '', 'AFTER_SUBMIT');
+        setExamPdfEditorSlotState(EDITOR_ANSWER_PDF_CFG, '', '', 'AFTER_SUBMIT');
+      }
       if (sec1TitleEl) sec1TitleEl.value = 'Part I: Core Biology Questions';
       if (sec1ModeEl) sec1ModeEl.value = 'FIXED_ITEMS';
       if (sec1DrawEl) sec1DrawEl.value = '2';
@@ -23081,8 +23997,34 @@ var qrcode = (function() {
       if (rqEl) rqEl.checked = Boolean(examDto.randomizeQuestions);
       if (roEl) roEl.checked = Boolean(examDto.randomizeOptions);
       if (pfEl) pfEl.checked = Boolean(examDto.allowPerQuestionPracticeFeedback);
+      var parsedEdPdf =
+        typeof extractExamPdfAttachmentsFromRichText === 'function'
+          ? extractExamPdfAttachmentsFromRichText(examDto.instructionsRichText || examDto.descriptionRichText)
+          : { examPaperPdf: null, answerSheetPdf: null, plainText: '' };
       if (descEl) descEl.value = examDto.descriptionPlainText || '';
-      if (instEl) instEl.value = examDto.instructionsPlainText || '';
+      if (instEl) {
+        instEl.value =
+          parsedEdPdf.plainText ||
+          examDto.instructionsPlainText ||
+          '';
+      }
+      if (typeof setExamPdfEditorSlotState === 'function') {
+        if (parsedEdPdf.examPaperPdf) {
+          setExamPdfEditorSlotState(EDITOR_PAPER_PDF_CFG, parsedEdPdf.examPaperPdf.fileId, parsedEdPdf.examPaperPdf.filename);
+        } else {
+          setExamPdfEditorSlotState(EDITOR_PAPER_PDF_CFG, '', '');
+        }
+        if (parsedEdPdf.answerSheetPdf) {
+          setExamPdfEditorSlotState(
+            EDITOR_ANSWER_PDF_CFG,
+            parsedEdPdf.answerSheetPdf.fileId,
+            parsedEdPdf.answerSheetPdf.filename,
+            parsedEdPdf.answerSheetPdf.policy || 'AFTER_SUBMIT'
+          );
+        } else {
+          setExamPdfEditorSlotState(EDITOR_ANSWER_PDF_CFG, '', '', 'AFTER_SUBMIT');
+        }
+      }
 
       var selectedMap = {};
       if (Array.isArray(examDto.sections) && examDto.sections.length > 0) {
@@ -23104,28 +24046,67 @@ var qrcode = (function() {
       renderExamBuilderQuestionChecklistPhase3(selectedMap);
     }
 
-    function openAdminExamAssignmentsModalPhase3(examDto) {
-      populateAdminExamBuilderCourseAndStudentDropdownsPhase3();
+    function populateAdminExamAssignSetSelectorPhase3(selectedExamSetId) {
+      var sel = document.getElementById('select-exam-assign-exam-set');
+      if (!sel) return;
+      var list = Array.isArray(currentAdminExamsListPhase3) ? currentAdminExamsListPhase3 : [];
+      var curVal = selectedExamSetId || sel.value || '';
+      while (sel.firstChild) sel.removeChild(sel.firstChild);
+
+      var placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent =
+        list.length === 0
+          ? '-- No Exam Sets Found (Create an Exam First) --'
+          : '-- Select Examination / Mock Test --';
+      sel.appendChild(placeholder);
+
+      for (var i = 0; i < list.length; i++) {
+        var ex = list[i];
+        if (!ex || !ex.examSetId) continue;
+        var opt = document.createElement('option');
+        opt.value = ex.examSetId;
+        opt.textContent =
+          '[' + (ex.examCode || ex.examSetId) + '] ' + (ex.title || 'Untitled Exam') + ' (' + (ex.status || 'DRAFT') + ')';
+        sel.appendChild(opt);
+      }
+      if (curVal) sel.value = curVal;
+      if (!sel.value && list.length > 0 && list[0] && list[0].examSetId) {
+        sel.value = list[0].examSetId;
+      }
+    }
+
+    function applyExamDtoToAssignmentsModalDomPhase3(examDto) {
+      var ex = examDto || {};
       var idInp = document.getElementById('input-exam-assign-exam-id');
-      if (idInp) idInp.value = examDto.examSetId || '';
-      setText('exam-assign-code-badge', examDto.examCode || 'EXAM');
-      setText('exam-assign-heading', 'Assignments & Accommodations: ' + (examDto.title || ''));
+      if (idInp) idInp.value = ex.examSetId || '';
+      var setSel = document.getElementById('select-exam-assign-exam-set');
+      if (setSel && ex.examSetId) setSel.value = ex.examSetId;
+      setText('exam-assign-code-badge', ex.examCode || 'EXAM');
+      setText(
+        'exam-assign-heading',
+        ex.examSetId
+          ? 'Assignments & Accommodations: ' + (ex.title || ex.examCode || '')
+          : 'Assignments & Accommodations'
+      );
       setText('exam-assign-status-text', '');
 
       var crsSel = document.getElementById('select-exam-assign-course');
-      if (crsSel && examDto.courseId) crsSel.value = examDto.courseId;
+      if (crsSel && ex.courseId) crsSel.value = ex.courseId;
 
       var tbody = document.getElementById('admin-exam-assignments-tbody');
       if (tbody) {
         while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
-        var asgList = Array.isArray(examDto.assignments) ? examDto.assignments : [];
+        var asgList = Array.isArray(ex.assignments) ? ex.assignments : [];
         if (asgList.length === 0) {
           var trEmpty = document.createElement('tr');
           var tdEmpty = document.createElement('td');
           tdEmpty.colSpan = 6;
           tdEmpty.style.textAlign = 'center';
           tdEmpty.style.color = 'var(--color-text-muted)';
-          tdEmpty.textContent = 'No explicit assignment or accommodation records yet.';
+          tdEmpty.textContent = ex.examSetId
+            ? 'No explicit assignment or accommodation records yet.'
+            : 'Select an Examination / Mock Test above to view or create assignments.';
           trEmpty.appendChild(tdEmpty);
           tbody.appendChild(trEmpty);
         } else {
@@ -23170,6 +24151,49 @@ var qrcode = (function() {
           }
         }
       }
+    }
+
+    function openAdminExamAssignmentsFromHeaderPhase3() {
+      populateAdminExamBuilderCourseAndStudentDropdownsPhase3();
+      var ensureExams =
+        Array.isArray(currentAdminExamsListPhase3) && currentAdminExamsListPhase3.length > 0
+          ? Promise.resolve(currentAdminExamsListPhase3)
+          : rpcCallEnvelope('admin.exams.list', {})
+              .then(function (env) {
+                var list = (env && env.data && env.data.exams) || [];
+                currentAdminExamsListPhase3 = list;
+                return list;
+              })
+              .catch(function () {
+                return currentAdminExamsListPhase3 || [];
+              });
+
+      return ensureExams.then(function (list) {
+        var editingId =
+          ((document.getElementById('input-forms-exam-id') || {}).value || '').trim() ||
+          ((document.getElementById('input-exam-editor-id') || {}).value || '').trim() ||
+          ((document.getElementById('input-exam-assign-exam-id') || {}).value || '').trim();
+        populateAdminExamAssignSetSelectorPhase3(editingId);
+        var setSel = document.getElementById('select-exam-assign-exam-set');
+        var chosenId = (setSel && setSel.value) || editingId || '';
+        var chosenDto = null;
+        for (var i = 0; i < list.length; i++) {
+          if (list[i] && list[i].examSetId === chosenId) {
+            chosenDto = list[i];
+            break;
+          }
+        }
+        applyExamDtoToAssignmentsModalDomPhase3(chosenDto || list[0] || {});
+        if (typeof PBAdminActionModal === 'object' && PBAdminActionModal) {
+          PBAdminActionModal.open('admin-exam-assign-modal-card', 'Student Assignments & Time Accommodations');
+        }
+      });
+    }
+
+    function openAdminExamAssignmentsModalPhase3(examDto) {
+      populateAdminExamBuilderCourseAndStudentDropdownsPhase3();
+      populateAdminExamAssignSetSelectorPhase3((examDto && examDto.examSetId) || '');
+      applyExamDtoToAssignmentsModalDomPhase3(examDto || {});
 
       if (typeof PBAdminActionModal === 'object' && PBAdminActionModal) {
         PBAdminActionModal.open('admin-exam-assign-modal-card', 'Student Assignments & Time Accommodations');
@@ -23697,6 +24721,38 @@ var qrcode = (function() {
             card.appendChild(holdNote);
           }
 
+          var cardPdfParsed =
+            typeof extractExamPdfAttachmentsFromRichText === 'function'
+              ? extractExamPdfAttachmentsFromRichText(exam.instructionsRichText)
+              : { examPaperPdf: null, answerSheetPdf: null };
+          if (cardPdfParsed.examPaperPdf || cardPdfParsed.answerSheetPdf) {
+            var pdfStrip = document.createElement('div');
+            pdfStrip.className = 'pb-exam-card-pdf-strip';
+            if (cardPdfParsed.examPaperPdf) {
+              var paperChip = document.createElement('span');
+              paperChip.className = 'badge badge-ok';
+              paperChip.textContent = 'Exam Paper PDF';
+              pdfStrip.appendChild(paperChip);
+            }
+            if (cardPdfParsed.answerSheetPdf) {
+              var ansChip = document.createElement('span');
+              ansChip.className = 'badge';
+              ansChip.style.background = '#ECFEFF';
+              ansChip.style.color = '#0E7490';
+              ansChip.textContent = canStudentViewExamAnswerSheetPdf(cardPdfParsed.answerSheetPdf, {
+                isAdminPreview: isCurrentSessionAdminUser(),
+                hasSubmittedAttempt:
+                  (exam.attemptsUsed || 0) > 0 && !exam.canResumeAttempt,
+                explanationsReleased:
+                  Boolean(exam.canViewPublishedResult) || Boolean(exam.publishedScoreSummary)
+              })
+                ? 'Answer Sheet PDF Ready'
+                : 'Answer Sheet PDF Included';
+              pdfStrip.appendChild(ansChip);
+            }
+            card.appendChild(pdfStrip);
+          }
+
           // Footer Action Buttons
           var footerRow = document.createElement('div');
           footerRow.className = 'pb-exam-set-footer';
@@ -23752,6 +24808,24 @@ var qrcode = (function() {
           card.appendChild(footerRow);
           gridEl.appendChild(card);
         })(exams[i]);
+      }
+
+      if (typeof PBObjectUrlManager === 'object' && PBObjectUrlManager && typeof PBObjectUrlManager.prefetchFiles === 'function') {
+        var prefetchQueue = [];
+        for (var pfIdx = 0; pfIdx < exams.length; pfIdx++) {
+          var pfExam = exams[pfIdx];
+          if (!pfExam || !pfExam.instructionsRichText) continue;
+          var pfParsed = extractExamPdfAttachmentsFromRichText(pfExam.instructionsRichText);
+          if (pfParsed.examPaperPdf && pfParsed.examPaperPdf.fileId) {
+            prefetchQueue.push({
+              fileId: pfParsed.examPaperPdf.fileId,
+              courseId: pfExam.courseId || ''
+            });
+          }
+        }
+        if (prefetchQueue.length > 0) {
+          PBObjectUrlManager.prefetchFiles(prefetchQueue);
+        }
       }
     }
 
@@ -24056,8 +25130,23 @@ var qrcode = (function() {
 
         renderRichTextDocumentToDom(
           document.getElementById('exam-inst-richtext-body'),
-          ex.instructionsRichText || ex.descriptionRichText || 'Complete all questions carefully before submitting your responses.',
+          stripExamPdfMarkersFromRichText(
+            ex.instructionsRichText ||
+              ex.descriptionRichText ||
+              'Complete all questions carefully before submitting your responses.'
+          ),
           ex.courseId
+        );
+        renderStudentExamPdfResourcePanel(
+          document.getElementById('exam-inst-pdf-box'),
+          ex.instructionsRichText,
+          {
+            courseId: ex.courseId,
+            isAdminPreview: effectiveAdminPrev,
+            hasSubmittedAttempt: (ex.attemptsUsed || 0) > 0 && !ex.canResumeAttempt,
+            explanationsReleased:
+              Boolean(ex.canViewPublishedResult) || Boolean(ex.publishedScoreSummary)
+          }
         );
 
         var secTbody = document.getElementById('exam-inst-sections-tbody');
@@ -26189,6 +27278,10 @@ var qrcode = (function() {
       setText('pb-forms-status-badge', 'A-LEVEL 66 BIO FORMAT');
       var prog = document.getElementById('pb-forms-progress-banner');
       if (prog) prog.classList.add('hidden');
+      if (typeof setExamPdfEditorSlotState === 'function') {
+        setExamPdfEditorSlotState(FORMS_PAPER_PDF_CFG, '', '');
+        setExamPdfEditorSlotState(FORMS_ANSWER_PDF_CFG, '', '', 'AFTER_SUBMIT');
+      }
 
       ensureFormsWordToolbarMounted();
       formsBuilderQuestionCards = [createBlankFormsQuestionCardState()];
@@ -26235,7 +27328,34 @@ var qrcode = (function() {
       if (idEl) idEl.value = examDto.examSetId || '';
       if (verEl) verEl.value = String(examDto.version || 1);
       if (titleEl) titleEl.value = examDto.title || '';
-      if (descEl) descEl.value = examDto.descriptionPlainText || examDto.instructionsPlainText || '';
+      var parsedFmPdf =
+        typeof extractExamPdfAttachmentsFromRichText === 'function'
+          ? extractExamPdfAttachmentsFromRichText(examDto.instructionsRichText || examDto.descriptionRichText)
+          : { examPaperPdf: null, answerSheetPdf: null, plainText: '' };
+      if (descEl) {
+        descEl.value =
+          parsedFmPdf.plainText ||
+          examDto.descriptionPlainText ||
+          examDto.instructionsPlainText ||
+          '';
+      }
+      if (typeof setExamPdfEditorSlotState === 'function') {
+        if (parsedFmPdf.examPaperPdf) {
+          setExamPdfEditorSlotState(FORMS_PAPER_PDF_CFG, parsedFmPdf.examPaperPdf.fileId, parsedFmPdf.examPaperPdf.filename);
+        } else {
+          setExamPdfEditorSlotState(FORMS_PAPER_PDF_CFG, '', '');
+        }
+        if (parsedFmPdf.answerSheetPdf) {
+          setExamPdfEditorSlotState(
+            FORMS_ANSWER_PDF_CFG,
+            parsedFmPdf.answerSheetPdf.fileId,
+            parsedFmPdf.answerSheetPdf.filename,
+            parsedFmPdf.answerSheetPdf.policy || 'AFTER_SUBMIT'
+          );
+        } else {
+          setExamPdfEditorSlotState(FORMS_ANSWER_PDF_CFG, '', '', 'AFTER_SUBMIT');
+        }
+      }
       if (codeEl) codeEl.value = examDto.examCode || '';
       if (crsEl) crsEl.value = examDto.courseId || '';
       if (modeEl) modeEl.value = examDto.examMode || 'MOCK_EXAM';
@@ -26466,128 +27586,153 @@ var qrcode = (function() {
         }
       }
 
-      var chain = Promise.resolve();
       var totalCards = formsBuilderQuestionCards.length;
-
+      var dirtyQueue = [];
       for (var idx = 0; idx < totalCards; idx++) {
-        (function (card, cardIdx) {
-          chain = chain.then(function () {
-            if (card.questionId && !card.isDirty) {
-              return Promise.resolve();
-            }
+        if (!formsBuilderQuestionCards[idx].questionId || formsBuilderQuestionCards[idx].isDirty) {
+          dirtyQueue.push({ card: formsBuilderQuestionCards[idx], cardIdx: idx });
+        }
+      }
+      var totalDirty = dirtyQueue.length;
+      var completedDirty = 0;
+
+      function saveSingleFormsQuestionCard(card, cardIdx) {
+        var qCode = String(card.questionCode || '').trim().toUpperCase();
+        if (!qCode) {
+          qCode = (rawCode.slice(0, 26) + '-Q' + String(cardIdx + 1) + '-' + String(Date.now()).slice(-4)).slice(0, 46);
+        }
+        var qTitle = String(card.title || '').trim();
+        if (!qTitle) {
+          qTitle = String(card.stem || 'Question ' + (cardIdx + 1)).replace(/\s+/g, ' ').trim().slice(0, 120);
+        }
+
+        var optionsPayload = [];
+        if (
+          card.questionType === 'SINGLE_CHOICE' ||
+          card.questionType === 'COMPLEX_MULTIPLE_CHOICE' ||
+          card.questionType === 'MULTIPLE_SELECT' ||
+          card.questionType === 'TRUE_FALSE'
+        ) {
+          for (var oi = 0; oi < card.options.length; oi++) {
+            var o = card.options[oi];
+            var optDocObj = o.doc ? cloneRichTextDocSafe(o.doc) : plainTextToRichTextDocSafe(o.text || '');
+            var txt = extractPlainTextFromRichTextDoc(optDocObj).trim();
+            if (!txt) continue;
+            optionsPayload.push({
+              optionKey:
+                card.questionType === 'TRUE_FALSE'
+                  ? oi === 0
+                    ? 'TRUE'
+                    : 'FALSE'
+                  : card.questionType === 'COMPLEX_MULTIPLE_CHOICE'
+                  ? 'S' + (optionsPayload.length + 1)
+                  : String.fromCharCode(65 + optionsPayload.length),
+              text: txt,
+              contentRichText: card.questionType === 'TRUE_FALSE' ? txt : optDocObj,
+              isCorrect: Boolean(o.isCorrect),
+              pinPosition: card.questionType === 'COMPLEX_MULTIPLE_CHOICE' ? 'FIXED' : (o.pinPosition || 'NONE')
+            });
+          }
+        }
+
+        var imgIds = Array.isArray(card.imageFileIds) ? card.imageFileIds : [];
+        var altTxt = String(card.imageAltText || '').trim();
+        if (imgIds.length > 0 && !altTxt) {
+          altTxt = 'Biology diagram for ' + qCode;
+        }
+        var stemDocPayload = card.stemDoc ? cloneRichTextDocSafe(card.stemDoc) : plainTextToRichTextDocSafe(card.stem);
+        var expDocPayload = card.explanationDoc ? cloneRichTextDocSafe(card.explanationDoc) : plainTextToRichTextDocSafe(card.explanation || '');
+        var expFinalPayload = extractPlainTextFromRichTextDoc(expDocPayload).trim() ? expDocPayload : '';
+
+        var qPayload = {
+          questionId: card.questionId || '',
+          expectedVersion: card.expectedVersion ? Number(card.expectedVersion) : undefined,
+          questionCode: qCode,
+          title: qTitle,
+          questionType: card.questionType,
+          difficulty: card.difficulty || 'MEDIUM',
+          defaultPoints: String(card.points || (card.questionType === 'COMPLEX_MULTIPLE_CHOICE' ? '3.2' : '2.4')),
+          negativePoints: String(card.negativePoints || '0'),
+          topicTags: card.topicTags || getBlueprintSectionById(card.blueprintSection).title,
+          status: 'PUBLISHED',
+          stimulusId: '',
+          stemRichText: stemDocPayload,
+          imageFileId: imgIds.join(','),
+          imageFileIds: imgIds,
+          imageAltText: altTxt,
+          accessibleDesignFlag: 'STANDARD_ALT',
+          options: optionsPayload,
+          multiSelectScoringRule: card.multiSelectRule || 'EXACT_MATCH',
+          unitLabel: card.numericUnit || '',
+          numericSpec: {
+            matchMode: 'EXACT_WITH_TOLERANCE',
+            targetValue: String(card.numericTarget || '0'),
+            toleranceType: 'ABSOLUTE',
+            toleranceValue: String(card.numericTolerance || '0'),
+            roundingDecimals: '',
+            rangeMin: '',
+            rangeMax: ''
+          },
+          gradingMode:
+            card.questionType === 'WRITTEN_RESPONSE'
+              ? 'MANUAL'
+              : card.questionType === 'SHORT_ANSWER'
+              ? card.acceptedAnswers && card.acceptedAnswers.trim()
+                ? 'NORMALIZED_AUTO'
+                : 'MANUAL'
+              : 'AUTO',
+          maxLengthChars: 1500,
+          acceptedAnswers: card.acceptedAnswers || '',
+          sampleModelAnswer: card.sampleModelAnswer || '',
+          explanationRichText: expFinalPayload,
+          referenceText: '',
+          adminNotes: ''
+        };
+
+        return rpcCallEnvelope('admin.questions.save', qPayload, {
+          dedupeKey: 'admin.questions.save:' + (card.questionId || ('new_' + cardIdx + '_' + qCode))
+        }).then(function (env) {
+          var savedQ = env.data && env.data.question;
+          if (savedQ && savedQ.questionId) {
+            card.questionId = savedQ.questionId;
+            card.expectedVersion = savedQ.version || 1;
+            card.questionCode = savedQ.questionCode || qCode;
+            card.title = savedQ.title || qTitle;
+            card.isDirty = false;
+          }
+          completedDirty++;
+          if (totalDirty > 0) {
             setFormsBuilderProgressBanner(
               'info',
-              'Saving Questions (' + (cardIdx + 1) + ' of ' + totalCards + ')...',
-              'Saving Question ' + (cardIdx + 1) + ': ' + String(card.stem || '').slice(0, 70)
+              'Saving Questions (' + completedDirty + ' of ' + totalDirty + ')...',
+              'Saved Q' + (cardIdx + 1) + ': ' + String(card.stem || qTitle).slice(0, 65)
             );
-
-            var qCode = String(card.questionCode || '').trim().toUpperCase();
-            if (!qCode) {
-              qCode = (rawCode.slice(0, 26) + '-Q' + String(cardIdx + 1) + '-' + String(Date.now()).slice(-4)).slice(0, 46);
-            }
-            var qTitle = String(card.title || '').trim();
-            if (!qTitle) {
-              qTitle = String(card.stem || 'Question ' + (cardIdx + 1)).replace(/\s+/g, ' ').trim().slice(0, 120);
-            }
-
-            var optionsPayload = [];
-            if (
-              card.questionType === 'SINGLE_CHOICE' ||
-              card.questionType === 'COMPLEX_MULTIPLE_CHOICE' ||
-              card.questionType === 'MULTIPLE_SELECT' ||
-              card.questionType === 'TRUE_FALSE'
-            ) {
-              for (var oi = 0; oi < card.options.length; oi++) {
-                var o = card.options[oi];
-                var optDocObj = o.doc ? cloneRichTextDocSafe(o.doc) : plainTextToRichTextDocSafe(o.text || '');
-                var txt = extractPlainTextFromRichTextDoc(optDocObj).trim();
-                if (!txt) continue;
-                optionsPayload.push({
-                  optionKey:
-                    card.questionType === 'TRUE_FALSE'
-                      ? oi === 0
-                        ? 'TRUE'
-                        : 'FALSE'
-                      : card.questionType === 'COMPLEX_MULTIPLE_CHOICE'
-                      ? 'S' + (optionsPayload.length + 1)
-                      : String.fromCharCode(65 + optionsPayload.length),
-                  text: txt,
-                  contentRichText: card.questionType === 'TRUE_FALSE' ? txt : optDocObj,
-                  isCorrect: Boolean(o.isCorrect),
-                  pinPosition: card.questionType === 'COMPLEX_MULTIPLE_CHOICE' ? 'FIXED' : (o.pinPosition || 'NONE')
-                });
-              }
-            }
-
-            var imgIds = Array.isArray(card.imageFileIds) ? card.imageFileIds : [];
-            var altTxt = String(card.imageAltText || '').trim();
-            if (imgIds.length > 0 && !altTxt) {
-              altTxt = 'Biology diagram for ' + qCode;
-            }
-            var stemDocPayload = card.stemDoc ? cloneRichTextDocSafe(card.stemDoc) : plainTextToRichTextDocSafe(card.stem);
-            var expDocPayload = card.explanationDoc ? cloneRichTextDocSafe(card.explanationDoc) : plainTextToRichTextDocSafe(card.explanation || '');
-            var expFinalPayload = extractPlainTextFromRichTextDoc(expDocPayload).trim() ? expDocPayload : '';
-
-            var qPayload = {
-              questionId: card.questionId || '',
-              expectedVersion: card.expectedVersion ? Number(card.expectedVersion) : undefined,
-              questionCode: qCode,
-              title: qTitle,
-              questionType: card.questionType,
-              difficulty: card.difficulty || 'MEDIUM',
-              defaultPoints: String(card.points || (card.questionType === 'COMPLEX_MULTIPLE_CHOICE' ? '3.2' : '2.4')),
-              negativePoints: String(card.negativePoints || '0'),
-              topicTags: card.topicTags || getBlueprintSectionById(card.blueprintSection).title,
-              status: 'PUBLISHED',
-              stimulusId: '',
-              stemRichText: stemDocPayload,
-              imageFileId: imgIds.join(','),
-              imageFileIds: imgIds,
-              imageAltText: altTxt,
-              accessibleDesignFlag: 'STANDARD_ALT',
-              options: optionsPayload,
-              multiSelectScoringRule: card.multiSelectRule || 'EXACT_MATCH',
-              unitLabel: card.numericUnit || '',
-              numericSpec: {
-                matchMode: 'EXACT_WITH_TOLERANCE',
-                targetValue: String(card.numericTarget || '0'),
-                toleranceType: 'ABSOLUTE',
-                toleranceValue: String(card.numericTolerance || '0'),
-                roundingDecimals: '',
-                rangeMin: '',
-                rangeMax: ''
-              },
-              gradingMode:
-                card.questionType === 'WRITTEN_RESPONSE'
-                  ? 'MANUAL'
-                  : card.questionType === 'SHORT_ANSWER'
-                  ? card.acceptedAnswers && card.acceptedAnswers.trim()
-                    ? 'NORMALIZED_AUTO'
-                    : 'MANUAL'
-                  : 'AUTO',
-              maxLengthChars: 1500,
-              acceptedAnswers: card.acceptedAnswers || '',
-              sampleModelAnswer: card.sampleModelAnswer || '',
-              explanationRichText: expFinalPayload,
-              referenceText: '',
-              adminNotes: ''
-            };
-
-            return rpcCallEnvelope('admin.questions.save', qPayload).then(function (env) {
-              var savedQ = env.data && env.data.question;
-              if (savedQ && savedQ.questionId) {
-                card.questionId = savedQ.questionId;
-                card.expectedVersion = savedQ.version || 1;
-                card.questionCode = savedQ.questionCode || qCode;
-                card.title = savedQ.title || qTitle;
-                card.isDirty = false;
-              }
-            });
-          });
-        })(formsBuilderQuestionCards[idx], idx);
+          }
+        });
       }
 
-      return chain.then(function () {
+      var savePromise = Promise.resolve();
+      if (totalDirty > 0) {
+        setFormsBuilderProgressBanner(
+          'info',
+          'Saving ' + totalDirty + ' Updated Question(s) in Parallel...',
+          'Using concurrent request workers for faster Mock Test saving...'
+        );
+        var nextCursor = 0;
+        var workerCount = Math.min(3, totalDirty);
+        var workers = [];
+        function runWorker() {
+          if (nextCursor >= totalDirty) return Promise.resolve();
+          var job = dirtyQueue[nextCursor++];
+          return saveSingleFormsQuestionCard(job.card, job.cardIdx).then(runWorker);
+        }
+        for (var w = 0; w < workerCount; w++) {
+          workers.push(runWorker());
+        }
+        savePromise = Promise.all(workers);
+      }
+
+      return savePromise.then(function () {
         invalidateQBankClientCachePhase2();
         var itemsBySectionId = {};
         for (var i = 0; i < formsBuilderQuestionCards.length; i++) {
@@ -26656,7 +27801,11 @@ var qrcode = (function() {
             examMode === 'PRACTICE' && Boolean((document.getElementById('chk-forms-practice-feedback') || {}).checked),
           copyPolicyEnabled: Boolean((document.getElementById('chk-forms-copy-policy') || { checked: true }).checked),
           descriptionRichText: descTxt,
-          instructionsRichText: descTxt,
+          instructionsRichText: composeExamInstructionsRichTextWithPdfs(
+            descTxt,
+            readExamPdfEditorSlotState(FORMS_PAPER_PDF_CFG),
+            readExamPdfEditorSlotState(FORMS_ANSWER_PDF_CFG)
+          ),
           sections: builtSections
         };
       });
@@ -26745,6 +27894,10 @@ var qrcode = (function() {
 
     function initGoogleFormsExamStudioBindings() {
       ensureFormsWordToolbarMounted();
+      bindAdminExamPdfSlotControls(FORMS_PAPER_PDF_CFG);
+      bindAdminExamPdfSlotControls(FORMS_ANSWER_PDF_CFG);
+      bindAdminExamPdfSlotControls(EDITOR_PAPER_PDF_CFG);
+      bindAdminExamPdfSlotControls(EDITOR_ANSWER_PDF_CFG);
 
       var applyAlevelBtn = document.getElementById('btn-forms-apply-alevel66');
       if (applyAlevelBtn && !(applyAlevelBtn.dataset && applyAlevelBtn.dataset.boundAlevel)) {
@@ -27114,7 +28267,11 @@ var qrcode = (function() {
           allowPerQuestionPracticeFeedback: Boolean((document.getElementById('chk-exam-editor-practice-feedback') || {}).checked),
           copyPolicyEnabled: Boolean((document.getElementById('chk-exam-editor-copy-policy') || { checked: true }).checked),
           descriptionRichText: (document.getElementById('textarea-exam-editor-description') || {}).value || '',
-          instructionsRichText: (document.getElementById('textarea-exam-editor-instructions') || {}).value || '',
+          instructionsRichText: composeExamInstructionsRichTextWithPdfs(
+            (document.getElementById('textarea-exam-editor-instructions') || {}).value || '',
+            readExamPdfEditorSlotState(EDITOR_PAPER_PDF_CFG),
+            readExamPdfEditorSlotState(EDITOR_ANSWER_PDF_CFG)
+          ),
           sections: [
             {
               title: (document.getElementById('input-exam-sec1-title') || {}).value || 'Part I',
@@ -27178,12 +28335,36 @@ var qrcode = (function() {
         });
       }
 
+      var assignExamSel = document.getElementById('select-exam-assign-exam-set');
+      if (assignExamSel && !(assignExamSel.dataset && assignExamSel.dataset.boundChange)) {
+        if (assignExamSel.dataset) assignExamSel.dataset.boundChange = '1';
+        assignExamSel.addEventListener('change', function () {
+          var chosenId = String(assignExamSel.value || '').trim();
+          var list = Array.isArray(currentAdminExamsListPhase3) ? currentAdminExamsListPhase3 : [];
+          var matched = null;
+          for (var i = 0; i < list.length; i++) {
+            if (list[i] && list[i].examSetId === chosenId) {
+              matched = list[i];
+              break;
+            }
+          }
+          applyExamDtoToAssignmentsModalDomPhase3(matched || { examSetId: chosenId });
+        });
+      }
+
       var assignForm = document.getElementById('form-admin-exam-assign');
       if (assignForm) {
         assignForm.addEventListener('submit', function (evt) {
           evt.preventDefault();
+          var targetExamId =
+            ((document.getElementById('input-exam-assign-exam-id') || {}).value || '').trim() ||
+            ((document.getElementById('select-exam-assign-exam-set') || {}).value || '').trim();
+          if (!targetExamId) {
+            setText('exam-assign-status-text', 'Please select a Target Examination / Mock Test first.');
+            return;
+          }
           var payload = {
-            examSetId: (document.getElementById('input-exam-assign-exam-id') || {}).value || '',
+            examSetId: targetExamId,
             targetType: (document.getElementById('select-exam-assign-target-type') || {}).value || 'STUDENT',
             assignmentStatus: (document.getElementById('select-exam-assign-status') || {}).value || 'ASSIGNED',
             courseId: (document.getElementById('select-exam-assign-course') || {}).value || '',
@@ -27931,6 +29112,52 @@ var qrcode = (function() {
         exitCourseBtn.textContent = isAdmPrevWs
           ? 'Exit Preview to Exam Studio'
           : 'Exit to Course';
+      }
+
+      var wsPdfParsed =
+        typeof extractExamPdfAttachmentsFromRichText === 'function'
+          ? extractExamPdfAttachmentsFromRichText(snap.exam.instructionsRichText || snap.exam.descriptionRichText)
+          : { examPaperPdf: null, answerSheetPdf: null };
+      var wsPaperBtn = document.getElementById('btn-exam-ws-paper-pdf');
+      if (wsPaperBtn) {
+        if (wsPdfParsed.examPaperPdf && wsPdfParsed.examPaperPdf.fileId) {
+          wsPaperBtn.classList.remove('hidden');
+          wsPaperBtn.onclick = function () {
+            openOrDownloadExamPdfWithNotice(
+              wsPaperBtn,
+              wsPdfParsed.examPaperPdf.fileId,
+              snap.attempt.courseId || snap.exam.courseId || '',
+              true,
+              'Exam Paper (PDF)'
+            );
+          };
+        } else {
+          wsPaperBtn.classList.add('hidden');
+          wsPaperBtn.onclick = null;
+        }
+      }
+      var wsAnswerBtn = document.getElementById('btn-exam-ws-answer-pdf');
+      if (wsAnswerBtn) {
+        var canShowWsAns = canStudentViewExamAnswerSheetPdf(wsPdfParsed.answerSheetPdf, {
+          isAdminPreview: isAdmPrevWs,
+          hasSubmittedAttempt: false,
+          explanationsReleased: false
+        });
+        if (canShowWsAns && wsPdfParsed.answerSheetPdf && wsPdfParsed.answerSheetPdf.fileId) {
+          wsAnswerBtn.classList.remove('hidden');
+          wsAnswerBtn.onclick = function () {
+            openOrDownloadExamPdfWithNotice(
+              wsAnswerBtn,
+              wsPdfParsed.answerSheetPdf.fileId,
+              snap.attempt.courseId || snap.exam.courseId || '',
+              true,
+              'Answer Sheet (PDF)'
+            );
+          };
+        } else {
+          wsAnswerBtn.classList.add('hidden');
+          wsAnswerBtn.onclick = null;
+        }
       }
       if (typeof window.PBExamIntegrityGuard === 'object' && window.PBExamIntegrityGuard) {
         window.PBExamIntegrityGuard.attachToWorkspaceBundle(workspaceBundle);
@@ -28923,6 +30150,28 @@ var qrcode = (function() {
           var d = env.data || {};
           setText('exam-result-title', (d.examTitle || 'Examination') + ' — Result Summary');
           setText('exam-result-policy-text', d.releasePolicyNotice || '');
+
+          var resInstSource = d.instructionsRichText || null;
+          var resCourseId = d.courseId || currentStudentCourseId || '';
+          if (!resInstSource && Array.isArray(currentStudentCourseExamsCatalogPhase3)) {
+            for (var rci = 0; rci < currentStudentCourseExamsCatalogPhase3.length; rci++) {
+              if (currentStudentCourseExamsCatalogPhase3[rci] && currentStudentCourseExamsCatalogPhase3[rci].examSetId === d.examSetId) {
+                resInstSource = currentStudentCourseExamsCatalogPhase3[rci].instructionsRichText || null;
+                if (!resCourseId) resCourseId = currentStudentCourseExamsCatalogPhase3[rci].courseId || '';
+                break;
+              }
+            }
+          }
+          renderStudentExamPdfResourcePanel(
+            document.getElementById('exam-result-pdf-box'),
+            resInstSource,
+            {
+              courseId: resCourseId,
+              isAdminPreview: isCurrentSessionAdminUser(),
+              hasSubmittedAttempt: true,
+              explanationsReleased: Boolean(d.explanationsReleased)
+            }
+          );
 
           var regNotice = document.getElementById('exam-result-regrade-notice');
           if (regNotice) {
@@ -30555,6 +31804,9 @@ var qrcode = (function() {
           } else if (activeModalId === 'modal-admin-receipt-viewer') {
             evt.preventDefault();
             closeAdminFullSizeReceiptModalStep12();
+          } else if (activeModalId === 'modal-pb-pdf-viewer') {
+            evt.preventDefault();
+            closeInAppPdfViewerModal();
           } else if (activeModalId === 'modal-student-exam-instructions') {
             evt.preventDefault();
             closeStudentExamInstructionsModalPhase3();
@@ -31344,7 +32596,16 @@ var qrcode = (function() {
       var openInvoiceModalBtn = document.getElementById('btn-admin-open-invoice-modal');
       if (openInvoiceModalBtn) {
         openInvoiceModalBtn.addEventListener('click', function () {
+          setText('admin-create-invoice-status', '');
+          var stuSel = document.getElementById('select-admin-invoice-student');
+          if (stuSel && stuSel.options && stuSel.options.length <= 1 && typeof loadAdminInvoicesStep10 === 'function') {
+            loadAdminInvoicesStep10();
+          }
           PBAdminActionModal.open('form-admin-create-invoice', 'Create Unpaid Student Invoice');
+          setTimeout(function () {
+            var sEl = document.getElementById('select-admin-invoice-student');
+            if (sEl && typeof sEl.focus === 'function') sEl.focus();
+          }, 40);
         });
       }
 
@@ -33589,6 +34850,20 @@ var qrcode = (function() {
       if (btnCloseRecModalFooter) {
         btnCloseRecModalFooter.addEventListener('click', function () {
           closeAdminFullSizeReceiptModalStep12();
+        });
+      }
+      var btnClosePbPdfViewer = document.getElementById('btn-pb-pdf-viewer-close');
+      if (btnClosePbPdfViewer) {
+        btnClosePbPdfViewer.addEventListener('click', function () {
+          closeInAppPdfViewerModal();
+        });
+      }
+      var modalPbPdfViewerBackdrop = document.getElementById('modal-pb-pdf-viewer');
+      if (modalPbPdfViewerBackdrop) {
+        modalPbPdfViewerBackdrop.addEventListener('click', function (evt) {
+          if (evt && evt.target === modalPbPdfViewerBackdrop) {
+            closeInAppPdfViewerModal();
+          }
         });
       }
       bindActionButton('btn-admin-receipt-open-new-tab', function () {

@@ -10375,7 +10375,9 @@
   }
 
   #view-admin .pb-admin-modal-target:not(.is-modal-open),
-  #view-admin .pb-admin-modal-card:not(.is-modal-open) {
+  #view-admin .pb-admin-modal-card:not(.is-modal-open),
+  #view-payments .pb-admin-modal-target:not(.is-modal-open),
+  #view-payments .pb-admin-modal-card:not(.is-modal-open) {
     display: none !important;
   }
 
@@ -10385,7 +10387,8 @@
     transition: all 0.16s ease;
   }
 
-  #view-admin .pb-admin-modal-target.is-modal-open {
+  #view-admin .pb-admin-modal-target.is-modal-open,
+  #view-payments .pb-admin-modal-target.is-modal-open {
     display: block !important;
     position: fixed !important;
     top: 50% !important;
@@ -10551,7 +10554,8 @@
     }
 
     /* Modal cards on mobile: sleek bottom/center sheet */
-    #view-admin .pb-admin-modal-target.is-modal-open {
+    #view-admin .pb-admin-modal-target.is-modal-open,
+    #view-payments .pb-admin-modal-target.is-modal-open {
       width: calc(100vw - 16px) !important;
       max-height: 88dvh !important;
       padding: 0 16px 20px 16px !important;
@@ -11875,31 +11879,35 @@
     /* Keep 3 summary metrics in a compact 1-row 3-column strip on mobile */
     #view-calendar #calendar-controls-overview-card .status-grid {
       display: grid !important;
-      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-      gap: 6px !important;
-      margin-bottom: 8px !important;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 8px !important;
+      margin-bottom: 10px !important;
+    }
+
+    #view-calendar #calendar-controls-overview-card .status-grid .status-item:first-child {
+      grid-column: 1 / -1 !important;
     }
 
     #view-calendar #calendar-controls-overview-card .status-grid .status-item {
-      padding: 6px 7px !important;
+      padding: 8px 10px !important;
       border-radius: 10px !important;
       min-width: 0 !important;
     }
 
     #view-calendar #calendar-controls-overview-card .status-grid .status-label {
-      font-size: 0.6rem !important;
-      line-height: 1.15 !important;
-      white-space: nowrap !important;
-      overflow: hidden !important;
-      text-overflow: ellipsis !important;
+      font-size: 0.68rem !important;
+      line-height: 1.25 !important;
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
     }
 
     #view-calendar #calendar-controls-overview-card .status-grid .status-value {
-      font-size: 0.76rem !important;
-      line-height: 1.2 !important;
-      white-space: nowrap !important;
-      overflow: hidden !important;
-      text-overflow: ellipsis !important;
+      font-size: 0.86rem !important;
+      line-height: 1.25 !important;
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
     }
 
     #view-calendar #calendar-summary-range-dates,
@@ -11907,12 +11915,12 @@
       display: none !important;
     }
 
-    /* Compact single-row Month/Year jump bar (Prev/Today/Next are already in the Google Calendar bar below) */
+    /* Compact responsive Month/Year jump bar (Prev/Today/Next are in the calendar bar below) */
     #view-calendar .calendar-controls-toolbar {
-      padding: 6px 8px !important;
-      gap: 6px !important;
+      padding: 8px 10px !important;
+      gap: 8px !important;
       margin-bottom: 0 !important;
-      border-radius: 10px !important;
+      border-radius: 12px !important;
     }
 
     #view-calendar .calendar-controls-toolbar > div:first-child {
@@ -11921,11 +11929,11 @@
 
     #view-calendar #form-calendar-month-selector {
       width: 100% !important;
-      display: flex !important;
-      flex-wrap: nowrap !important;
+      display: grid !important;
+      grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.9fr) !important;
       align-items: center !important;
-      justify-content: space-between !important;
-      gap: 4px !important;
+      gap: 8px !important;
+      box-sizing: border-box !important;
     }
 
     #view-calendar #form-calendar-month-selector label {
@@ -11934,19 +11942,25 @@
 
     #view-calendar #select-calendar-month,
     #view-calendar #select-calendar-year {
-      flex: 1 1 0 !important;
+      width: 100% !important;
       min-width: 0 !important;
-      padding: 4px 6px !important;
-      font-size: 0.76rem !important;
-      height: 30px !important;
+      max-width: 100% !important;
+      padding: 6px 10px !important;
+      font-size: 0.84rem !important;
+      height: 36px !important;
+      flex: none !important;
     }
 
     #view-calendar #btn-calendar-load-month {
-      flex: 0 0 auto !important;
-      padding: 4px 10px !important;
-      font-size: 0.74rem !important;
-      height: 30px !important;
-      min-height: 30px !important;
+      grid-column: 1 / -1 !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      max-width: 100% !important;
+      padding: 7px 12px !important;
+      font-size: 0.82rem !important;
+      height: 36px !important;
+      min-height: 36px !important;
+      flex: none !important;
     }
 
     /* Compact Admin Calendar Preview Bar on Mobile */
@@ -12988,7 +13002,8 @@
     border: 1.5px solid #E2E8F0;
   }
 
-  #view-admin .pb-admin-modal-card.is-modal-open {
+  #view-admin .pb-admin-modal-card.is-modal-open,
+  #view-payments .pb-admin-modal-card.is-modal-open {
     display: block !important;
     position: fixed !important;
     top: 50% !important;
@@ -17974,6 +17989,269 @@
     #admin-panel-users #form-admin-users-filter > div:first-child,
     #admin-panel-users #form-admin-users-filter > div:last-child {
       flex: 1 1 100% !important;
+    }
+  }
+
+  /* ==========================================================================
+     STUDENT UX POLISH, MOCK TEST PDF ATTACHMENTS & FLOATING TOC CLEARANCE
+     ========================================================================== */
+  .pb-field-hint {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.76rem;
+    line-height: 1.38;
+    color: var(--color-text-muted);
+  }
+
+  /* Hide Floating Contents dock during active exam taking & give pages safe bottom scroll room */
+  body[data-active-view="examWorkspace"] #pb-floating-toc-dock {
+    display: none !important;
+  }
+
+  #view-calendar,
+  #view-course-detail,
+  #view-payments,
+  #view-admin {
+    padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Prevent half-blank row when only 1 exam card exists in Mock Tests / Quizzes */
+  .pb-exam-catalog-grid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
+  }
+
+  /* Symmetric alignment on Report Absence modal date fields */
+  #form-report-unavailability .form-grid-2col {
+    align-items: start;
+  }
+
+  /* Admin Mock Test PDF Paper & Answer Sheet attachment widgets */
+  .pb-exam-pdf-attach-card {
+    margin: 14px 0 6px 0;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #F8FAFC 0%, #F0FDFA 100%);
+    border: 1px solid rgba(13, 148, 136, 0.24);
+  }
+
+  .pb-exam-pdf-attach-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .pb-exam-pdf-slot {
+    padding: 12px;
+    background: #FFFFFF;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .pb-exam-pdf-slot-title {
+    font-size: 0.84rem;
+    font-weight: 800;
+    color: var(--color-brand-deep);
+  }
+
+  .pb-exam-pdf-file-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .pb-exam-pdf-file-input {
+    flex: 1 1 170px;
+    min-width: 0;
+    font-size: 0.8rem;
+    padding: 6px 8px;
+  }
+
+  .pb-exam-pdf-status-text {
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--color-text-secondary);
+    word-break: break-word;
+  }
+
+  .pb-exam-pdf-status-text.is-attached {
+    color: #0F766E;
+    font-weight: 600;
+  }
+
+  .pb-exam-pdf-slot-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* Student-facing Exam Paper & Answer Sheet PDF Resource Panel */
+  .pb-student-pdf-resources-box {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #F0FDFA 0%, #ECFEFF 100%);
+    border: 1px solid rgba(13, 148, 136, 0.28);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .pb-student-pdf-resources-head {
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--color-brand-deep);
+  }
+
+  .pb-student-pdf-resources-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .pb-pdf-lock-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #475569;
+    background: #F1F5F9;
+    border: 1px solid #CBD5E1;
+  }
+
+  .pb-exam-card-pdf-strip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+  }
+
+  @media (max-width: 767px) {
+    /* Mobile empty-state table cell alignment so text isn't hidden past horizontal scroll fold */
+    .table-responsive td[colspan],
+    .pb-scores-table-wrap td[colspan] {
+      text-align: left !important;
+      padding: 14px 12px !important;
+      white-space: normal !important;
+    }
+
+    /* Stack Report Absence modal date inputs cleanly on small phones */
+    #form-report-unavailability .form-grid-2col {
+      grid-template-columns: 1fr !important;
+      gap: 10px !important;
+    }
+
+    #modal-student-exam-instructions .pb-exam-inst-popup-header {
+      padding: 12px 14px !important;
+    }
+
+    #modal-student-exam-instructions .pb-exam-inst-body {
+      padding: 12px 14px !important;
+    }
+
+    #modal-student-exam-instructions .pb-exam-inst-footer {
+      padding: 10px 14px !important;
+      gap: 8px !important;
+    }
+
+    #modal-student-exam-instructions .pb-exam-inst-footer-actions {
+      width: 100%;
+      justify-content: stretch !important;
+    }
+
+    #modal-student-exam-instructions .pb-exam-inst-footer-actions .btn {
+      flex: 1 1 auto;
+    }
+  }
+
+  /* In-App PDF Viewer Modal */
+  .pb-pdf-viewer-backdrop {
+    z-index: 10750 !important;
+  }
+
+  .pb-pdf-viewer-dialog {
+    max-width: 960px !important;
+    width: min(96vw, 960px) !important;
+    padding: 18px 20px !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .pb-pdf-viewer-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .pb-pdf-viewer-title-wrap {
+    flex: 1 1 240px;
+    min-width: 0;
+  }
+
+  .pb-pdf-viewer-title {
+    margin: 6px 0 2px 0;
+    font-size: 1.08rem;
+    font-weight: 800;
+    color: var(--color-brand-deep);
+    overflow-wrap: anywhere;
+  }
+
+  .pb-pdf-viewer-meta {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+  }
+
+  .pb-pdf-viewer-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+
+  .pb-pdf-viewer-frame {
+    width: 100%;
+    height: min(68dvh, 640px);
+    min-height: 360px;
+    border: 1px solid #CBD5E1;
+    border-radius: 12px;
+    background: #F8FAFC;
+  }
+
+  @media (max-width: 640px) {
+    .pb-pdf-viewer-dialog {
+      padding: 14px !important;
+      width: 100% !important;
+    }
+
+    .pb-pdf-viewer-header-actions {
+      width: 100%;
+    }
+
+    .pb-pdf-viewer-header-actions .btn,
+    .pb-pdf-viewer-header-actions a.btn {
+      flex: 1 1 auto;
+      text-align: center;
+    }
+
+    .pb-pdf-viewer-frame {
+      min-height: 260px;
+      height: 55dvh;
     }
   }
 

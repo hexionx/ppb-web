@@ -14545,8 +14545,13 @@ function handleStudentGetPublishedResultPhase7_(payload, context) {
       attemptId: targetAttempt.attempt_id,
       attemptNumber: Number(targetAttempt.attempt_number) || 1,
       examSetId: exRow.exam_set_id,
+      courseId: exRow.course_id || '',
       examCode: exRow.exam_code,
       examTitle: exRow.title,
+      instructionsRichText:
+        typeof parseStoredRichTextJsonSafe_ === 'function'
+          ? parseStoredRichTextJsonSafe_(exRow.instructions_richtext_json)
+          : exRow.instructions_richtext_json || '',
       gradingStatus: targetAttempt.grading_status,
       publicationStatus: releaseState.effectivePublicationStatus,
       explanationStatus: releaseState.effectiveExplanationStatus,
@@ -14737,8 +14742,13 @@ function handleStudentGetPublishedResultPhase7_(payload, context) {
     attemptId: targetAttempt.attempt_id,
     attemptNumber: Number(targetAttempt.attempt_number) || 1,
     examSetId: exRow.exam_set_id,
+    courseId: exRow.course_id || '',
     examCode: exRow.exam_code,
     examTitle: exRow.title,
+    instructionsRichText:
+      typeof parseStoredRichTextJsonSafe_ === 'function'
+        ? parseStoredRichTextJsonSafe_(exRow.instructions_richtext_json)
+        : exRow.instructions_richtext_json || '',
     gradingStatus: targetAttempt.grading_status,
     publicationStatus: releaseState.effectivePublicationStatus,
     explanationStatus: releaseState.effectiveExplanationStatus,

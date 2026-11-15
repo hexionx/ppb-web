@@ -1431,8 +1431,8 @@
       </div>
     </div>
 
-    <div class="form-grid-2col" style="margin-top: 12px; gap: 14px;">
-      <div class="pb-course-overview-panel">
+    <div class="form-grid-2col pb-course-objectives-outcomes-grid" id="student-course-objectives-outcomes-grid" style="margin-top: 12px; gap: 14px;">
+      <div class="pb-course-overview-panel" id="student-course-objectives-panel">
         <div class="pb-course-overview-panel-head">
           <span class="pb-course-overview-panel-icon" aria-hidden="true">
             <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
@@ -1441,7 +1441,7 @@
         </div>
         <div id="student-course-objectives-box" class="pb-rt-rendered" style="margin-top: 6px;"></div>
       </div>
-      <div class="pb-course-overview-panel">
+      <div class="pb-course-overview-panel" id="student-course-outcomes-panel">
         <div class="pb-course-overview-panel-head">
           <span class="pb-course-overview-panel-icon" aria-hidden="true">
             <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
@@ -1452,8 +1452,12 @@
       </div>
     </div>
 
+    <div id="student-course-objectives-empty-note" class="hidden" style="margin-top: 10px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-bg-subtle); font-size: 0.85rem; color: var(--color-text-secondary);">
+      Course syllabus objectives and learning outcomes will appear here once published by your instructor.
+    </div>
+
     <p style="margin: 12px 0 0 0; font-size: 0.86rem; color: var(--color-text-secondary);">
-      <strong>Assessment Policy Note:</strong> Linked assessments below open external quiz/worksheet resources configured by your instructor. Official scores published by your instructor for your account appear in the <strong>My Published Assessment Scores</strong> panel below.
+      <strong>Assessment Policy:</strong> Complete Practice Quizzes and Timed Mock Tests directly in the catalog below, download attached PDF Exam Papers &amp; released Answer Sheets, and review official grades in <strong>My Published Assessment Scores</strong>.
     </p>
   </div>
 
@@ -1642,6 +1646,12 @@
           aria-controls="exam-ws-navigator-panel"
         >
           Answer Sheet
+        </button>
+        <button type="button" class="btn btn-outline btn-sm hidden" id="btn-exam-ws-paper-pdf" title="Open attached Mock Test Exam Paper PDF">
+          Exam Paper (PDF)
+        </button>
+        <button type="button" class="btn btn-outline btn-sm hidden" id="btn-exam-ws-answer-pdf" title="Open attached Mock Test Answer Sheet PDF">
+          Answer Sheet (PDF)
         </button>
         <button type="button" class="btn btn-outline btn-sm" id="btn-exam-ws-flush-save">
           Save Now
@@ -2617,82 +2627,6 @@
         </div>
       </div>
 
-      <!-- Create Unpaid Invoice Form (Opens in Modal via PBAdminActionModal) -->
-      <form
-        id="form-admin-create-invoice"
-        class="pb-admin-modal-target"
-        novalidate
-        style="padding: 16px; background: var(--color-bg-subtle); border: 1px solid var(--color-brand-border); border-radius: var(--radius-md); margin-bottom: 18px;"
-      >
-        <h3 style="margin: 0 0 12px 0; font-size: 1.1rem; color: var(--color-brand-deep);">
-          Assign Unpaid Student Invoice
-        </h3>
-
-        <div class="form-grid-2col">
-          <div class="form-group">
-            <label class="form-label" for="select-admin-invoice-student">Student Account *</label>
-            <select class="form-input" id="select-admin-invoice-student" required>
-              <option value="">-- Select a Student --</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="select-admin-invoice-course">Associated Course (Optional)</label>
-            <select class="form-input" id="select-admin-invoice-course">
-              <option value="">-- General Tuition / No Specific Course --</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="input-admin-invoice-label">Installment Label *</label>
-            <input
-              type="text"
-              class="form-input"
-              id="input-admin-invoice-label"
-              placeholder="e.g. Term 1 — Installment 1 of 2"
-              maxlength="160"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="input-admin-invoice-amount-thb">Amount (THB) *</label>
-            <input
-              type="text"
-              class="form-input"
-              id="input-admin-invoice-amount-thb"
-              placeholder="e.g. 3500.00"
-              maxlength="20"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="input-admin-invoice-due-date">Due Date *</label>
-            <input
-              type="date"
-              class="form-input"
-              id="input-admin-invoice-due-date"
-              value="2026-11-30"
-              required
-            />
-          </div>
-        </div>
-
-        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px;">
-          <button type="submit" class="btn btn-primary" id="btn-admin-create-invoice-submit">
-            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            <span>Create Invoice</span>
-          </button>
-          <span
-            id="admin-create-invoice-status"
-            role="status"
-            aria-live="polite"
-            style="font-size: 0.9rem; font-weight: 600; color: var(--color-brand-medium);"
-          ></span>
-        </div>
-      </form>
-
       <!-- Invoice History Table -->
       <div class="table-responsive" aria-live="polite">
         <table class="data-table" aria-label="Administrator Invoice History">
@@ -2716,6 +2650,82 @@
         </table>
       </div>
     </div>
+
+    <!-- Create Unpaid Invoice Form (Direct child of #admin-panel-invoices so PBAdminActionModal works on any Billing subtab) -->
+    <form
+      id="form-admin-create-invoice"
+      class="pb-admin-modal-target"
+      novalidate
+      style="padding: 16px; background: var(--color-bg-subtle); border: 1px solid var(--color-brand-border); border-radius: var(--radius-md); margin-bottom: 18px;"
+    >
+      <h3 style="margin: 0 0 12px 0; font-size: 1.1rem; color: var(--color-brand-deep);">
+        Assign Unpaid Student Invoice
+      </h3>
+
+      <div class="form-grid-2col">
+        <div class="form-group">
+          <label class="form-label" for="select-admin-invoice-student">Student Account *</label>
+          <select class="form-input" id="select-admin-invoice-student" required>
+            <option value="">-- Select a Student --</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="select-admin-invoice-course">Associated Course (Optional)</label>
+          <select class="form-input" id="select-admin-invoice-course">
+            <option value="">-- General Tuition / No Specific Course --</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="input-admin-invoice-label">Installment Label *</label>
+          <input
+            type="text"
+            class="form-input"
+            id="input-admin-invoice-label"
+            placeholder="e.g. Term 1 — Installment 1 of 2"
+            maxlength="160"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="input-admin-invoice-amount-thb">Amount (THB) *</label>
+          <input
+            type="text"
+            class="form-input"
+            id="input-admin-invoice-amount-thb"
+            placeholder="e.g. 3500.00"
+            maxlength="20"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="input-admin-invoice-due-date">Due Date *</label>
+          <input
+            type="date"
+            class="form-input"
+            id="input-admin-invoice-due-date"
+            value="2026-11-30"
+            required
+          />
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px;">
+        <button type="submit" class="btn btn-primary" id="btn-admin-create-invoice-submit">
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>Create Invoice</span>
+        </button>
+        <span
+          id="admin-create-invoice-status"
+          role="status"
+          aria-live="polite"
+          style="font-size: 0.9rem; font-weight: 600; color: var(--color-brand-medium);"
+        ></span>
+      </div>
+    </form>
 
     <!-- Hidden Maintenance Card (Preserved for DOM compatibility) -->
     <div class="card hidden pb-public-launch-hidden" id="admin-payment-maintenance-card" style="display: none !important;" aria-hidden="true">
@@ -3842,7 +3852,7 @@
     <div class="status-grid" style="margin-bottom: 16px;">
       <div class="status-item">
         <div class="status-label">Displayed Month (Asia/Bangkok)</div>
-        <div class="status-value" id="calendar-summary-month-label">Loading...</div>
+        <div class="status-value" id="calendar-summary-month-label">Current Month</div>
         <div
           id="calendar-summary-range-dates"
           style="font-size: 0.78rem; color: var(--color-text-secondary); margin-top: 2px;"
@@ -4569,13 +4579,15 @@
   </div>
 </section>
 
+<!-- Shared Action Modal Backdrop (Usable by both Billing Studio in #view-payments & Admin Dashboard in #view-admin) -->
+<div id="pb-admin-action-modal-backdrop" class="pb-admin-action-modal-backdrop hidden" aria-hidden="true"></div>
+
 <!-- 8. Admin Dashboard View (#view-admin — Visible & Authorized ONLY for ADMIN Role) -->
 <section
   id="view-admin"
   class="hidden"
   aria-labelledby="admin-view-heading"
 >
-    <div id="pb-admin-action-modal-backdrop" class="pb-admin-action-modal-backdrop hidden" aria-hidden="true"></div>
   <div class="card" id="admin-header-overview-card">
     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
       <div class="portal-header-brand-row">
@@ -7834,6 +7846,59 @@
         <!-- Word-Style Shared Formatting Dock for Question Prompt & Choices -->
         <div id="pb-forms-word-toolbar-dock" class="pb-word-toolbar-dock" aria-label="Word-Style Question & Answer Formatting Toolbar"></div>
 
+        <!-- Mock Test Exam Paper & Answer Sheet PDF Attachments Panel -->
+        <div class="pb-exam-pdf-attach-card" id="pb-forms-pdf-attachments-card">
+          <div class="pb-exam-pdf-attach-header">
+            <div>
+              <span class="badge badge-ok">MOCK TEST PDF ATTACHMENTS</span>
+              <h4 style="margin: 4px 0 0 0; font-size: 0.96rem; color: var(--color-brand-deep);">
+                Exam Paper &amp; Answer Sheet (PDF)
+              </h4>
+            </div>
+            <span class="pb-field-hint">Optional printable PDFs attached to this exam or mock test.</span>
+          </div>
+
+          <div class="form-grid-2col" style="margin-top: 10px; gap: 12px;">
+            <div class="pb-exam-pdf-slot">
+              <div class="pb-exam-pdf-slot-title">1. Exam Paper (PDF)</div>
+              <input type="hidden" id="input-forms-exam-paper-file-id" value="" />
+              <input type="hidden" id="input-forms-exam-paper-filename" value="" />
+              <div class="pb-exam-pdf-file-row">
+                <input type="file" id="input-forms-exam-paper-file" class="form-input pb-exam-pdf-file-input" accept="application/pdf,.pdf" />
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-forms-upload-exam-paper-pdf">Upload PDF</button>
+              </div>
+              <div id="forms-exam-paper-pdf-status" class="pb-exam-pdf-status-text">No Exam Paper PDF attached.</div>
+              <div class="pb-exam-pdf-slot-actions">
+                <button type="button" class="btn btn-outline btn-sm hidden" id="btn-forms-open-exam-paper-pdf">Open PDF</button>
+                <button type="button" class="btn btn-outline btn-sm hidden" id="btn-forms-remove-exam-paper-pdf">Remove</button>
+              </div>
+            </div>
+
+            <div class="pb-exam-pdf-slot">
+              <div class="pb-exam-pdf-slot-title">2. Answer Sheet (PDF)</div>
+              <input type="hidden" id="input-forms-answer-sheet-file-id" value="" />
+              <input type="hidden" id="input-forms-answer-sheet-filename" value="" />
+              <div class="pb-exam-pdf-file-row">
+                <input type="file" id="input-forms-answer-sheet-file" class="form-input pb-exam-pdf-file-input" accept="application/pdf,.pdf" />
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-forms-upload-answer-sheet-pdf">Upload PDF</button>
+              </div>
+              <div style="margin-top: 6px;">
+                <label for="select-forms-answer-sheet-policy" class="form-label" style="font-size: 0.76rem; margin-bottom: 3px;">Student Answer Sheet Release Rule</label>
+                <select id="select-forms-answer-sheet-policy" class="form-input" style="font-size: 0.82rem; padding: 6px 8px;">
+                  <option value="AFTER_SUBMIT" selected>Unlock immediately after attempt submission</option>
+                  <option value="WITH_KEY">Unlock only when answer key / results are released</option>
+                  <option value="ALWAYS">Available immediately in Mock Test instructions</option>
+                </select>
+              </div>
+              <div id="forms-answer-sheet-pdf-status" class="pb-exam-pdf-status-text">No Answer Sheet PDF attached.</div>
+              <div class="pb-exam-pdf-slot-actions">
+                <button type="button" class="btn btn-outline btn-sm hidden" id="btn-forms-open-answer-sheet-pdf">Open PDF</button>
+                <button type="button" class="btn btn-outline btn-sm hidden" id="btn-forms-remove-answer-sheet-pdf">Remove</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Collapsible Advanced Exam Policies Drawer -->
         <details class="pb-forms-advanced-drawer" id="pb-forms-exam-policies-drawer">
           <summary class="pb-forms-advanced-summary">
@@ -8201,6 +8266,57 @@
           </div>
         </div>
 
+        <!-- Classic Editor Mock Test Exam Paper & Answer Sheet PDF Attachments -->
+        <div class="pb-exam-pdf-attach-card" id="pb-exam-editor-pdf-attachments-card" style="margin-top: 10px;">
+          <div class="pb-exam-pdf-attach-header">
+            <div>
+              <span class="badge badge-ok">MOCK TEST PDF ATTACHMENTS</span>
+              <h4 style="margin: 4px 0 0 0; font-size: 0.94rem; color: var(--color-brand-deep);">
+                Exam Paper &amp; Answer Sheet (PDF)
+              </h4>
+            </div>
+          </div>
+          <div class="form-grid-2col" style="margin-top: 8px; gap: 12px;">
+            <div class="pb-exam-pdf-slot">
+              <div class="pb-exam-pdf-slot-title">1. Exam Paper (PDF)</div>
+              <input type="hidden" id="input-exam-editor-paper-file-id" value="" />
+              <input type="hidden" id="input-exam-editor-paper-filename" value="" />
+              <div class="pb-exam-pdf-file-row">
+                <input type="file" id="input-exam-editor-paper-file" class="form-input pb-exam-pdf-file-input" accept="application/pdf,.pdf" />
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-exam-editor-upload-paper-pdf">Upload PDF</button>
+              </div>
+              <div id="exam-editor-paper-pdf-status" class="pb-exam-pdf-status-text">No Exam Paper PDF attached.</div>
+              <div class="pb-exam-pdf-slot-actions">
+                <button type="button" class="btn btn-outline btn-sm hidden" id="btn-exam-editor-open-paper-pdf">Open PDF</button>
+                <button type="button" class="btn btn-outline btn-sm hidden" id="btn-exam-editor-remove-paper-pdf">Remove</button>
+              </div>
+            </div>
+
+            <div class="pb-exam-pdf-slot">
+              <div class="pb-exam-pdf-slot-title">2. Answer Sheet (PDF)</div>
+              <input type="hidden" id="input-exam-editor-answer-file-id" value="" />
+              <input type="hidden" id="input-exam-editor-answer-filename" value="" />
+              <div class="pb-exam-pdf-file-row">
+                <input type="file" id="input-exam-editor-answer-file" class="form-input pb-exam-pdf-file-input" accept="application/pdf,.pdf" />
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-exam-editor-upload-answer-pdf">Upload PDF</button>
+              </div>
+              <div style="margin-top: 6px;">
+                <label for="select-exam-editor-answer-policy" class="form-label" style="font-size: 0.76rem; margin-bottom: 3px;">Student Answer Sheet Release Rule</label>
+                <select id="select-exam-editor-answer-policy" class="form-input" style="font-size: 0.82rem; padding: 6px 8px;">
+                  <option value="AFTER_SUBMIT" selected>Unlock immediately after attempt submission</option>
+                  <option value="WITH_KEY">Unlock only when answer key / results are released</option>
+                  <option value="ALWAYS">Available immediately in Mock Test instructions</option>
+                </select>
+              </div>
+              <div id="exam-editor-answer-pdf-status" class="pb-exam-pdf-status-text">No Answer Sheet PDF attached.</div>
+              <div class="pb-exam-pdf-slot-actions">
+                <button type="button" class="btn btn-outline btn-sm hidden" id="btn-exam-editor-open-answer-pdf">Open PDF</button>
+                <button type="button" class="btn btn-outline btn-sm hidden" id="btn-exam-editor-remove-answer-pdf">Remove</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Section 1 Composer -->
         <div class="status-item" style="margin-top: 12px;">
           <div class="status-label">Section 1 Configuration &amp; Question Selection</div>
@@ -8267,6 +8383,12 @@
 
       <form id="form-admin-exam-assign" onsubmit="return false;">
         <input type="hidden" id="input-exam-assign-exam-id" value="" />
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="select-exam-assign-exam-set" class="form-label">Target Examination / Mock Test *</label>
+          <select id="select-exam-assign-exam-set" class="form-input">
+            <option value="">-- Select Examination / Mock Test --</option>
+          </select>
+        </div>
         <div class="form-grid-2col">
           <div class="form-group">
             <label for="select-exam-assign-target-type" class="form-label">Assignment Target Type</label>
@@ -10502,7 +10624,7 @@
 
         <div class="form-group" style="margin-bottom: 0;">
           <label class="form-label" for="input-unavail-end-date">
-            Unavailable End Date (Optional — leave same as start date for single day, max 30 days)
+            Unavailable End Date (Optional, max 30 days)
           </label>
           <input
             type="date"
@@ -10511,6 +10633,7 @@
             min="2020-01-01"
             max="2035-12-31"
           />
+          <span class="pb-field-hint">Leave blank or match start date for a single-day notice.</span>
         </div>
       </div>
 
@@ -10857,6 +10980,8 @@
         <p id="exam-result-policy-text" style="margin: 0; font-size: 0.86rem;"></p>
       </div>
 
+      <div id="exam-result-pdf-box" class="pb-student-pdf-resources-box hidden" style="margin-bottom: 14px;"></div>
+
       <div id="exam-result-sections-wrap" class="status-item" style="margin-bottom: 14px;">
         <div class="status-label">Section Score Breakdown</div>
         <div class="pb-scores-table-wrap" style="margin-top: 8px;">
@@ -10981,6 +11106,7 @@
       <div class="pb-inst-section-card is-instructions">
         <div class="pb-inst-section-heading">Assessment Instructions</div>
         <div id="exam-inst-richtext-body" class="pb-rt-rendered pb-inst-richtext-prose"></div>
+        <div id="exam-inst-pdf-box" class="pb-student-pdf-resources-box hidden" style="margin-top: 10px;"></div>
       </div>
 
       <div class="pb-inst-section-card">
@@ -11049,6 +11175,63 @@
           Verifying Session...
         </button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- In-App PDF Preview & Download Modal (reliable fallback + instant preview without popup blockers) -->
+<div
+  id="modal-pb-pdf-viewer"
+  class="modal-backdrop pb-modal-backdrop pb-pdf-viewer-backdrop hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="pb-pdf-viewer-title"
+  aria-hidden="true"
+>
+  <div class="pb-modal-dialog pb-pdf-viewer-dialog">
+    <div class="pb-modal-header pb-pdf-viewer-header">
+      <div class="pb-pdf-viewer-title-wrap">
+        <span class="badge pb-exam-badge-mock">PDF Document</span>
+        <h2 id="pb-pdf-viewer-title" class="pb-pdf-viewer-title">Document Preview</h2>
+        <p id="pb-pdf-viewer-meta" class="pb-pdf-viewer-meta"></p>
+      </div>
+      <div class="pb-pdf-viewer-header-actions">
+        <a
+          id="link-pb-pdf-viewer-open-tab"
+          class="btn btn-outline btn-sm"
+          href="#"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Open in New Tab
+        </a>
+        <a
+          id="link-pb-pdf-viewer-download"
+          class="btn btn-primary btn-sm"
+          href="#"
+          download="document.pdf"
+        >
+          Download PDF
+        </a>
+        <button
+          type="button"
+          class="btn btn-outline btn-sm"
+          id="btn-pb-pdf-viewer-close"
+          aria-label="Close PDF viewer"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+    <div class="pb-modal-body pb-pdf-viewer-body">
+      <iframe
+        id="iframe-pb-pdf-viewer"
+        class="pb-pdf-viewer-frame"
+        title="PDF Document Preview"
+      ></iframe>
+      <p id="pb-pdf-viewer-hint" class="pb-field-hint" style="margin: 8px 0 0 0;">
+        If your mobile browser shows a blank preview frame, tap Open in New Tab or Download PDF above.
+      </p>
     </div>
   </div>
 </div>

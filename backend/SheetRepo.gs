@@ -554,12 +554,16 @@ function readSheetTable_(sheetName, opt_spreadsheet) {
   }
 
   if (hasHeaderInRow1 && lastRow <= 1) {
-    return {
+    var emptyTableResult = {
       sheet: sheet,
       schema: schema,
       records: records,
       byId: byId
     };
+    if (!opt_spreadsheet && PB_IN_REQUEST_TABLE_CACHE_ && sheet) {
+      PB_IN_REQUEST_TABLE_CACHE_[sheetName] = emptyTableResult;
+    }
+    return emptyTableResult;
   }
 
   var startRowIndex = hasHeaderInRow1 ? 1 : 0;
@@ -585,12 +589,16 @@ function readSheetTable_(sheetName, opt_spreadsheet) {
     };
   }
 
-  return {
+  var tableResult = {
     sheet: sheet,
     schema: schema,
     records: records,
     byId: byId
   };
+  if (!opt_spreadsheet && PB_IN_REQUEST_TABLE_CACHE_ && sheet) {
+    PB_IN_REQUEST_TABLE_CACHE_[sheetName] = tableResult;
+  }
+  return tableResult;
 }
 
 /**
@@ -733,6 +741,8 @@ function insertSheetRecord_(sheetName, draftRecord, opt_options) {
     var rowArray = serializeRecordToRow_(schema, validated);
     table.sheet.appendRow(rowArray);
 
+    invalidateInRequestTableCache_(sheetName);
+
     return validated;
   };
 
@@ -836,6 +846,8 @@ function updateSheetRecordById_(
       .getRange(hit.rowNumber, 1, 1, schema.headers.length)
       .setValues([rowArray]);
 
+    invalidateInRequestTableCache_(sheetName);
+
     return validated;
   };
 
@@ -913,6 +925,8 @@ function deleteSheetRecordById_(
         .getRange(hit.rowNumber, 1, 1, schema.headers.length)
         .setValues([emptyRow]);
     }
+
+    invalidateInRequestTableCache_(sheetName);
 
     return {
       deleted: true,
