@@ -97,6 +97,54 @@
     }
 
     /**
+     * Safely renders an email address with an optional <wbr> right after '@'
+     * so long domain names wrap cleanly at the '@' boundary instead of mid-TLD.
+     */
+    function setEmailTextWithWbr(elementId, emailText) {
+      var el = document.getElementById(elementId);
+      if (!el) return;
+      var raw = String(emailText || '').trim();
+      while (el.firstChild) {
+        el.removeChild(el.firstChild);
+      }
+      if (!raw || raw === '-') {
+        el.textContent = raw || '-';
+        return;
+      }
+      var atIdx = raw.indexOf('@');
+      if (atIdx > 0 && atIdx < raw.length - 1) {
+        el.appendChild(document.createTextNode(raw.slice(0, atIdx + 1)));
+        el.appendChild(document.createElement('wbr'));
+        el.appendChild(document.createTextNode(raw.slice(atIdx + 1)));
+      } else {
+        el.textContent = raw;
+      }
+    }
+
+    /**
+     * Synchronizes aria-hidden and body.pb-modal-open across all modal backdrops
+     * so both openModalDialog() callers and direct classList toggles stay consistent.
+     */
+    function syncAllModalAccessibilityAndScrollLock() {
+      var backdrops = document.querySelectorAll('.modal-backdrop, .pb-modal-backdrop');
+      var anyOpen = false;
+      for (var i = 0; i < backdrops.length; i++) {
+        var el = backdrops[i];
+        var isHidden = el.classList.contains('hidden');
+        var expectedAria = isHidden ? 'true' : 'false';
+        if (el.getAttribute('aria-hidden') !== expectedAria) {
+          el.setAttribute('aria-hidden', expectedAria);
+        }
+        if (!isHidden) {
+          anyOpen = true;
+        }
+      }
+      if (document.body && document.body.classList) {
+        document.body.classList.toggle('pb-modal-open', anyOpen);
+      }
+    }
+
+    /**
      * Safely removes all child nodes from a DOM element (or element ID) without using innerHTML.
      */
     function clearChildren(target) {
@@ -3655,7 +3703,7 @@
       setText('profile-view-heading', buildProfileGreetingHeading(usr.username, usr.role));
       setText('profile-user-username', prefixedUsername);
       setText('profile-user-fullname', (usr.fullName || usr.username) + ' (' + usr.role + ')');
-      setText('profile-user-email', usr.email || '-');
+      setEmailTextWithWbr('profile-user-email', usr.email || '-');
       setText(
         'profile-user-last-login',
         formatExplicitBangkokLabel(usr.lastLoginAtBangkok, usr.lastLoginAtUtc)
@@ -4070,7 +4118,7 @@
               currentSessionMeta.user = d.user;
             }
             setText('profile-user-username', d.user.username || '-');
-            setText('profile-user-email', d.user.email || '-');
+            setEmailTextWithWbr('profile-user-email', d.user.email || '-');
             setText(
               'profile-user-last-login',
               formatExplicitBangkokLabel(d.user.lastLoginAtBangkok, d.user.lastLoginAtUtc)
@@ -5194,7 +5242,7 @@
       var lockModal = document.getElementById('modal-account-locked');
       if (lockModal) {
         lockModal.classList.remove('hidden');
-        lockModal.setAttribute('aria-hidden', 'false');
+        syncAllModalAccessibilityAndScrollLock();
         var closeBtn = document.getElementById('btn-close-account-locked-modal');
         if (closeBtn && typeof closeBtn.focus === 'function') {
           setTimeout(function () {
@@ -5216,7 +5264,7 @@
       var lockModal = document.getElementById('modal-account-locked');
       if (lockModal) {
         lockModal.classList.add('hidden');
-        lockModal.setAttribute('aria-hidden', 'true');
+        syncAllModalAccessibilityAndScrollLock();
       }
     }
 
@@ -7851,37 +7899,44 @@
                 ? 'badge badge-ok'
                 : 'badge badge-incomplete';
               statusBadge.textContent = diag.available
-                ? 'ACTIVE (' + (diag.formatLabel || diag.detectedMimeType) + ')'
-                : 'FALLBACK PB (' + (diag.statusCode || 'ERROR') + ')';
+                ? 'Active (' + String(diag.detectedMimeType || 'image/webp').replace(/^image\//i, '').toUpperCase() + ')'
+                : 'Using Fallback Emblem';
             }
-            setText('admin-logo-diagnostic-message', diag.adminMessage || '-');
+            var rawDiagMsg = String(diag.adminMessage || '-');
+            if (/DEFAULT_LOGO_DRIVE_FILE_ID/i.test(rawDiagMsg) && diag.available) {
+              rawDiagMsg = 'Official school logo loaded successfully from cloud media storage.';
+            }
+            setText('admin-logo-diagnostic-message', rawDiagMsg);
             setText(
               'admin-logo-source-type',
-              (diag.sourceType || '-') +
-                (diag.scriptPropertyConfigured
-                  ? ' (DEFAULT_LOGO_DRIVE_FILE_ID Set)'
-                  : ' (Using Built-in Default ID)')
+              diag.scriptPropertyConfigured
+                ? 'Custom School Logo (Configured)'
+                : 'Built-in School Logo'
             );
-            setText('admin-logo-drive-id', diag.effectiveDriveFileId || '-');
+            var driveIdEl = document.getElementById('admin-logo-drive-id');
+            if (driveIdEl) {
+              driveIdEl.textContent = diag.effectiveDriveFileId ? 'Cloud Media Linked' : '-';
+              driveIdEl.title = diag.effectiveDriveFileId ? ('Reference ID: ' + diag.effectiveDriveFileId) : '';
+            }
+            var logoBytes = Number(diag.sizeBytes || 0);
+            var readableLogoSize =
+              logoBytes >= 1048576
+                ? (logoBytes / 1048576).toFixed(2) + ' MB'
+                : logoBytes >= 1024
+                ? (logoBytes / 1024).toFixed(1) + ' KB'
+                : String(logoBytes) + ' B';
             setText(
               'admin-logo-format-size',
               diag.available
-                ? (diag.detectedMimeType || '-') +
-                    ' (' +
-                    String(diag.sizeBytes || 0) +
-                    ' bytes)'
-                : (diag.statusCode || 'FALLBACK') +
-                    (diag.detectedMimeType
-                      ? ' [' + diag.detectedMimeType + ']'
-                      : '')
+                ? (diag.detectedMimeType || 'Image') + ' • ' + readableLogoSize
+                : 'Fallback SVG Shield' + (diag.detectedMimeType ? ' (' + diag.detectedMimeType + ')' : '')
             );
             setText(
               'admin-logo-cache-status',
               diag.available
                 ? (diag.cachedInScriptCache
-                    ? 'CacheService + Browser Session Cache'
-                    : 'Browser Session Cache (Payload > 90 KB)') +
-                    (diag.servedFromScriptCache ? ' [Cache Hit]' : ' [Fresh Read]')
+                    ? 'Active (Server + Browser Cache)'
+                    : 'Active (Browser Cache)')
                 : 'Not Cached (Fallback Active)'
             );
           }
@@ -9057,10 +9112,8 @@
             var idNote = document.createElement('div');
             idNote.style.fontSize = '0.78rem';
             idNote.style.color = 'var(--color-text-muted)';
-            idNote.textContent =
-              'File ID: ' +
-              pdfBlock.fileId +
-              ' (Authorized via file.getContent -> temporary Blob URL)';
+            idNote.textContent = 'Protected Course Document • Ready for authorized viewing';
+            idNote.title = 'File ID: ' + (pdfBlock.fileId || '');
             infoDiv.appendChild(idNote);
             card.appendChild(infoDiv);
 
@@ -10077,7 +10130,8 @@
 
               var fidBadge = document.createElement('span');
               fidBadge.className = 'badge badge-ok';
-              fidBadge.textContent = 'File ID: ' + (blk.fileId || '');
+              fidBadge.textContent = 'Image Attached';
+              fidBadge.title = 'File ID: ' + (blk.fileId || '');
               imgMetaRow.appendChild(fidBadge);
 
               var capInp = document.createElement('input');
@@ -10103,7 +10157,8 @@
 
               var pfidBadge = document.createElement('span');
               pfidBadge.className = 'badge badge-ok';
-              pfidBadge.textContent = 'PDF ID: ' + (blk.fileId || '');
+              pfidBadge.textContent = 'PDF Attached';
+              pfidBadge.title = 'PDF ID: ' + (blk.fileId || '');
               pdfMetaRow.appendChild(pfidBadge);
 
               var ttlInp = document.createElement('input');
@@ -15744,16 +15799,15 @@ var qrcode = (function() {
       if (hasValidReceipt) {
         if (receiptBadge) {
           receiptBadge.className = 'badge badge-ok';
-          receiptBadge.textContent = 'Receipt Linked: ' + receiptFileId;
+          receiptBadge.textContent = 'Receipt Uploaded & Attached';
+          receiptBadge.title = 'Receipt ID: ' + receiptFileId;
         }
         if (confirmBtn) {
           confirmBtn.disabled = false;
         }
         setText(
           'payment-confirm-submission-status',
-          'Valid receipt (' +
-            receiptFileId +
-            ') verified. Click "Confirm Payment Submission" to submit for verification.'
+          'Valid receipt verified. Click "Confirm Payment Submission" to submit for verification.'
         );
         renderPrivateImagePreviewStep8(
           'payment-receipt-thumbnail-box',
@@ -15875,8 +15929,7 @@ var qrcode = (function() {
         if (reviewSessions.length === 0) {
           var emptyRev = document.createElement('div');
           emptyRev.className = 'status-item';
-          emptyRev.textContent =
-            'No payment sessions are currently in Awaiting verification (AWAITING_VERIFICATION).';
+          emptyRev.textContent = 'No payment sessions are currently awaiting verification.';
           reviewContainer.appendChild(emptyRev);
         } else {
           for (var r = 0; r < reviewSessions.length; r++) {
@@ -15915,7 +15968,10 @@ var qrcode = (function() {
 
             var badge = document.createElement('span');
             badge.className = 'badge badge-incomplete';
-            badge.textContent = 'Awaiting verification (' + rs.status + ')';
+            badge.textContent =
+              rs.status && rs.status !== 'AWAITING_VERIFICATION' && typeof formatFriendlyEnumStatus === 'function'
+                ? formatFriendlyEnumStatus(rs.status)
+                : 'Awaiting Verification';
 
             head.appendChild(left);
             head.appendChild(badge);
@@ -18199,7 +18255,11 @@ var qrcode = (function() {
 
       var loadingEl = document.getElementById('calendar-loading-state');
       var errBanner = document.getElementById('calendar-error-banner');
-      if (loadingEl) loadingEl.classList.add('hidden');
+      if (loadingEl) {
+        loadingEl.textContent = 'Loading class schedule for ' + targetMonth + '...';
+        loadingEl.classList.remove('hidden');
+        loadingEl.setAttribute('aria-hidden', 'false');
+      }
       if (errBanner) errBanner.classList.add('hidden');
 
       var reqPayload = { month: targetMonth };
@@ -18216,7 +18276,10 @@ var qrcode = (function() {
         suppressErrorBanner: true
       })
         .then(function (env) {
-          if (loadingEl) loadingEl.classList.add('hidden');
+          if (loadingEl) {
+            loadingEl.classList.add('hidden');
+            loadingEl.setAttribute('aria-hidden', 'true');
+          }
           var d = PBDeletedCalendarStore.filterAndDeduplicateBundle(env.data || {});
           currentCalendarBundleStep13 = d;
 
@@ -18264,8 +18327,8 @@ var qrcode = (function() {
           setText(
             'calendar-summary-viewer-mode',
             d.effectiveViewerMode === 'ADMIN_ALL_COURSES'
-              ? 'Admin Full View (All Marked Courses)'
-              : 'Enrolled Courses + PB_ALL_STUDENTS Only'
+              ? 'Admin Full View (All Courses)'
+              : 'Enrolled Courses + School-Wide Events'
           );
 
           var totalWithheld =
@@ -18284,7 +18347,10 @@ var qrcode = (function() {
           return d;
         })
         .catch(function (err) {
-          if (loadingEl) loadingEl.classList.add('hidden');
+          if (loadingEl) {
+            loadingEl.classList.add('hidden');
+            loadingEl.setAttribute('aria-hidden', 'true');
+          }
           if (errBanner) {
             setText(
               'calendar-error-title',
@@ -18484,6 +18550,18 @@ var qrcode = (function() {
       return 'badge badge-danger';
     }
 
+    function formatEmailDeliveryStatusLabel(status) {
+      var k = String(status || 'PENDING_ATTEMPT').trim().toUpperCase();
+      var map = {
+        SENT: 'Email Sent',
+        PENDING_ATTEMPT: 'Queued for Delivery',
+        UNCERTAIN_POST_SEND_UPDATE_FAILED: 'Sent (Confirmation Delayed)',
+        FAILED: 'Delivery Failed',
+        MAIL_QUOTA_EXCEEDED: 'Daily Mail Quota Reached'
+      };
+      return map[k] || k.replace(/_/g, ' ');
+    }
+
     function handleReportUnavailabilitySubmitStep14(evt) {
       if (evt && typeof evt.preventDefault === 'function') {
         evt.preventDefault();
@@ -18675,7 +18753,7 @@ var qrcode = (function() {
 
           setUnavailModalResultBannerStep14(
             variant,
-            'Controlled Email Retry #' + String(d.retryNumber || 1) + ' Result: ' + emailSt,
+            'Controlled Email Retry #' + String(d.retryNumber || 1) + ' Result: ' + formatEmailDeliveryStatusLabel(emailSt),
             d.resultMessage || '',
             'Request ID: ' +
               requestId +
@@ -18810,7 +18888,8 @@ var qrcode = (function() {
           var tdStatus = document.createElement('td');
           var badge = document.createElement('span');
           badge.className = getEmailStatusBadgeClassStep14(r.emailDeliveryStatus);
-          badge.textContent = r.emailDeliveryStatus || 'PENDING_ATTEMPT';
+          badge.textContent = formatEmailDeliveryStatusLabel(r.emailDeliveryStatus || 'PENDING_ATTEMPT');
+          badge.title = 'Delivery status: ' + String(r.emailDeliveryStatus || 'PENDING_ATTEMPT');
           tdStatus.appendChild(badge);
 
           var descDiv = document.createElement('div');
@@ -19028,7 +19107,8 @@ var qrcode = (function() {
           var tdEmail = document.createElement('td');
           var stBadge = document.createElement('span');
           stBadge.className = getEmailStatusBadgeClassStep14(r.emailDeliveryStatus);
-          stBadge.textContent = r.emailDeliveryStatus || 'PENDING_ATTEMPT';
+          stBadge.textContent = formatEmailDeliveryStatusLabel(r.emailDeliveryStatus || 'PENDING_ATTEMPT');
+          stBadge.title = 'Delivery status: ' + String(r.emailDeliveryStatus || 'PENDING_ATTEMPT');
           tdEmail.appendChild(stBadge);
 
           var recDiv = document.createElement('div');
@@ -20743,16 +20823,29 @@ var qrcode = (function() {
         AWAITING_VERIFICATION: 'Awaiting Verification',
         APPROVING: 'Verifying',
         PAID: 'Paid',
-        REJECTED: 'Rejected'
+        REJECTED: 'Rejected',
+        EASY: 'Easy',
+        MEDIUM: 'Medium',
+        HARD: 'Hard',
+        OLYMPIAD: 'Olympiad',
+        ASSIGNED: 'Assigned',
+        REVOKED: 'Revoked',
+        EXPIRED: 'Expired',
+        SENT: 'Sent',
+        PENDING_ATTEMPT: 'Pending',
+        FAILED: 'Failed'
       };
       return map[k] || (k ? k.replace(/_/g, ' ') : '-');
     }
 
-    function formatQuestionTypeDisplayLabel(qType, opt_compact) {
+    function formatQuestionTypeDisplayLabel(qType, opt_compact, opt_optionCount) {
       var k = String(qType || 'SINGLE_CHOICE').trim().toUpperCase();
+      var optN = Number(opt_optionCount || 0);
       if (opt_compact) {
+        if (k === 'SINGLE_CHOICE') {
+          return optN > 0 ? 'MC (' + optN + ' Opts)' : 'Multiple Choice';
+        }
         var compactMap = {
-          SINGLE_CHOICE: 'MC (5 Opts)',
           COMPLEX_MULTIPLE_CHOICE: 'Complex MC',
           MULTIPLE_SELECT: 'Multi-Select',
           TRUE_FALSE: 'True / False',
@@ -20762,8 +20855,10 @@ var qrcode = (function() {
         };
         return compactMap[k] || k.replace(/_/g, ' ');
       }
+      if (k === 'SINGLE_CHOICE') {
+        return optN > 0 ? 'Multiple Choice (' + optN + ' Opts)' : 'Multiple Choice';
+      }
       var map = {
-        SINGLE_CHOICE: 'Multiple Choice (5 Opts)',
         COMPLEX_MULTIPLE_CHOICE: 'Complex MC (Yes/No)',
         MULTIPLE_SELECT: 'Multiple Select',
         TRUE_FALSE: 'True / False',
@@ -21671,8 +21766,9 @@ var qrcode = (function() {
             var td2 = document.createElement('td');
             var typeBadge = document.createElement('span');
             typeBadge.className = 'badge badge-ok';
-            typeBadge.textContent = formatQuestionTypeDisplayLabel(q.questionType, true);
-            typeBadge.title = formatQuestionTypeDisplayLabel(q.questionType, false);
+            var qOptCount = Array.isArray(q.options) ? q.options.length : (q.optionsCount || q.optionCount || 0);
+            typeBadge.textContent = formatQuestionTypeDisplayLabel(q.questionType, true, qOptCount);
+            typeBadge.title = formatQuestionTypeDisplayLabel(q.questionType, false, qOptCount);
             td2.appendChild(typeBadge);
             var gmDiv = document.createElement('div');
             gmDiv.style.fontSize = '0.76rem';
@@ -21685,7 +21781,7 @@ var qrcode = (function() {
             var td3 = document.createElement('td');
             var diffBadge = document.createElement('span');
             diffBadge.className = q.difficulty === 'OLYMPIAD' || q.difficulty === 'HARD' ? 'badge badge-incomplete' : 'badge badge-ok';
-            diffBadge.textContent = q.difficulty;
+            diffBadge.textContent = formatFriendlyEnumStatus(q.difficulty);
             td3.appendChild(diffBadge);
             var tagsDiv = document.createElement('div');
             tagsDiv.style.fontSize = '0.76rem';
@@ -21897,7 +21993,8 @@ var qrcode = (function() {
 
         var bType = document.createElement('span');
         bType.className = 'badge badge-ok';
-        bType.textContent = formatQuestionTypeDisplayLabel(q.questionType) + ' | ' + q.defaultPointsDisplay;
+        var prevOptCount = Array.isArray(q.options) ? q.options.length : (q.optionsCount || q.optionCount || 0);
+        bType.textContent = formatQuestionTypeDisplayLabel(q.questionType, false, prevOptCount) + ' | ' + q.defaultPointsDisplay;
         metaBar.appendChild(bType);
 
         if (q.selectionInstruction) {
@@ -23046,7 +23143,10 @@ var qrcode = (function() {
             var tdStatus = document.createElement('td');
             var stBadge = document.createElement('span');
             stBadge.className = a.assignmentStatus === 'ASSIGNED' ? 'badge badge-ok' : 'badge badge-danger';
-            stBadge.textContent = a.assignmentStatus;
+            stBadge.textContent =
+              typeof formatFriendlyEnumStatus === 'function'
+                ? formatFriendlyEnumStatus(a.assignmentStatus)
+                : a.assignmentStatus;
             tdStatus.appendChild(stBadge);
             tr.appendChild(tdStatus);
 
@@ -23824,7 +23924,12 @@ var qrcode = (function() {
           MOCK_EXAM: 'Timed Mock Examination',
           ASSIGNED_ASSESSMENT: 'Assigned Assessment'
         };
-        return map[s] || String(raw || '-').replace(/_/g, ' ');
+        if (map[s]) return map[s];
+        return String(raw || '-')
+          .replace(/\b1 questions\b/gi, '1 question')
+          .replace(/\b1 candidates\b/gi, '1 candidate')
+          .replace(/\b1 items\b/gi, '1 item')
+          .replace(/_/g, ' ');
       }
 
       function humanizeRuleLine(line) {
@@ -23835,7 +23940,9 @@ var qrcode = (function() {
           .replace(/\bWITH_SCORE\b/g, 'Included with Score')
           .replace(/\bBEST_PUBLISHED\b/g, 'Highest Score')
           .replace(/\bLATEST_PUBLISHED\b/g, 'Latest Attempt')
-          .replace(/\bFIRST_PUBLISHED\b/g, 'First Attempt');
+          .replace(/\bFIRST_PUBLISHED\b/g, 'First Attempt')
+          .replace(/\b1 questions\b/gi, '1 question')
+          .replace(/\b1 sections\b/gi, '1 section');
       }
 
       function renderInstKeyValueStackDom(elId, rows) {
@@ -24914,6 +25021,7 @@ var qrcode = (function() {
           if (typeof openStudentExamWorkspacePhase5 === 'function') {
             openStudentExamWorkspacePhase5(bundle);
           } else {
+            var qLen = bundle.items ? bundle.items.length : 0;
             PBNotify.toast(
               'success',
               bundle.resumedExistingAttempt || bundle.idempotentReplay
@@ -24922,8 +25030,9 @@ var qrcode = (function() {
               'Attempt #' +
                 (bundle.attempt && bundle.attempt.attemptNumber) +
                 ' initialized (' +
-                (bundle.items ? bundle.items.length : 0) +
-                ' questions). Server deadline: ' +
+                qLen +
+                (qLen === 1 ? ' question' : ' questions') +
+                '). Server deadline: ' +
                 ((bundle.attempt && bundle.attempt.effectiveDeadlineBangkok) || 'Untimed')
             );
           }
@@ -25048,8 +25157,8 @@ var qrcode = (function() {
       var hdr = document.querySelector('.site-header');
       var ws = document.getElementById('pb-forms-builder-workspace');
       if (hdr && ws && ws.style) {
-        var h = Math.ceil(hdr.getBoundingClientRect().height || 88);
-        ws.style.setProperty('--pb-sticky-toolbar-top', (h + 8) + 'px');
+        var h = Math.max(58, Math.ceil(hdr.getBoundingClientRect().height || 64));
+        ws.style.setProperty('--pb-sticky-toolbar-top', h + 'px');
       }
     }
 
@@ -27270,11 +27379,19 @@ var qrcode = (function() {
         setText('exam-ws-save-status-text', 'Deadline expired on server');
         if (savePill) savePill.className = 'pb-exam-save-pill is-error';
       } else {
+        var isPreviewRun = Boolean(snap.attempt && snap.attempt._isAdminPreview) || /preview/i.test(String(snap.lastSavedAtBangkok || ''));
+        var bkkTimeTail = '';
+        if (!isPreviewRun && snap.lastSavedAtBangkok) {
+          var tailToken = String(snap.lastSavedAtBangkok).split(' ').pop();
+          if (/\d{2}:\d{2}/.test(tailToken)) {
+            bkkTimeTail = ' (' + tailToken + ')';
+          }
+        }
         setText(
           'exam-ws-save-status-text',
-          snap.lastSavedAtBangkok
-            ? 'Saved on server (' + snap.lastSavedAtBangkok.split(' ').pop() + ')'
-            : 'Saved on server'
+          isPreviewRun
+            ? 'Admin Preview (Not Recorded)'
+            : 'Saved on server' + bkkTimeTail
         );
         if (savePill) savePill.className = 'pb-exam-save-pill is-saved';
       }
@@ -27439,7 +27556,8 @@ var qrcode = (function() {
       );
       setText('exam-ws-q-section-badge', item.sectionTitle || 'Section');
       setText('exam-ws-section-label', item.sectionTitle || 'Section');
-      setText('exam-ws-q-type-badge', formatQuestionTypeDisplayLabel(q.questionType || 'SINGLE_CHOICE'));
+      var activeOptLen = Array.isArray(q.options) ? q.options.length : 0;
+      setText('exam-ws-q-type-badge', formatQuestionTypeDisplayLabel(q.questionType || 'SINGLE_CHOICE', false, activeOptLen));
       setText(
         'exam-ws-q-points-badge',
         (item.pointsDisplay || '1 pt') +
@@ -27862,7 +27980,14 @@ var qrcode = (function() {
       }
 
       var modal = document.getElementById('modal-exam-submit-readiness');
-      if (modal) modal.classList.remove('hidden');
+      if (modal) {
+        modal.classList.remove('hidden');
+        syncAllModalAccessibilityAndScrollLock();
+        var cancelBtn = document.getElementById('btn-exam-submit-ready-cancel');
+        if (cancelBtn && typeof cancelBtn.focus === 'function') {
+          setTimeout(function () { cancelBtn.focus(); }, 20);
+        }
+      }
     }
 
     function populateExamSubmitReadinessModalDomPhase5() {
@@ -27927,7 +28052,10 @@ var qrcode = (function() {
               (isFlag ? ' ⚑' : '');
             pill.addEventListener('click', function () {
               var modal = document.getElementById('modal-exam-submit-readiness');
-              if (modal) modal.classList.add('hidden');
+              if (modal) {
+                modal.classList.add('hidden');
+                syncAllModalAccessibilityAndScrollLock();
+              }
               navigateExamQuestionByIndexPhase5(idx);
             });
             pillsHost.appendChild(pill);
@@ -28148,7 +28276,10 @@ var qrcode = (function() {
       if (cancelSubBtn) {
         cancelSubBtn.addEventListener('click', function () {
           var modal = document.getElementById('modal-exam-submit-readiness');
-          if (modal) modal.classList.add('hidden');
+          if (modal) {
+            modal.classList.add('hidden');
+            syncAllModalAccessibilityAndScrollLock();
+          }
         });
       }
       if (confirmSubBtn) {
@@ -28157,7 +28288,10 @@ var qrcode = (function() {
           if (!snap || !snap.attempt) return;
           if (snap.attempt._isAdminPreview && isCurrentSessionAdminUser()) {
             var modal = document.getElementById('modal-exam-submit-readiness');
-            if (modal) modal.classList.add('hidden');
+            if (modal) {
+              modal.classList.add('hidden');
+              syncAllModalAccessibilityAndScrollLock();
+            }
             showSectionView('admin');
             updateNavbarActiveForExamStudio(isExamStudioModeActive);
             PBNotify.toast(
@@ -28172,7 +28306,10 @@ var qrcode = (function() {
           } else {
             window.PBExamAutosaveEngine.flushPendingSaves(false).then(function () {
               var modal = document.getElementById('modal-exam-submit-readiness');
-              if (modal) modal.classList.add('hidden');
+              if (modal) {
+                modal.classList.add('hidden');
+                syncAllModalAccessibilityAndScrollLock();
+              }
               PBNotify.toast(
                 'success',
                 'Responses Flushed & Verified',
@@ -28267,7 +28404,10 @@ var qrcode = (function() {
     function openStudentSubmissionReceiptModalPhase6(receiptDto) {
       if (!receiptDto) return;
       var readyModal = document.getElementById('modal-exam-submit-readiness');
-      if (readyModal) readyModal.classList.add('hidden');
+      if (readyModal) {
+        readyModal.classList.add('hidden');
+        syncAllModalAccessibilityAndScrollLock();
+      }
 
       if (currentExamCountdownIntervalPhase5) {
         clearInterval(currentExamCountdownIntervalPhase5);
@@ -28316,12 +28456,18 @@ var qrcode = (function() {
       }
 
       var receiptModal = document.getElementById('modal-exam-submission-receipt');
-      if (receiptModal) receiptModal.classList.remove('hidden');
+      if (receiptModal) {
+        receiptModal.classList.remove('hidden');
+        syncAllModalAccessibilityAndScrollLock();
+      }
     }
 
     function closeStudentSubmissionReceiptAndReturnPhase6() {
       var receiptModal = document.getElementById('modal-exam-submission-receipt');
-      if (receiptModal) receiptModal.classList.add('hidden');
+      if (receiptModal) {
+        receiptModal.classList.add('hidden');
+        syncAllModalAccessibilityAndScrollLock();
+      }
       if (currentStudentCourseId) {
         showSectionView('courseDetail');
         openStudentCourseDetailView(
@@ -29167,7 +29313,8 @@ var qrcode = (function() {
         box.classList.remove('is-unrestricted');
         if (badge) {
           badge.className = 'badge badge-warning';
-          badge.textContent = 'Copy Restricted (' + (pol.policyVersion || 'pb-exam-integrity-v1') + ')';
+          badge.textContent = 'Copy Restricted';
+          badge.title = 'Policy: ' + (pol.policyVersion || 'pb-exam-integrity-v1');
         }
         if (primaryTxt) {
           primaryTxt.textContent =
@@ -30698,6 +30845,21 @@ var qrcode = (function() {
         });
       }
 
+      /* Watch modal backdrops globally so aria-hidden and body scroll lock never drift */
+      syncAllModalAccessibilityAndScrollLock();
+      if (typeof MutationObserver === 'function' && !window.__pbModalBackdropObserver) {
+        var modalBackdropsList = document.querySelectorAll('.modal-backdrop, .pb-modal-backdrop');
+        window.__pbModalBackdropObserver = new MutationObserver(function () {
+          syncAllModalAccessibilityAndScrollLock();
+        });
+        for (var mb = 0; mb < modalBackdropsList.length; mb++) {
+          window.__pbModalBackdropObserver.observe(modalBackdropsList[mb], {
+            attributes: true,
+            attributeFilter: ['class']
+          });
+        }
+      }
+
       /* Bind Floating Quick-Jump Table of Contents & In-Page [data-toc-jump] Pills */
       var btnToggleToc = document.getElementById('btn-toggle-floating-toc');
       if (btnToggleToc) {
@@ -30741,14 +30903,25 @@ var qrcode = (function() {
 
       var siteHeaderNavbar = document.getElementById('site-header-navbar');
       if (siteHeaderNavbar && typeof window.addEventListener === 'function') {
+        var syncFormsOffsetOnNavChange = function () {
+          if (isExamStudioModeActive && typeof syncFormsStickyToolbarOffset === 'function') {
+            syncFormsStickyToolbarOffset();
+          }
+        };
         window.addEventListener(
           'scroll',
           function () {
             var scrolled = (window.scrollY || window.pageYOffset || 0) > 20;
             siteHeaderNavbar.classList.toggle('is-scrolled', Boolean(scrolled));
+            if (isExamStudioModeActive && typeof window.requestAnimationFrame === 'function') {
+              window.requestAnimationFrame(syncFormsOffsetOnNavChange);
+            } else {
+              syncFormsOffsetOnNavChange();
+            }
           },
           { passive: true }
         );
+        siteHeaderNavbar.addEventListener('transitionend', syncFormsOffsetOnNavChange);
       }
 
       /* Close Login Modal buttons & backdrop click */
@@ -33234,12 +33407,13 @@ var qrcode = (function() {
             activePaymentSessionDto.status = 'RECEIPT_UPLOADED';
             setText(
               'payment-receipt-upload-status',
-              'Receipt uploaded & verified: ' + fid
+              'Receipt uploaded and attached successfully.'
             );
             var badge = document.getElementById('payment-uploaded-receipt-id-badge');
             if (badge) {
               badge.className = 'badge badge-ok';
-              badge.textContent = 'Receipt Linked: ' + fid;
+              badge.textContent = 'Receipt Uploaded & Attached';
+              badge.title = 'Receipt ID: ' + fid;
             }
             var confirmBtn = document.getElementById('btn-payment-confirm-submission');
             if (confirmBtn) {
@@ -33247,9 +33421,7 @@ var qrcode = (function() {
             }
             setText(
               'payment-confirm-submission-status',
-              'Valid receipt (' +
-                fid +
-                ') verified. Click "Confirm Payment Submission" to submit for verification.'
+              'Valid receipt verified. Click "Confirm Payment Submission" to submit for verification.'
             );
             renderPrivateImagePreviewStep8(
               'payment-receipt-thumbnail-box',

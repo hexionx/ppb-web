@@ -87,19 +87,36 @@ if ($statusView.Contains('includePartial_')) {
 }
 
 # Index.html -> index.html (resolve scriptlets statically)
+function Get-ShortAssetHash([string]$AssetPath) {
+  if (-not (Test-Path -LiteralPath $AssetPath)) { return "1" }
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    $bytes = [System.IO.File]::ReadAllBytes($AssetPath)
+    $hashBytes = $sha.ComputeHash($bytes)
+    return ([System.BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant()).Substring(0, 8)
+  } finally {
+    $sha.Dispose()
+  }
+}
+
+$stylesHash = Get-ShortAssetHash (Join-Path $docs 'css\styles.css')
+$configHash = Get-ShortAssetHash (Join-Path $docs 'js\config.js')
+$apiHash    = Get-ShortAssetHash (Join-Path $docs 'js\api.js')
+$appHash    = Get-ShortAssetHash (Join-Path $docs 'js\app.js')
+
 $tagStyles = "<?!= includePartial_('Styles'); ?>"
 $tagStatus = "<?!= includePartial_('StatusView'); ?>"
 $tagCore   = "<?!= includePartial_('ClientCore'); ?>"
 foreach ($t in @($tagStyles, $tagStatus, $tagCore)) {
   if (-not $index.Contains($t)) { throw "Index.html no longer contains expected tag: $t" }
 }
-$index = $index.Replace($tagStyles, '<link rel="stylesheet" href="css/styles.css" />')
+$index = $index.Replace($tagStyles, "<link rel=`"stylesheet`" href=`"css/styles.css?v=$stylesHash`" />")
 $index = $index.Replace($tagStatus, $statusView)
 $index = $index.Replace($tagCore, (@(
   '<!-- Backend endpoint config, fetch transport shim, then the original client app -->',
-  '    <script src="js/config.js"></script>',
-  '    <script src="js/api.js"></script>',
-  '    <script src="js/app.js"></script>'
+  "    <script src=`"js/config.js?v=$configHash`"></script>",
+  "    <script src=`"js/api.js?v=$apiHash`"></script>",
+  "    <script src=`"js/app.js?v=$appHash`"></script>"
 ) -join "`r`n"))
 # doGet() added these via HtmlOutput; add them as real tags.
 $index = $index.Replace('<meta charset="UTF-8" />', (@(

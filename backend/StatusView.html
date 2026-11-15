@@ -1883,10 +1883,12 @@
   >
     <div class="pb-modal-dialog" style="max-width: 620px; width: 94%;">
       <div class="pb-modal-header">
-        <span class="badge badge-ok">Submission Readiness Summary</span>
-        <h2 id="exam-submit-ready-title" style="margin: 6px 0 0 0; font-size: 1.22rem; color: var(--color-brand-deep);">
-          Review Your Examination Before Final Submission
-        </h2>
+        <div>
+          <span class="badge badge-ok">Submission Readiness Summary</span>
+          <h2 id="exam-submit-ready-title" style="margin: 6px 0 0 0; font-size: 1.22rem; color: var(--color-brand-deep);">
+            Review Your Examination Before Final Submission
+          </h2>
+        </div>
       </div>
 
       <div class="pb-modal-body" style="margin-top: 12px;">
@@ -1907,7 +1909,7 @@
             <div class="status-label">Flagged for Review</div>
             <div class="status-value" id="exam-submit-ready-flagged">0</div>
           </div>
-          <div class="status-item">
+          <div class="status-item pb-kpi-span-full">
             <div class="status-label">Remaining Time</div>
             <div class="status-value" id="exam-submit-ready-time">Untimed</div>
           </div>
@@ -2020,7 +2022,7 @@
       <div class="pb-modal-header">
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
           <span class="badge badge-warning" id="exam-copy-suspension-badge">Examination Paused (5s)</span>
-          <span class="badge" id="exam-copy-suspension-policy-badge">pb-exam-integrity-v1</span>
+          <span class="badge" id="exam-copy-suspension-policy-badge">Copy Restricted</span>
         </div>
         <h2 id="exam-copy-suspension-title" style="margin: 0; font-size: 1.24rem; color: var(--color-brand-deep);">
           Copying is restricted
@@ -2079,7 +2081,7 @@
       <div class="pb-modal-header">
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
           <span class="badge badge-danger" id="exam-invalidated-status-badge">ATTEMPT INVALIDATED</span>
-          <span class="badge" id="exam-invalidated-policy-version">pb-exam-integrity-v1</span>
+          <span class="badge" id="exam-invalidated-policy-version">Academic Integrity Policy</span>
         </div>
         <h2 id="exam-invalidated-title" style="margin: 0; font-size: 1.26rem; color: var(--color-brand-deep);">
           Examination attempt invalidated
@@ -2866,7 +2868,7 @@
           <div class="pb-pay-kpi-body">
             <div class="pb-pay-kpi-label">Unpaid Installments</div>
             <div class="pb-pay-kpi-value" id="student-payment-unpaid-count">0 installments</div>
-            <div class="pb-pay-kpi-sub" id="student-payment-server-clock-bkk">Bangkok Time: -</div>
+            <div class="pb-pay-kpi-sub" id="student-payment-server-clock-bkk">Bangkok Time: Syncing...</div>
           </div>
         </div>
 
@@ -3840,7 +3842,7 @@
     <div class="status-grid" style="margin-bottom: 16px;">
       <div class="status-item">
         <div class="status-label">Displayed Month (Asia/Bangkok)</div>
-        <div class="status-value" id="calendar-summary-month-label">-</div>
+        <div class="status-value" id="calendar-summary-month-label">Loading...</div>
         <div
           id="calendar-summary-range-dates"
           style="font-size: 0.78rem; color: var(--color-text-secondary); margin-top: 2px;"
@@ -4064,96 +4066,100 @@
         </div>
 
         <form id="form-admin-calendar-event" novalidate>
-          <div class="form-group">
-            <label class="form-label" for="input-cal-event-title">Event Title *</label>
-            <input
-              type="text"
-              class="form-input"
-              id="input-cal-event-title"
-              placeholder="e.g. BIO-101 Live Lecture: Cellular Respiration"
-              maxlength="160"
-              required
-            />
-          </div>
-
-          <div class="form-grid-2col">
+          <div class="modal-body">
             <div class="form-group">
-              <label class="form-label" for="select-cal-event-scope">Event Audience *</label>
-              <select class="form-input" id="select-cal-event-scope">
-                <option value="COURSE">Specific Biology Course</option>
-                <option value="SCHOOL_WIDE">All Students (School-Wide)</option>
-              </select>
-            </div>
-
-            <div class="form-group" id="group-cal-event-course">
-              <label class="form-label" for="select-cal-event-course">Select Course *</label>
-              <select class="form-input" id="select-cal-event-course">
-                <option value="">-- Select Course --</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="input-cal-event-start-date">Start Date (ICT) *</label>
+              <label class="form-label" for="input-cal-event-title">Event Title *</label>
               <input
-                type="date"
+                type="text"
                 class="form-input"
-                id="input-cal-event-start-date"
+                id="input-cal-event-title"
+                placeholder="e.g. BIO-101 Live Lecture: Cellular Respiration"
+                maxlength="160"
                 required
               />
             </div>
 
+            <div class="form-grid-2col">
+              <div class="form-group">
+                <label class="form-label" for="select-cal-event-scope">Event Audience *</label>
+                <select class="form-input" id="select-cal-event-scope">
+                  <option value="COURSE">Specific Biology Course</option>
+                  <option value="SCHOOL_WIDE">All Students (School-Wide)</option>
+                </select>
+              </div>
+
+              <div class="form-group" id="group-cal-event-course">
+                <label class="form-label" for="select-cal-event-course">Select Course *</label>
+                <select class="form-input" id="select-cal-event-course">
+                  <option value="">-- Select Course --</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="input-cal-event-start-date">Start Date (ICT) *</label>
+                <input
+                  type="date"
+                  class="form-input"
+                  id="input-cal-event-start-date"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="input-cal-event-end-date">End Date (ICT) *</label>
+                <input
+                  type="date"
+                  class="form-input"
+                  id="input-cal-event-end-date"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="checkbox-card" style="margin-bottom: 12px;">
+              <label class="checkbox-label" for="chk-cal-event-all-day">
+                <input type="checkbox" id="chk-cal-event-all-day" />
+                <span>All-Day Event</span>
+              </label>
+            </div>
+
+            <div class="form-grid-2col" id="group-cal-event-times">
+              <div class="form-group">
+                <label class="form-label" for="input-cal-event-start-time">Start Time (24h ICT)</label>
+                <input
+                  type="time"
+                  class="form-input"
+                  id="input-cal-event-start-time"
+                  value="09:00"
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="input-cal-event-end-time">End Time (24h ICT)</label>
+                <input
+                  type="time"
+                  class="form-input"
+                  id="input-cal-event-end-time"
+                  value="11:00"
+                />
+              </div>
+            </div>
+
             <div class="form-group">
-              <label class="form-label" for="input-cal-event-end-date">End Date (ICT) *</label>
+              <label class="form-label" for="input-cal-event-location">Location / Room / Live Stream</label>
               <input
-                type="date"
+                type="text"
                 class="form-input"
-                id="input-cal-event-end-date"
-                required
+                id="input-cal-event-location"
+                placeholder="e.g. Room 302 or Live Zoom Classroom"
+                maxlength="160"
               />
             </div>
+
+            <p id="admin-cal-event-modal-status" role="status" aria-live="polite" style="margin: 8px 0 0 0; font-size: 0.86rem; font-weight: 600; color: var(--color-brand-medium);"></p>
           </div>
 
-          <div class="checkbox-card" style="margin-bottom: 12px;">
-            <label class="checkbox-label" for="chk-cal-event-all-day">
-              <input type="checkbox" id="chk-cal-event-all-day" />
-              <span>All-Day Event</span>
-            </label>
-          </div>
-
-          <div class="form-grid-2col" id="group-cal-event-times">
-            <div class="form-group">
-              <label class="form-label" for="input-cal-event-start-time">Start Time (24h ICT)</label>
-              <input
-                type="time"
-                class="form-input"
-                id="input-cal-event-start-time"
-                value="09:00"
-              />
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="input-cal-event-end-time">End Time (24h ICT)</label>
-              <input
-                type="time"
-                class="form-input"
-                id="input-cal-event-end-time"
-                value="11:00"
-              />
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="input-cal-event-location">Location / Room / Live Stream</label>
-            <input
-              type="text"
-              class="form-input"
-              id="input-cal-event-location"
-              placeholder="e.g. Room 302 or Live Zoom Classroom"
-              maxlength="160"
-            />
-          </div>
-
-          <div style="display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 14px;">
+          <div class="pb-modal-footer" style="display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--color-border);">
             <button type="button" class="btn btn-outline btn-sm" id="btn-cancel-admin-cal-event-modal">
               Cancel
             </button>
@@ -4161,7 +4167,6 @@
               Save Calendar Event
             </button>
           </div>
-          <p id="admin-cal-event-modal-status" role="status" aria-live="polite" style="margin: 8px 0 0 0; font-size: 0.86rem; font-weight: 600; color: var(--color-brand-medium);"></p>
         </form>
       </div>
     </div>
@@ -4169,12 +4174,12 @@
     <!-- Calendar Loading State Anchor (Skeleton Removed) -->
     <div
       id="calendar-loading-state"
-      class="hidden"
-      style="display: none !important;"
+      class="banner banner-info hidden"
       role="status"
       aria-live="polite"
       aria-hidden="true"
-    ></div>
+      style="margin-bottom: 12px;"
+    >Loading class schedule...</div>
 
     <!-- Error & Retry Banner -->
     <div
@@ -5927,14 +5932,14 @@
           </select>
         </div>
 
-        <div style="flex: 0 1 130px;">
+        <div style="flex: 0 0 154px;">
           <label class="form-label" for="select-users-page-limit" style="font-size: 0.84rem;">
             Rows per Page
           </label>
           <select class="form-input" id="select-users-page-limit">
-            <option value="3">3 per page (Test Pagination)</option>
-            <option value="10" selected>10 per page</option>
-            <option value="25">25 per page</option>
+            <option value="3">3 / page (Test)</option>
+            <option value="10" selected>10 / page</option>
+            <option value="25">25 / page</option>
           </select>
         </div>
 
@@ -7614,8 +7619,8 @@
           <div class="form-group">
             <label for="select-regrade-mode" class="form-label">Regrade Mode</label>
             <select id="select-regrade-mode" class="form-input">
-              <option value="RE_EVALUATE_CURRENT_KEYS">RE_EVALUATE_CURRENT_KEYS (Re-score against question key)</option>
-              <option value="FULL_CREDIT_ITEM">FULL_CREDIT_ITEM (Award full points on selected question)</option>
+              <option value="RE_EVALUATE_CURRENT_KEYS">Re-score Against Current Answer Keys</option>
+              <option value="FULL_CREDIT_ITEM">Award Full Points on Target Question</option>
             </select>
           </div>
           <div class="form-group">
@@ -7982,13 +7987,13 @@
             <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
             <span>Assignments</span>
           </button>
-          <button type="button" class="btn btn-primary btn-sm" id="btn-admin-open-forms-builder" title="Create Exam or Quiz in Form Builder">
+          <button type="button" class="btn btn-primary btn-sm hidden" id="btn-admin-open-forms-builder" title="Create Exam or Quiz in Form Builder" aria-hidden="true">
             <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             <span>New Exam / Quiz</span>
           </button>
-          <button type="button" class="btn btn-outline btn-sm" id="btn-admin-open-exam-builder-modal" title="Open legacy section checklist modal">
+          <button type="button" class="btn btn-outline btn-sm" id="btn-admin-open-exam-builder-modal" title="Open exam settings and sections modal">
             <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-            <span>Classic</span>
+            <span>Quick Settings</span>
           </button>
         </div>
       </div>
@@ -8380,7 +8385,7 @@
             Question Bank &amp; Shared Passages
           </h3>
           <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
-            Build immutable, versioned biology questions across all 6 question types (Single-Choice, Multiple-Select, True/False, Numeric, Short Answer, and Written Response) with shared experimental stimuli and private grading keys.
+            Build immutable, versioned biology questions across all 7 question types (Single-Choice, Complex Multiple-Choice, Multiple-Select, True/False, Numeric, Short Answer, and Written Response) with shared experimental stimuli and private grading keys.
           </p>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -8449,13 +8454,14 @@
             Question Type
           </label>
           <select class="form-input" id="select-qbank-type-filter">
-            <option value="ALL">All 6 Types</option>
+            <option value="ALL">All 7 Types</option>
             <option value="SINGLE_CHOICE">1. Single-Choice</option>
-            <option value="MULTIPLE_SELECT">2. Multiple-Select</option>
-            <option value="TRUE_FALSE">3. True / False</option>
-            <option value="NUMERIC_RESPONSE">4. Numeric Response</option>
-            <option value="SHORT_ANSWER">5. Short Answer</option>
-            <option value="WRITTEN_RESPONSE">6. Written Response</option>
+            <option value="COMPLEX_MULTIPLE_CHOICE">2. Complex MC (Yes/No)</option>
+            <option value="MULTIPLE_SELECT">3. Multiple-Select</option>
+            <option value="TRUE_FALSE">4. True / False</option>
+            <option value="NUMERIC_RESPONSE">5. Numeric Response</option>
+            <option value="SHORT_ANSWER">6. Short Answer</option>
+            <option value="WRITTEN_RESPONSE">7. Written Response</option>
           </select>
         </div>
         <div style="flex: 0 1 140px;">
@@ -8464,10 +8470,10 @@
           </label>
           <select class="form-input" id="select-qbank-difficulty-filter">
             <option value="ALL">All Levels</option>
-            <option value="EASY">EASY</option>
-            <option value="MEDIUM">MEDIUM</option>
-            <option value="HARD">HARD</option>
-            <option value="OLYMPIAD">OLYMPIAD</option>
+            <option value="EASY">Easy</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="HARD">Hard</option>
+            <option value="OLYMPIAD">Olympiad</option>
           </select>
         </div>
         <div style="flex: 0 1 140px;">
@@ -8588,22 +8594,22 @@
           <div class="form-group">
             <label class="form-label" for="select-qbank-type">Question Type *</label>
             <select class="form-input" id="select-qbank-type">
-              <option value="SINGLE_CHOICE">1. SINGLE_CHOICE (5-Option A-Level / Single Best)</option>
-              <option value="COMPLEX_MULTIPLE_CHOICE">2. COMPLEX_MULTIPLE_CHOICE (3 Statements Yes/No • A-Level)</option>
-              <option value="MULTIPLE_SELECT">3. MULTIPLE_SELECT (Multiple Correct Options)</option>
-              <option value="TRUE_FALSE">4. TRUE_FALSE (True / False Statement)</option>
-              <option value="NUMERIC_RESPONSE">5. NUMERIC_RESPONSE (Exact / Tolerance / Range)</option>
-              <option value="SHORT_ANSWER">6. SHORT_ANSWER (Manual or Normalized Auto-Match)</option>
-              <option value="WRITTEN_RESPONSE">7. WRITTEN_RESPONSE (Extended Essay + Rubric)</option>
+              <option value="SINGLE_CHOICE">1. Single-Choice (5-Option A-Level / Single Best)</option>
+              <option value="COMPLEX_MULTIPLE_CHOICE">2. Complex Multiple-Choice (3 Statements Yes/No • A-Level)</option>
+              <option value="MULTIPLE_SELECT">3. Multiple-Select (Multiple Correct Options)</option>
+              <option value="TRUE_FALSE">4. True / False Statement</option>
+              <option value="NUMERIC_RESPONSE">5. Numeric Response (Exact / Tolerance / Range)</option>
+              <option value="SHORT_ANSWER">6. Short Answer (Manual or Normalized Auto-Match)</option>
+              <option value="WRITTEN_RESPONSE">7. Written Response (Extended Essay + Rubric)</option>
             </select>
           </div>
           <div class="form-group">
             <label class="form-label" for="select-qbank-difficulty">Difficulty *</label>
             <select class="form-input" id="select-qbank-difficulty">
-              <option value="EASY">EASY</option>
-              <option value="MEDIUM" selected>MEDIUM</option>
-              <option value="HARD">HARD</option>
-              <option value="OLYMPIAD">OLYMPIAD (TBO / A-Level Intensive)</option>
+              <option value="EASY">Easy</option>
+              <option value="MEDIUM" selected>Medium</option>
+              <option value="HARD">Hard</option>
+              <option value="OLYMPIAD">Olympiad (TBO / A-Level Intensive)</option>
             </select>
           </div>
           <div class="form-group">
@@ -8657,8 +8663,8 @@
             <div class="form-group" style="margin-bottom: 6px;">
               <label class="form-label" for="select-qbank-accessible-flag">Accessibility Design Mode</label>
               <select class="form-input" id="select-qbank-accessible-flag">
-                <option value="STANDARD_ALT">STANDARD_ALT (Alt text describes visual without spoiling answer)</option>
-                <option value="VISUAL_INTERPRETATION_REQUIRED">VISUAL_INTERPRETATION_REQUIRED (Flagged for alternative accessible design)</option>
+                <option value="STANDARD_ALT">Standard Alt Text (Describes visual without spoiling answer)</option>
+                <option value="VISUAL_INTERPRETATION_REQUIRED">Visual Interpretation Required (Flag for accessible alternative)</option>
               </select>
             </div>
           </div>
@@ -8751,7 +8757,7 @@
             </div>
             <div class="form-group">
               <label class="form-label" for="input-qbank-num-unit">Unit Instruction Label (Optional)</label>
-              <input type="text" class="form-input" id="input-qbank-num-unit" placeholder="e.g. mmol/L or umol mg-1 Chl h-1" maxlength="64" />
+              <input type="text" class="form-input" id="input-qbank-num-unit" placeholder="e.g. mmol/L or µmol mg⁻¹ Chl h⁻¹" maxlength="64" />
             </div>
             <div class="form-group">
               <label class="form-label" for="input-qbank-num-target">Target Numeric Value</label>
@@ -9048,7 +9054,7 @@
             <input type="text" id="input-admin-integrity-exam-id" class="form-input" placeholder="exs_..." />
           </div>
           <div class="form-group">
-            <label for="input-admin-integrity-baseline" class="form-label">New Strike Baseline Offset (for UNLOCK_ACCOUNT_SET_BASELINE)</label>
+            <label for="input-admin-integrity-baseline" class="form-label">New Strike Baseline Offset (Unlock &amp; Reset Baseline)</label>
             <input type="number" id="input-admin-integrity-baseline" class="form-input" min="0" max="100" placeholder="Leave blank to reset active strikes to 0" />
           </div>
         </div>
@@ -9115,8 +9121,8 @@
           <div class="status-value" id="admin-logo-source-type">-</div>
         </div>
         <div class="status-item">
-          <div class="status-label">Drive File Reference</div>
-          <div class="status-value" id="admin-logo-drive-id">12EKzWLkKL9XEdZVrJBzGNERdAd7BFi--</div>
+          <div class="status-label">Media Reference</div>
+          <div class="status-value" id="admin-logo-drive-id">Checking...</div>
         </div>
         <div class="status-item">
           <div class="status-label">Image Format &amp; Size</div>
@@ -9994,7 +10000,7 @@
         </span>
         <div class="pb-lockout-contact-body">
           <span class="pb-lockout-contact-kicker">LINE Official Support</span>
-          <strong class="pb-lockout-contact-value">Line: ID: poowadatch</strong>
+          <strong class="pb-lockout-contact-value">LINE ID: poowadatch</strong>
         </div>
       </a>
 

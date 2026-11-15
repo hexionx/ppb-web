@@ -7636,7 +7636,7 @@ function buildExamVersionStructureBundlePhase3_(
             ' drawn from ' +
             rawSecItems.length +
             ' candidates)'
-          : 'Fixed Section Items (' + rawSecItems.length + ' questions)',
+          : 'Fixed Section Items (' + rawSecItems.length + (rawSecItems.length === 1 ? ' question)' : ' questions)'),
       poolDrawCount: Number(sRow.pool_draw_count) || 0,
       poolCandidateCount: rawSecItems.length,
       lockSectionOrder: Boolean(sRow.lock_section_order),

@@ -17756,4 +17756,225 @@
     }
   }
 
+  /* ==========================================================================
+   * UX/UI POLISH PASS: BADGES, GRIDS, EMAIL WRAPPING, MODALS & MOBILE NAV
+   * ========================================================================== */
+  :where(.badge) {
+    background-color: #F1F5F9;
+    color: #334155;
+    border: 1px solid #CBD5E1;
+  }
+
+  .badge-warning {
+    background-color: var(--color-warning-bg, #FEF3C7);
+    color: var(--color-warning-text, #92400E);
+    border: 1px solid var(--color-warning-border, #F59E0B);
+  }
+
+  @media (min-width: 768px) {
+    .status-grid {
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+    }
+  }
+
+  #profile-user-email {
+    font-size: clamp(0.79rem, 1.05vw, 0.9rem);
+    line-height: 1.35;
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  @media (min-width: 961px) {
+    .pb-exam-catalog-filter-bar {
+      grid-template-columns: minmax(200px, 1.8fr) repeat(3, minmax(154px, 1fr)) auto !important;
+    }
+  }
+
+  #admin-panel-users #form-admin-users-filter > div:has(#select-users-page-limit) {
+    flex: 0 0 154px !important;
+    min-width: 154px !important;
+  }
+
+  #select-users-page-limit,
+  #select-admin-users-limit {
+    width: 100% !important;
+    white-space: nowrap !important;
+  }
+
+  /* Prevent sticky Exam Studio toolbar peek gap & input overlap */
+  .pb-forms-sticky-toolbar {
+    top: var(--pb-sticky-toolbar-top, 64px) !important;
+    padding: 8px 14px !important;
+    gap: 8px !important;
+    background: #FFFFFF !important;
+    box-shadow: 0 -10px 0 #F8FAFC, 0 8px 20px -6px rgba(15, 23, 42, 0.1) !important;
+  }
+
+  .pb-forms-sticky-toolbar .btn,
+  .pb-forms-sticky-toolbar .btn-sm {
+    min-height: 34px !important;
+    padding: 5px 11px !important;
+    font-size: 0.78rem !important;
+  }
+
+  .pb-forms-question-card,
+  .pb-forms-section-card {
+    scroll-margin-top: 156px;
+  }
+
+  /* Compact unobtrusive Floating TOC Pill + hide during modal overlays */
+  body.pb-modal-open .pb-floating-toc-dock,
+  body.pb-admin-modal-lock .pb-floating-toc-dock {
+    display: none !important;
+  }
+
+  .pb-floating-toc-dock {
+    right: 14px !important;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .pb-floating-toc-toggle {
+    min-height: 36px !important;
+    padding: 6px 14px !important;
+    font-size: 0.8rem !important;
+    gap: 6px !important;
+    box-shadow: 0 10px 24px -8px rgba(15, 23, 42, 0.28) !important;
+  }
+
+  .pb-floating-toc-toggle .pb-floating-toc-active-pill {
+    display: none !important;
+  }
+
+  .site-footer .footer-inner {
+    padding-bottom: 62px !important;
+  }
+
+  /* Single internal scroll region for pop-up modals (eliminates double scrollbars & clipped footers) */
+  .pb-modal-dialog {
+    display: flex !important;
+    flex-direction: column !important;
+    max-height: min(90vh, 860px) !important;
+    overflow: hidden !important;
+  }
+
+  .pb-modal-dialog > .pb-modal-header,
+  .pb-modal-dialog > .pb-modal-footer {
+    flex-shrink: 0 !important;
+  }
+
+  .pb-modal-dialog > .pb-modal-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    padding-right: 4px !important;
+  }
+
+  #modal-admin-calendar-event .modal-dialog {
+    display: flex !important;
+    flex-direction: column !important;
+    max-height: min(90vh, 780px) !important;
+    overflow: hidden !important;
+  }
+
+  #modal-admin-calendar-event .modal-header {
+    flex-shrink: 0 !important;
+  }
+
+  #form-admin-calendar-event {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #form-admin-calendar-event > .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 2px 4px 8px 0;
+  }
+
+  #form-admin-calendar-event > .pb-modal-footer {
+    flex-shrink: 0;
+  }
+
+  .pb-kpi-span-full {
+    grid-column: 1 / -1 !important;
+  }
+
+  @media (max-width: 767px) {
+    .status-value {
+      word-break: normal !important;
+      overflow-wrap: break-word !important;
+    }
+
+    .admin-subnav,
+    .pb-inpage-toc-bar {
+      flex-wrap: wrap !important;
+      overflow-x: visible !important;
+      gap: 6px !important;
+      padding: 8px 10px !important;
+    }
+
+    .admin-subnav > .admin-subnav-btn:not(.hidden),
+    .pb-inpage-toc-bar > .pb-inpage-toc-pill:not(.hidden) {
+      flex: 1 1 auto !important;
+      min-width: fit-content !important;
+      white-space: nowrap !important;
+      font-size: 0.78rem !important;
+      padding: 6px 11px !important;
+      min-height: 34px !important;
+    }
+
+    .pb-pay-subview-tab {
+      padding: 7px 11px !important;
+      font-size: 0.8rem !important;
+    }
+
+    .pb-floating-toc-dock {
+      right: 10px !important;
+      bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    .pb-floating-toc-toggle {
+      min-height: 34px !important;
+      padding: 5px 12px !important;
+      font-size: 0.78rem !important;
+    }
+
+    .site-footer .footer-inner {
+      padding-bottom: 68px !important;
+    }
+
+    #admin-panel-users > .card > div:first-child,
+    #admin-panel-users > .card > div:first-child > div:last-child,
+    #admin-panel-users .pagination-bar {
+      flex-wrap: wrap !important;
+    }
+
+    #admin-panel-users .status-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    #admin-panel-users #form-admin-users-filter {
+      flex-wrap: wrap !important;
+      overflow-x: visible !important;
+    }
+
+    #admin-panel-users #form-admin-users-filter > div {
+      flex: 1 1 calc(50% - 5px) !important;
+      min-width: 0 !important;
+    }
+
+    #admin-panel-users #form-admin-users-filter > div:first-child,
+    #admin-panel-users #form-admin-users-filter > div:last-child {
+      flex: 1 1 100% !important;
+    }
+  }
+
 </style>
