@@ -341,7 +341,12 @@
             var badge = document.createElement('span');
             badge.className = eb.className || 'badge badge-ok';
             badge.style.fontSize = '0.68rem';
-            badge.textContent = eb.label || '';
+            if (eb.icon && typeof PBIcons === 'object' && PBIcons) {
+              badge.appendChild(PBIcons.create(eb.icon, 'pb-icon-xs'));
+            }
+            var badgeLbl = document.createElement('span');
+            badgeLbl.textContent = eb.label || '';
+            badge.appendChild(badgeLbl);
             codeRow.appendChild(badge);
           }
         }
@@ -541,6 +546,42 @@
           { tag: 'path', attrs: { d: 'M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68' } },
           { tag: 'path', attrs: { d: 'M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61' } },
           { tag: 'line', attrs: { x1: '2', y1: '2', x2: '22', y2: '22' } }
+        ],
+        'image': [
+          { tag: 'rect', attrs: { x: '3', y: '3', width: '18', height: '18', rx: '2', ry: '2' } },
+          { tag: 'circle', attrs: { cx: '8.5', cy: '8.5', r: '1.5' } },
+          { tag: 'polyline', attrs: { points: '21 15 16 10 5 21' } }
+        ],
+        'table': [
+          { tag: 'rect', attrs: { x: '3', y: '3', width: '18', height: '18', rx: '2', ry: '2' } },
+          { tag: 'line', attrs: { x1: '3', y1: '9', x2: '21', y2: '9' } },
+          { tag: 'line', attrs: { x1: '3', y1: '15', x2: '21', y2: '15' } },
+          { tag: 'line', attrs: { x1: '9', y1: '3', x2: '9', y2: '21' } }
+        ],
+        'flag': [
+          { tag: 'path', attrs: { d: 'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z' } },
+          { tag: 'line', attrs: { x1: '4', y1: '22', x2: '4', y2: '15' } }
+        ],
+        'zoom-in': [
+          { tag: 'circle', attrs: { cx: '11', cy: '11', r: '8' } },
+          { tag: 'line', attrs: { x1: '21', y1: '21', x2: '16.65', y2: '16.65' } },
+          { tag: 'line', attrs: { x1: '11', y1: '8', x2: '11', y2: '14' } },
+          { tag: 'line', attrs: { x1: '8', y1: '11', x2: '14', y2: '11' } }
+        ],
+        'arrow-up': [
+          { tag: 'line', attrs: { x1: '12', y1: '19', x2: '12', y2: '5' } },
+          { tag: 'polyline', attrs: { points: '5 12 12 5 19 12' } }
+        ],
+        'arrow-down': [
+          { tag: 'line', attrs: { x1: '12', y1: '5', x2: '12', y2: '19' } },
+          { tag: 'polyline', attrs: { points: '19 12 12 19 5 12' } }
+        ],
+        'circle-dot': [
+          { tag: 'circle', attrs: { cx: '12', cy: '12', r: '9' } },
+          { tag: 'circle', attrs: { cx: '12', cy: '12', r: '3' } }
+        ],
+        'square': [
+          { tag: 'rect', attrs: { x: '4', y: '4', width: '16', height: '16', rx: '2', ry: '2' } }
         ]
       });
 
@@ -577,6 +618,22 @@
         }
       });
     })();
+
+    function setElementVectorIconLabel(el, iconName, text, opt_iconClass) {
+      if (!el) return;
+      while (el.firstChild) el.removeChild(el.firstChild);
+      if (el.classList && el.tagName === 'BUTTON') {
+        el.classList.add('pb-vec-icon-btn');
+      }
+      if (iconName) {
+        el.appendChild(PBIcons.create(iconName, opt_iconClass || 'pb-icon-sm'));
+      }
+      if (text !== undefined && text !== null && String(text) !== '') {
+        var lblSpan = document.createElement('span');
+        lblSpan.textContent = String(text);
+        el.appendChild(lblSpan);
+      }
+    }
 
     var PBUI = (function () {
       function el(tagName, opt_attrs, opt_children) {
@@ -8626,6 +8683,146 @@
       return lines.join('\n');
     }
 
+    function stripInternalMediaMarkerTags(rawText) {
+      var s = String(rawText || '');
+      s = s.replace(/\[(?:Image|PDF|Table):[^\]]*(?:\]|\.{3}|$)/gi, ' ');
+      s = s.replace(/\[(?:Image|PDF|Table)\]/gi, ' ');
+      return s.replace(/\s+/g, ' ').trim();
+    }
+
+    function extractCleanTextFromRichTextDoc(doc) {
+      if (doc === null || doc === undefined) return '';
+      if (typeof doc === 'string') {
+        var trimmed = doc.trim();
+        if (trimmed.charAt(0) === '{') {
+          try {
+            var parsed = JSON.parse(trimmed);
+            if (parsed && Array.isArray(parsed.blocks)) {
+              return extractCleanTextFromRichTextDoc(parsed);
+            }
+          } catch (ignoreErr) {}
+        }
+        return stripInternalMediaMarkerTags(trimmed);
+      }
+      if (typeof doc !== 'object') return '';
+      if (typeof doc.plainText === 'string' && !Array.isArray(doc.blocks)) {
+        return stripInternalMediaMarkerTags(doc.plainText);
+      }
+      var blocks = Array.isArray(doc.blocks) ? doc.blocks : [];
+      var lines = [];
+      for (var b = 0; b < blocks.length; b++) {
+        var blk = blocks[b];
+        if (!blk || typeof blk !== 'object') continue;
+        if (blk.type === 'bullet_list' || blk.type === 'ordered_list') {
+          var items = Array.isArray(blk.items) ? blk.items : [];
+          for (var it = 0; it < items.length; it++) {
+            var itemSpans = Array.isArray(items[it].spans) ? items[it].spans : [];
+            var itemTxt = '';
+            for (var s = 0; s < itemSpans.length; s++) {
+              itemTxt += itemSpans[s] && itemSpans[s].text ? String(itemSpans[s].text) : '';
+            }
+            if (itemTxt.trim()) lines.push(itemTxt.trim());
+          }
+        } else if (Array.isArray(blk.spans)) {
+          var pTxt = '';
+          for (var ps = 0; ps < blk.spans.length; ps++) {
+            pTxt += blk.spans[ps] && blk.spans[ps].text ? String(blk.spans[ps].text) : '';
+          }
+          if (pTxt.trim()) lines.push(pTxt.trim());
+        }
+      }
+      return lines.join('\n').trim();
+    }
+
+    function richTextDocHasAnyContent(doc) {
+      if (extractCleanTextFromRichTextDoc(doc).trim().length > 0) return true;
+      return extractPlainTextFromRichTextDoc(doc).trim().length > 0;
+    }
+
+    function extractMediaSummaryFromQuestion(q, opt_doc) {
+      var counts = { images: 0, pdfs: 0, tables: 0 };
+      var doc = opt_doc && typeof opt_doc === 'object' ? opt_doc : (q && q.stemRichText);
+      if (doc && typeof doc === 'object' && Array.isArray(doc.blocks)) {
+        for (var i = 0; i < doc.blocks.length; i++) {
+          var b = doc.blocks[i];
+          if (!b) continue;
+          if (b.type === 'image_attachment' && b.fileId) counts.images++;
+          else if (b.type === 'pdf_attachment' && b.fileId) {
+            var bt = String(b.title || '').trim();
+            if (bt.indexOf('[PB_EXAM_PAPER_PDF]') !== 0 && bt.indexOf('[PB_ANSWER_SHEET_PDF:') !== 0) {
+              counts.pdfs++;
+            }
+          } else if (b.type === 'table') {
+            counts.tables++;
+          }
+        }
+      }
+      if (q) {
+        var extraImgs = Array.isArray(q.imageFileIds)
+          ? q.imageFileIds.length
+          : (q.imageFileId ? String(q.imageFileId).split(',').filter(Boolean).length : 0);
+        if (extraImgs > counts.images) counts.images = extraImgs;
+        var rawCombined = String((q.title || '') + ' ' + (q.stemPlainText || ''));
+        if (counts.images === 0 && /\[Image:/i.test(rawCombined)) counts.images = 1;
+        if (counts.pdfs === 0 && /\[PDF:/i.test(rawCombined)) counts.pdfs = 1;
+        if (counts.tables === 0 && /\[Table:/i.test(rawCombined)) counts.tables = 1;
+      }
+      return counts;
+    }
+
+    function buildCleanQuestionTableSummary(q) {
+      var rawTitle = stripInternalMediaMarkerTags(q && q.title);
+      var rawStem = stripInternalMediaMarkerTags(
+        (q && q.stemPlainText) ||
+          (q && q.stemRichText ? extractCleanTextFromRichTextDoc(q.stemRichText) : '')
+      );
+      var cleanTitle = rawTitle || rawStem || 'Diagram / Rich Media Question';
+      if (cleanTitle.length > 96) {
+        var cut = cleanTitle.slice(0, 96);
+        var lastSp = cut.lastIndexOf(' ');
+        if (lastSp > 45) cut = cut.slice(0, lastSp);
+        cleanTitle = cut.trim() + '…';
+      }
+      var cleanDesc = '';
+      if (rawStem) {
+        var normTitle = rawTitle.replace(/[…]+$/, '').trim().toLowerCase();
+        var normStem = rawStem.trim().toLowerCase();
+        if (!rawTitle) {
+          cleanDesc = rawStem.length > 96 ? rawStem : '';
+        } else if (normStem !== normTitle && normTitle.indexOf(normStem) !== 0) {
+          cleanDesc = normStem.indexOf(normTitle) === 0 && rawStem.length <= cleanTitle.length + 12 ? '' : rawStem;
+        }
+      }
+      var counts = extractMediaSummaryFromQuestion(q);
+      var mediaBadges = [];
+      if (counts.images > 0) {
+        mediaBadges.push({
+          icon: 'image',
+          label: counts.images > 1 ? counts.images + ' Diagrams' : 'Diagram',
+          className: 'pb-table-media-pill'
+        });
+      }
+      if (counts.pdfs > 0) {
+        mediaBadges.push({
+          icon: 'file-pdf',
+          label: counts.pdfs > 1 ? counts.pdfs + ' PDFs' : 'PDF',
+          className: 'pb-table-media-pill'
+        });
+      }
+      if (counts.tables > 0) {
+        mediaBadges.push({
+          icon: 'table',
+          label: counts.tables > 1 ? counts.tables + ' Tables' : 'Table',
+          className: 'pb-table-media-pill'
+        });
+      }
+      return {
+        title: cleanTitle,
+        description: cleanDesc,
+        mediaBadges: mediaBadges
+      };
+    }
+
     function plainTextToRichTextDocSafe(rawText) {
       var str = rawText === null || rawText === undefined ? '' : String(rawText);
       var rawLines = str.replace(/\r\n/g, '\n').split('\n');
@@ -10779,7 +10976,7 @@
             var zPdfBtn = document.createElement('button');
             zPdfBtn.type = 'button';
             zPdfBtn.className = 'btn btn-outline btn-sm pb-q-media-ctrl-btn';
-            zPdfBtn.textContent = 'Zoom Modal';
+            setElementVectorIconLabel(zPdfBtn, 'zoom-in', 'Zoom Modal', 'pb-icon-xs');
             zPdfBtn.addEventListener('click', function () {
               openOrDownloadExamPdfWithNotice(zPdfBtn, blk.fileId, courseId, true, 'Zoom Modal');
             });
@@ -10790,7 +10987,7 @@
             var zImgBtn = document.createElement('button');
             zImgBtn.type = 'button';
             zImgBtn.className = 'btn btn-outline btn-sm pb-q-media-ctrl-btn';
-            zImgBtn.textContent = 'Zoom';
+            setElementVectorIconLabel(zImgBtn, 'zoom-in', 'Zoom', 'pb-icon-xs');
             zImgBtn.addEventListener('click', function () {
               openInAppImageZoomModal(blk.fileId, courseId, blk.altText || blk.caption || 'Question Diagram');
             });
@@ -10801,7 +10998,7 @@
             var editTblBtn = document.createElement('button');
             editTblBtn.type = 'button';
             editTblBtn.className = 'btn btn-secondary btn-sm pb-q-media-ctrl-btn';
-            editTblBtn.textContent = 'Edit / Re-import Table';
+            setElementVectorIconLabel(editTblBtn, 'table', 'Edit / Re-import Table', 'pb-icon-xs');
             editTblBtn.addEventListener('click', function () {
               openQuestionTableEditorModal(blk, function (updatedTbl) {
                 var next = list.slice();
@@ -10816,7 +11013,8 @@
             var upB = document.createElement('button');
             upB.type = 'button';
             upB.className = 'btn btn-outline btn-sm pb-q-media-ctrl-btn';
-            upB.textContent = '\u2191';
+            setElementVectorIconLabel(upB, 'arrow-up', '', 'pb-icon-xs');
+            upB.setAttribute('aria-label', 'Move media item up');
             upB.title = 'Move Up';
             upB.addEventListener('click', function () {
               var next = list.slice();
@@ -10831,7 +11029,8 @@
             var dnB = document.createElement('button');
             dnB.type = 'button';
             dnB.className = 'btn btn-outline btn-sm pb-q-media-ctrl-btn';
-            dnB.textContent = '\u2193';
+            setElementVectorIconLabel(dnB, 'arrow-down', '', 'pb-icon-xs');
+            dnB.setAttribute('aria-label', 'Move media item down');
             dnB.title = 'Move Down';
             dnB.addEventListener('click', function () {
               var next = list.slice();
@@ -11348,7 +11547,7 @@
             var zoomBtn = document.createElement('button');
             zoomBtn.type = 'button';
             zoomBtn.className = 'btn btn-outline btn-sm';
-            zoomBtn.textContent = 'Zoom / Inspect Image';
+            setElementVectorIconLabel(zoomBtn, 'zoom-in', 'Zoom / Inspect Image', 'pb-icon-xs');
             var fetchedEntryRef = null;
             function openThisImageZoom() {
               openInAppImageZoomModal(
@@ -11432,7 +11631,7 @@
               var zoomModalBtn = document.createElement('button');
               zoomModalBtn.type = 'button';
               zoomModalBtn.className = 'btn btn-secondary btn-sm';
-              zoomModalBtn.textContent = 'Zoom / Full View';
+              setElementVectorIconLabel(zoomModalBtn, 'zoom-in', 'Zoom / Full View', 'pb-icon-xs');
               zoomModalBtn.addEventListener('click', function () {
                 openOrDownloadExamPdfWithNotice(
                   zoomModalBtn,
@@ -11453,7 +11652,7 @@
               var dlPdfBtn = document.createElement('button');
               dlPdfBtn.type = 'button';
               dlPdfBtn.className = 'btn btn-outline btn-sm';
-              dlPdfBtn.textContent = 'Download';
+              setElementVectorIconLabel(dlPdfBtn, 'download', 'Download', 'pb-icon-xs');
               dlPdfBtn.addEventListener('click', function () {
                 openOrDownloadExamPdfWithNotice(
                   dlPdfBtn,
@@ -23646,7 +23845,7 @@ var qrcode = (function() {
       var imgBtn = document.createElement('button');
       imgBtn.type = 'button';
       imgBtn.className = 'btn btn-outline btn-sm';
-      imgBtn.textContent = '+ Resizable Stem Image';
+      setElementVectorIconLabel(imgBtn, 'image', 'Add Diagram', 'pb-icon-xs');
       imgBtn.addEventListener('click', function () { imgInp.click(); });
       imgInp.addEventListener('change', function () {
         var f = imgInp.files && imgInp.files[0];
@@ -23673,7 +23872,7 @@ var qrcode = (function() {
       var pdfBtn = document.createElement('button');
       pdfBtn.type = 'button';
       pdfBtn.className = 'btn btn-outline btn-sm';
-      pdfBtn.textContent = '+ Embed PDF in Stem';
+      setElementVectorIconLabel(pdfBtn, 'file-pdf', 'Embed PDF', 'pb-icon-xs');
       pdfBtn.addEventListener('click', function () { pdfInp.click(); });
       pdfInp.addEventListener('change', function () {
         var f = pdfInp.files && pdfInp.files[0];
@@ -23697,7 +23896,7 @@ var qrcode = (function() {
       var tblBtn = document.createElement('button');
       tblBtn.type = 'button';
       tblBtn.className = 'btn btn-outline btn-sm';
-      tblBtn.textContent = '+ Table (.xlsx / .gsheet / Editor)';
+      setElementVectorIconLabel(tblBtn, 'table', 'Add Table (.xlsx / .gsheet)', 'pb-icon-xs');
       tblBtn.addEventListener('click', function () {
         openQuestionTableEditorModal(null, function (tblBlock) {
           ed.addMediaBlock(tblBlock);
@@ -24376,9 +24575,10 @@ var qrcode = (function() {
           (function (q) {
             var tr = document.createElement('tr');
 
-            /* Col 1: Code & Title + Stem snippet */
+            /* Col 1: Code & Title + Clean Stem / Media Summary */
             var td1 = document.createElement('td');
             td1.className = 'pb-table-primary-col';
+            var qDisplay = buildCleanQuestionTableSummary(q);
             var qExtras = [];
             if (q.stimulus) {
               qExtras.push({
@@ -24386,13 +24586,16 @@ var qrcode = (function() {
                 className: 'badge badge-ok'
               });
             }
+            for (var mb = 0; mb < qDisplay.mediaBadges.length; mb++) {
+              qExtras.push(qDisplay.mediaBadges[mb]);
+            }
             td1.appendChild(
               createTablePrimaryIdentityDom({
                 code: q.questionCode,
-                title: q.title,
-                description: q.stemPlainText || '',
+                title: qDisplay.title,
+                description: qDisplay.description,
                 extraBadges: qExtras,
-                descOptions: { clampThreshold: 90 }
+                descOptions: { clampThreshold: 140 }
               })
             );
 
@@ -24593,7 +24796,8 @@ var qrcode = (function() {
             ? 'Admin Key Inspector Active (Private Grading Data Shown)'
             : 'Pure Student View (All Private Grading Keys & Explanations Stripped)'
         );
-        setText('qbank-preview-heading', '[' + (q.questionCode || '') + '] ' + (q.title || 'Question Preview'));
+        var prevSummary = buildCleanQuestionTableSummary(q);
+        setText('qbank-preview-heading', '[' + (q.questionCode || '') + '] ' + (prevSummary.title || 'Question Preview'));
 
         /* 1. Shared Stimulus Box (if attached) */
         if (q.stimulus) {
@@ -26418,9 +26622,17 @@ var qrcode = (function() {
             var pracLine = document.createElement('div');
             pracLine.style.color = '#065F46';
             pracLine.style.fontWeight = '600';
-            pracLine.textContent = exam.allowPerQuestionPracticeFeedback
-              ? '✓ Instant per-question answer check & explanations enabled'
-              : '✓ Full answer key & explanations available upon submission';
+            pracLine.style.display = 'flex';
+            pracLine.style.alignItems = 'center';
+            pracLine.style.gap = '6px';
+            setElementVectorIconLabel(
+              pracLine,
+              'check',
+              exam.allowPerQuestionPracticeFeedback
+                ? 'Instant per-question answer check & explanations enabled'
+                : 'Full answer key & explanations available upon submission',
+              'pb-icon-xs'
+            );
             schedBox.appendChild(pracLine);
           }
           card.appendChild(schedBox);
@@ -28405,13 +28617,13 @@ var qrcode = (function() {
           var typeSel = document.createElement('select');
           typeSel.className = 'form-input';
           var typeChoices = [
-            { v: 'SINGLE_CHOICE', l: '\u25C9 A-Level Multiple Choice (5 Opts)' },
-            { v: 'COMPLEX_MULTIPLE_CHOICE', l: '\u229E A-Level Complex MC (Yes / No)' },
-            { v: 'MULTIPLE_SELECT', l: '\u2611 Checkboxes (Multi-Select)' },
-            { v: 'TRUE_FALSE', l: '\u2713 True / False' },
-            { v: 'NUMERIC_RESPONSE', l: '# Numeric Calculation' },
-            { v: 'SHORT_ANSWER', l: '\u270E Short Answer' },
-            { v: 'WRITTEN_RESPONSE', l: '\u2261 Written Essay / Rubric' }
+            { v: 'SINGLE_CHOICE', l: 'A-Level Multiple Choice (5 Opts)' },
+            { v: 'COMPLEX_MULTIPLE_CHOICE', l: 'A-Level Complex MC (Yes / No)' },
+            { v: 'MULTIPLE_SELECT', l: 'Checkboxes (Multi-Select)' },
+            { v: 'TRUE_FALSE', l: 'True / False' },
+            { v: 'NUMERIC_RESPONSE', l: 'Numeric Calculation' },
+            { v: 'SHORT_ANSWER', l: 'Short Answer' },
+            { v: 'WRITTEN_RESPONSE', l: 'Written Essay / Rubric' }
           ];
           for (var tc = 0; tc < typeChoices.length; tc++) {
             var topt = document.createElement('option');
@@ -28514,7 +28726,7 @@ var qrcode = (function() {
             var zoomDiagBtn = document.createElement('button');
             zoomDiagBtn.type = 'button';
             zoomDiagBtn.className = 'btn btn-outline btn-sm';
-            zoomDiagBtn.textContent = 'Zoom Diagram';
+            setElementVectorIconLabel(zoomDiagBtn, 'zoom-in', 'Zoom Diagram', 'pb-icon-xs');
             zoomDiagBtn.addEventListener('click', function () {
               openInAppImageZoomModal(
                 card.imageFileIds[0],
@@ -28723,9 +28935,9 @@ var qrcode = (function() {
 
                 if (optObj.isCorrect) {
                   var corBadge = document.createElement('span');
-                  corBadge.className = 'badge badge-ok';
+                  corBadge.className = 'badge badge-ok pb-vec-icon-btn';
                   corBadge.style.fontSize = '0.7rem';
-                  corBadge.textContent = '\u2713 Correct Key';
+                  setElementVectorIconLabel(corBadge, 'check', 'Correct Key', 'pb-icon-xs');
                   row.appendChild(corBadge);
                 }
 
@@ -28871,7 +29083,7 @@ var qrcode = (function() {
 
           var expEd = PBWordRichEditor.createInput({
             isSingleLine: false,
-            placeholder: '\uD83D\uDCA1 Answer key explanation / rationale (Ctrl+= Sub, Ctrl+Shift+= Sup, \\beta-)...',
+            placeholder: 'Answer key explanation / rationale (Ctrl+= Sub, Ctrl+Shift+= Sup, \\beta-)...',
             initialValue: card.explanationDoc || card.explanation,
             ariaLabel: 'Question ' + (cardIndex + 1) + ' explanation',
             onChange: function (doc, plainTxt) {
@@ -28897,7 +29109,7 @@ var qrcode = (function() {
           var upImgBtn = document.createElement('button');
           upImgBtn.type = 'button';
           upImgBtn.className = 'btn btn-outline btn-sm';
-          upImgBtn.textContent = '\uD83D\uDDBC + Image / Diagram';
+          setElementVectorIconLabel(upImgBtn, 'image', 'Add Diagram', 'pb-icon-xs');
           upImgBtn.addEventListener('click', function () {
             fileInp.click();
           });
@@ -28933,7 +29145,7 @@ var qrcode = (function() {
           var upPdfBtn = document.createElement('button');
           upPdfBtn.type = 'button';
           upPdfBtn.className = 'btn btn-outline btn-sm';
-          upPdfBtn.textContent = '\uD83D\uDCC4 + Embed PDF';
+          setElementVectorIconLabel(upPdfBtn, 'file-pdf', 'Embed PDF', 'pb-icon-xs');
           upPdfBtn.addEventListener('click', function () {
             pdfFileInp.click();
           });
@@ -28966,7 +29178,7 @@ var qrcode = (function() {
           var addTblBtn = document.createElement('button');
           addTblBtn.type = 'button';
           addTblBtn.className = 'btn btn-outline btn-sm';
-          addTblBtn.textContent = '\uD83D\uDCCA + Table (.xlsx / .gsheet)';
+          setElementVectorIconLabel(addTblBtn, 'table', 'Add Table (.xlsx / .gsheet)', 'pb-icon-xs');
           addTblBtn.addEventListener('click', function () {
             openQuestionTableEditorModal(null, function (tblBlock) {
               stemEd.addMediaBlock(tblBlock);
@@ -29377,11 +29589,12 @@ var qrcode = (function() {
       for (var vIdx = 0; vIdx < formsBuilderQuestionCards.length; vIdx++) {
         var c = formsBuilderQuestionCards[vIdx];
         var qNum = vIdx + 1;
+        var stemCleanTxt = extractCleanTextFromRichTextDoc(c.stemDoc || c.stem).trim();
         var stemChkTxt = extractPlainTextFromRichTextDoc(c.stemDoc || c.stem).trim();
         if (!stemChkTxt) {
           return Promise.reject(new Error('Question ' + qNum + ' is missing its question prompt text.'));
         }
-        c.stem = stemChkTxt;
+        c.stem = stemCleanTxt || stemChkTxt;
         if (c.questionType === 'COMPLEX_MULTIPLE_CHOICE') {
           var nonEmptyStmts = c.options.filter(function (o) {
             return extractPlainTextFromRichTextDoc(o.doc || o.text).trim().length > 0;
@@ -29420,7 +29633,11 @@ var qrcode = (function() {
         }
         var qTitle = String(card.title || '').trim();
         if (!qTitle) {
-          qTitle = String(card.stem || 'Question ' + (cardIdx + 1)).replace(/\s+/g, ' ').trim().slice(0, 120);
+          var cleanStemForTitle = extractCleanTextFromRichTextDoc(card.stemDoc || card.stem);
+          qTitle = String(cleanStemForTitle || 'Diagram / Rich Media Question ' + (cardIdx + 1))
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 120);
         }
 
         var optionsPayload = [];
@@ -30480,16 +30697,16 @@ var qrcode = (function() {
           var btn = document.createElement('button');
           btn.type = 'button';
           var classes = ['pb-exam-nav-item-btn'];
-          var statusMarkerText = '';
+          var statusIconName = '';
           var srStateText = 'Unanswered';
 
           if (isSavedServer) {
             classes.push('is-server-saved');
-            statusMarkerText = '✓';
+            statusIconName = 'check';
             srStateText = 'Answered and saved on server';
           } else if (isAnsweredLocal) {
             classes.push('is-browser-answered');
-            statusMarkerText = '•';
+            statusIconName = 'circle-dot';
             srStateText = 'Answered in browser, pending server save';
           } else {
             classes.push('is-unanswered');
@@ -30515,11 +30732,11 @@ var qrcode = (function() {
           numSpan.textContent = String(item.displayNumber);
           btn.appendChild(numSpan);
 
-          if (statusMarkerText) {
+          if (statusIconName) {
             var markSpan = document.createElement('span');
             markSpan.className = 'pb-exam-nav-item-mark';
             markSpan.setAttribute('aria-hidden', 'true');
-            markSpan.textContent = statusMarkerText;
+            markSpan.appendChild(PBIcons.create(statusIconName, 'pb-icon-xs'));
             btn.appendChild(markSpan);
           }
 
@@ -30527,7 +30744,7 @@ var qrcode = (function() {
             var flagSpan = document.createElement('span');
             flagSpan.className = 'pb-exam-nav-item-flag';
             flagSpan.setAttribute('aria-hidden', 'true');
-            flagSpan.textContent = '⚑';
+            flagSpan.appendChild(PBIcons.create('flag', 'pb-icon-xs'));
             btn.appendChild(flagSpan);
           }
 
@@ -30577,7 +30794,7 @@ var qrcode = (function() {
       if (flagBtn) {
         flagBtn.setAttribute('aria-pressed', isFlagged ? 'true' : 'false');
         flagBtn.classList.toggle('is-flagged', isFlagged);
-        flagBtn.textContent = isFlagged ? '⚑ Flagged for Review' : 'Flag for Review';
+        setElementVectorIconLabel(flagBtn, 'flag', isFlagged ? 'Flagged for Review' : 'Flag for Review', 'pb-icon-xs');
       }
 
       // Shared Stimulus Panel
@@ -30858,14 +31075,17 @@ var qrcode = (function() {
       }
 
       // Per-item save indicator
+      var saveIndEl = document.getElementById('exam-ws-item-save-indicator');
       if (locResp.isSavedOnServer && locResp.isAnsweredLocal) {
-        setText(
-          'exam-ws-item-save-indicator',
-          '✓ Saved on server' +
-            (locResp.savedAtBangkok ? ' at ' + locResp.savedAtBangkok.split(' ').pop() : '')
+        setElementVectorIconLabel(
+          saveIndEl,
+          'check',
+          'Saved on server' +
+            (locResp.savedAtBangkok ? ' at ' + locResp.savedAtBangkok.split(' ').pop() : ''),
+          'pb-icon-xs'
         );
       } else if (locResp.isAnsweredLocal) {
-        setText('exam-ws-item-save-indicator', '• Answered in browser (saving...)');
+        setElementVectorIconLabel(saveIndEl, 'circle-dot', 'Answered in browser (saving...)', 'pb-icon-xs');
       } else {
         setText('exam-ws-item-save-indicator', 'Status: Unanswered');
       }
@@ -31096,18 +31316,22 @@ var qrcode = (function() {
             var isFlag = Boolean(snap.flagsByItemId[it.attemptItemId]);
             var pill = document.createElement('button');
             pill.type = 'button';
-            pill.className = r.isAnsweredLocal
+            pill.className = (r.isAnsweredLocal
               ? 'btn btn-secondary btn-sm'
-              : 'btn btn-outline btn-sm';
-            pill.textContent =
-              'Q' +
-              it.displayNumber +
-              (r.isSavedOnServer && r.isAnsweredLocal
-                ? ' ✓'
-                : r.isAnsweredLocal
-                ? ' •'
-                : ' [ ]') +
-              (isFlag ? ' ⚑' : '');
+              : 'btn btn-outline btn-sm') + ' pb-vec-icon-btn';
+            var qNumTxt = document.createElement('span');
+            qNumTxt.textContent = 'Q' + it.displayNumber;
+            pill.appendChild(qNumTxt);
+            if (r.isSavedOnServer && r.isAnsweredLocal) {
+              pill.appendChild(PBIcons.create('check', 'pb-icon-xs'));
+            } else if (r.isAnsweredLocal) {
+              pill.appendChild(PBIcons.create('circle-dot', 'pb-icon-xs'));
+            } else {
+              pill.appendChild(PBIcons.create('square', 'pb-icon-xs'));
+            }
+            if (isFlag) {
+              pill.appendChild(PBIcons.create('flag', 'pb-icon-xs'));
+            }
             pill.addEventListener('click', function () {
               var modal = document.getElementById('modal-exam-submit-readiness');
               if (modal) {
