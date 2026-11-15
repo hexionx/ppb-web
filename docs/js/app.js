@@ -582,6 +582,9 @@
         ],
         'square': [
           { tag: 'rect', attrs: { x: '4', y: '4', width: '16', height: '16', rx: '2', ry: '2' } }
+        ],
+        'chevron-down': [
+          { tag: 'polyline', attrs: { points: '6 9 12 15 18 9' } }
         ]
       });
 
@@ -634,6 +637,519 @@
         el.appendChild(lblSpan);
       }
     }
+
+    function createPdfDownloadTogglePill(opt_initialAllowed, opt_onChange) {
+      var allowed = opt_initialAllowed !== false;
+      var lbl = document.createElement('label');
+      lbl.className = 'pb-pdf-dl-pill-label' + (allowed ? '' : ' is-locked');
+      lbl.title = 'Toggle whether students are allowed to download this embedded PDF or only view it inside the portal.';
+
+      var chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.checked = allowed;
+      lbl.appendChild(chk);
+
+      var iconWrap = document.createElement('span');
+      iconWrap.style.display = 'inline-flex';
+      iconWrap.style.alignItems = 'center';
+      lbl.appendChild(iconWrap);
+
+      var txtSpan = document.createElement('span');
+      lbl.appendChild(txtSpan);
+
+      function renderPillUi() {
+        while (iconWrap.firstChild) iconWrap.removeChild(iconWrap.firstChild);
+        iconWrap.appendChild(PBIcons.create(allowed ? 'download' : 'shield-lock', 'pb-icon-xs'));
+        txtSpan.textContent = allowed ? 'Allow PDF Download' : 'View Only (No Download)';
+        lbl.classList.toggle('is-locked', !allowed);
+      }
+
+      chk.addEventListener('change', function () {
+        allowed = Boolean(chk.checked);
+        renderPillUi();
+        if (typeof opt_onChange === 'function') {
+          opt_onChange(allowed);
+        }
+      });
+
+      renderPillUi();
+
+      return {
+        element: lbl,
+        isAllowed: function () {
+          return Boolean(allowed);
+        },
+        setAllowed: function (nextAllowed) {
+          allowed = nextAllowed !== false;
+          chk.checked = allowed;
+          renderPillUi();
+        }
+      };
+    }
+
+    var PBEnhancedSelect = (function () {
+      var enhancedSet = typeof WeakSet === 'function' ? new WeakSet() : null;
+      var instanceMap = typeof WeakMap === 'function' ? new WeakMap() : null;
+      var activeMenuEl = null;
+      var activeWrapEl = null;
+      var activeTriggerEl = null;
+      var activeSelectEl = null;
+      var activeDocKeyHandler = null;
+      var globalListenersBound = false;
+      var domObserver = null;
+      var nativeValueDesc =
+        typeof HTMLSelectElement !== 'undefined' && HTMLSelectElement.prototype
+          ? Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')
+          : null;
+      var nativeIdxDesc =
+        typeof HTMLSelectElement !== 'undefined' && HTMLSelectElement.prototype
+          ? Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'selectedIndex')
+          : null;
+
+      function removeAllPortalMenusImmediate() {
+        if (typeof document === 'undefined' || !document.querySelectorAll) return;
+        var stale = document.querySelectorAll('.pb-select-menu');
+        for (var i = 0; i < stale.length; i++) {
+          var node = stale[i];
+          if (node && node.parentNode) {
+            node.parentNode.removeChild(node);
+          }
+        }
+      }
+
+      function closeActiveMenu(opt_immediate, opt_restoreFocus) {
+        if (activeDocKeyHandler) {
+          document.removeEventListener('keydown', activeDocKeyHandler, true);
+          activeDocKeyHandler = null;
+        }
+        var menu = activeMenuEl;
+        var trig = activeTriggerEl;
+        activeMenuEl = null;
+        activeWrapEl = null;
+        activeTriggerEl = null;
+        activeSelectEl = null;
+        if (trig) {
+          trig.setAttribute('aria-expanded', 'false');
+        }
+        if (opt_immediate) {
+          if (menu && menu.parentNode) {
+            menu.parentNode.removeChild(menu);
+          }
+          removeAllPortalMenusImmediate();
+        } else if (menu) {
+          menu.classList.add('is-closing');
+          (function (closingNode) {
+            setTimeout(function () {
+              if (closingNode && closingNode.parentNode) {
+                closingNode.parentNode.removeChild(closingNode);
+              }
+            }, 135);
+          })(menu);
+        }
+        if (opt_restoreFocus && trig && typeof trig.focus === 'function') {
+          try {
+            trig.focus();
+          } catch (e) {}
+        }
+      }
+
+      function syncSelectUi(selectEl) {
+        if (!selectEl) return;
+        var rec = instanceMap ? instanceMap.get(selectEl) : selectEl._pbSelectRec;
+        if (!rec) return;
+        var opts = selectEl.options || [];
+        var idx = selectEl.selectedIndex;
+        var selOpt = idx >= 0 && idx < opts.length ? opts[idx] : opts[0] || null;
+        rec.textSpan.textContent = selOpt ? String(selOpt.textContent || selOpt.label || selOpt.value || '').trim() : '-- Select --';
+        var isHidden = selectEl.classList.contains('hidden') || selectEl.hidden || (selectEl.style && selectEl.style.display === 'none');
+        rec.wrap.classList.toggle('hidden', Boolean(isHidden));
+        var isDisabled = Boolean(selectEl.disabled);
+        rec.wrap.classList.toggle('is-disabled', isDisabled);
+        rec.trigger.disabled = isDisabled;
+      }
+
+      function bindGlobalDismissListeners() {
+        if (globalListenersBound) return;
+        globalListenersBound = true;
+        document.addEventListener(
+          'pointerdown',
+          function (ev) {
+            if (!activeMenuEl) return;
+            var t = ev.target;
+            if (activeMenuEl.contains(t) || (activeWrapEl && activeWrapEl.contains(t))) return;
+            closeActiveMenu(false, false);
+          },
+          true
+        );
+        window.addEventListener('resize', function () {
+          if (activeMenuEl) closeActiveMenu(true, false);
+        });
+        window.addEventListener(
+          'scroll',
+          function (ev) {
+            if (!activeMenuEl) return;
+            if (ev && ev.target && (ev.target === activeMenuEl || activeMenuEl.contains(ev.target))) return;
+            closeActiveMenu(true, false);
+          },
+          true
+        );
+      }
+
+      function commitSelectionFromMenu(selectEl, triggerEl, optIdx) {
+        if (!selectEl) return;
+        var opts = selectEl.options || [];
+        if (optIdx < 0 || optIdx >= opts.length || opts[optIdx].disabled) return;
+        var prevIdx = selectEl.selectedIndex;
+        if (nativeIdxDesc && nativeIdxDesc.set) {
+          nativeIdxDesc.set.call(selectEl, optIdx);
+        } else {
+          selectEl.selectedIndex = optIdx;
+        }
+        syncSelectUi(selectEl);
+        closeActiveMenu(false, true);
+        if (prevIdx !== optIdx) {
+          try {
+            selectEl.dispatchEvent(new Event('input', { bubbles: true }));
+          } catch (e1) {}
+          try {
+            selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+          } catch (e2) {}
+        }
+      }
+
+      function openMenuForSelect(rec) {
+        var selectEl = rec.select;
+        var triggerEl = rec.trigger;
+        if (selectEl.disabled) return;
+        if (activeSelectEl === selectEl && activeMenuEl) {
+          closeActiveMenu(false, false);
+          return;
+        }
+        closeActiveMenu(true, false);
+        bindGlobalDismissListeners();
+
+        var menu = document.createElement('div');
+        menu.className = 'pb-select-menu';
+        menu.setAttribute('role', 'listbox');
+        if (triggerEl.getAttribute('aria-label')) {
+          menu.setAttribute('aria-label', triggerEl.getAttribute('aria-label'));
+        }
+
+        var optionButtons = [];
+        var activeHighlightIdx = -1;
+
+        function appendOptionButton(optEl) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'pb-select-option' + (optEl.selected ? ' is-selected' : '');
+          btn.setAttribute('role', 'option');
+          btn.setAttribute('aria-selected', optEl.selected ? 'true' : 'false');
+          btn.disabled = Boolean(optEl.disabled);
+
+          var lbl = document.createElement('span');
+          lbl.className = 'pb-select-option-label';
+          lbl.textContent = String(optEl.textContent || optEl.label || optEl.value || '').trim();
+          btn.appendChild(lbl);
+
+          if (optEl.selected) {
+            var chkWrap = document.createElement('span');
+            chkWrap.className = 'pb-select-option-check';
+            chkWrap.appendChild(PBIcons.create('check', 'pb-icon-xs'));
+            btn.appendChild(chkWrap);
+          }
+
+          var optIdx = optEl.index;
+          var btnIdx = optionButtons.length;
+          if (optEl.selected) activeHighlightIdx = btnIdx;
+          btn.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            commitSelectionFromMenu(selectEl, triggerEl, optIdx);
+          });
+          optionButtons.push({ btn: btn, optIdx: optIdx, disabled: Boolean(optEl.disabled) });
+          menu.appendChild(btn);
+        }
+
+        var kids = selectEl.children || [];
+        for (var c = 0; c < kids.length; c++) {
+          var child = kids[c];
+          if (child.tagName === 'OPTGROUP') {
+            if (child.label) {
+              var gl = document.createElement('div');
+              gl.className = 'pb-select-group-label';
+              gl.textContent = child.label;
+              menu.appendChild(gl);
+            }
+            var gKids = child.children || [];
+            for (var gk = 0; gk < gKids.length; gk++) {
+              if (gKids[gk].tagName === 'OPTION') appendOptionButton(gKids[gk]);
+            }
+          } else if (child.tagName === 'OPTION') {
+            appendOptionButton(child);
+          }
+        }
+
+        if (optionButtons.length === 0) return;
+        document.body.appendChild(menu);
+
+        var rect = triggerEl.getBoundingClientRect();
+        var vw = window.innerWidth || document.documentElement.clientWidth || 1024;
+        var vh = window.innerHeight || document.documentElement.clientHeight || 768;
+        var availBelow = vh - rect.bottom - 12;
+        var availAbove = rect.top - 12;
+        var openUp = availBelow < 190 && availAbove > availBelow;
+        var maxH = Math.max(130, Math.min(340, openUp ? availAbove : availBelow));
+
+        var maxAllowedW = Math.max(180, vw - 24);
+        var minW = Math.min(Math.max(Math.round(rect.width), 160), maxAllowedW);
+        var maxW = Math.min(540, Math.max(minW, 320), maxAllowedW);
+        menu.style.minWidth = minW + 'px';
+        menu.style.maxWidth = maxW + 'px';
+        menu.style.maxHeight = maxH + 'px';
+        menu.style.width = 'auto';
+
+        var menuRect = menu.getBoundingClientRect();
+        var leftPos = rect.left;
+        if (leftPos + menuRect.width > vw - 12) {
+          leftPos = vw - 12 - menuRect.width;
+        }
+        if (leftPos < 12) leftPos = 12;
+        menu.style.left = Math.round(leftPos) + 'px';
+
+        if (openUp) {
+          menu.classList.add('is-open-up');
+          menu.style.top = 'auto';
+          menu.style.bottom = Math.round(vh - rect.top + 6) + 'px';
+        } else {
+          menu.style.bottom = 'auto';
+          menu.style.top = Math.round(rect.bottom + 6) + 'px';
+        }
+
+        activeMenuEl = menu;
+        activeWrapEl = rec.wrap;
+        activeTriggerEl = triggerEl;
+        activeSelectEl = selectEl;
+        triggerEl.setAttribute('aria-expanded', 'true');
+
+        if (activeHighlightIdx >= 0 && optionButtons[activeHighlightIdx]) {
+          optionButtons[activeHighlightIdx].btn.classList.add('is-highlighted');
+          try {
+            optionButtons[activeHighlightIdx].btn.scrollIntoView({ block: 'nearest' });
+          } catch (eScroll) {}
+        }
+
+        activeDocKeyHandler = function (ev) {
+          if (!activeMenuEl) return;
+          if (ev.key === 'Escape') {
+            ev.preventDefault();
+            ev.stopPropagation();
+            closeActiveMenu(false, true);
+            return;
+          }
+          if (ev.key === 'Tab') {
+            closeActiveMenu(false, false);
+            return;
+          }
+          var step = 0;
+          if (ev.key === 'ArrowDown') step = 1;
+          else if (ev.key === 'ArrowUp') step = -1;
+          else if (ev.key === 'Home') {
+            ev.preventDefault();
+            ev.stopPropagation();
+            activeHighlightIdx = -1;
+            step = 1;
+          } else if (ev.key === 'End') {
+            ev.preventDefault();
+            ev.stopPropagation();
+            activeHighlightIdx = optionButtons.length;
+            step = -1;
+          } else if (ev.key === 'Enter' || ev.key === ' ') {
+            ev.preventDefault();
+            ev.stopPropagation();
+            if (activeHighlightIdx >= 0 && optionButtons[activeHighlightIdx] && !optionButtons[activeHighlightIdx].disabled) {
+              commitSelectionFromMenu(selectEl, triggerEl, optionButtons[activeHighlightIdx].optIdx);
+            }
+            return;
+          }
+          if (step !== 0) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            var next = activeHighlightIdx;
+            for (var tries = 0; tries < optionButtons.length; tries++) {
+              next = (next + step + optionButtons.length) % optionButtons.length;
+              if (!optionButtons[next].disabled) break;
+            }
+            for (var b = 0; b < optionButtons.length; b++) {
+              optionButtons[b].btn.classList.toggle('is-highlighted', b === next);
+            }
+            activeHighlightIdx = next;
+            if (optionButtons[next]) {
+              try {
+                optionButtons[next].btn.scrollIntoView({ block: 'nearest' });
+              } catch (eScroll2) {}
+            }
+          }
+        };
+        document.addEventListener('keydown', activeDocKeyHandler, true);
+      }
+
+      function enhance(selectEl) {
+        if (!selectEl || selectEl.tagName !== 'SELECT') return null;
+        if (selectEl.multiple || (selectEl.size && selectEl.size > 1)) return null;
+        if (selectEl.getAttribute('data-no-enhance') === '1') return null;
+        if (enhancedSet && enhancedSet.has(selectEl)) {
+          syncSelectUi(selectEl);
+          return instanceMap ? instanceMap.get(selectEl) : null;
+        }
+        if (selectEl._pbSelectRec) {
+          syncSelectUi(selectEl);
+          return selectEl._pbSelectRec;
+        }
+        if (!selectEl.parentNode) return null;
+
+        var wrap = document.createElement('div');
+        var isCompact =
+          selectEl.classList.contains('pb-rt-select') ||
+          selectEl.id === 'select-pb-table-sheet-name' ||
+          (selectEl.closest && Boolean(selectEl.closest('.pb-rt-toolbar'))) ||
+          (selectEl.style && selectEl.style.fontSize && parseFloat(selectEl.style.fontSize) <= 0.85);
+        wrap.className = 'pb-select-wrap' + (isCompact ? ' is-compact' : '');
+        if (selectEl.style) {
+          if (selectEl.style.flex) wrap.style.flex = selectEl.style.flex;
+          if (selectEl.style.maxWidth) wrap.style.maxWidth = selectEl.style.maxWidth;
+          if (selectEl.style.width === 'auto') wrap.style.width = 'auto';
+        }
+
+        selectEl.parentNode.insertBefore(wrap, selectEl);
+        wrap.appendChild(selectEl);
+        selectEl.classList.add('pb-select-native');
+        selectEl.tabIndex = -1;
+        selectEl.setAttribute('aria-hidden', 'true');
+
+        var trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'pb-select-trigger';
+        trigger.setAttribute('role', 'combobox');
+        trigger.setAttribute('aria-haspopup', 'listbox');
+        trigger.setAttribute('aria-expanded', 'false');
+        var ariaLbl = selectEl.getAttribute('aria-label');
+        if (ariaLbl) trigger.setAttribute('aria-label', ariaLbl);
+
+        var textSpan = document.createElement('span');
+        textSpan.className = 'pb-select-trigger-text';
+        trigger.appendChild(textSpan);
+        trigger.appendChild(PBIcons.create('chevron-down', 'pb-icon-xs pb-select-chevron'));
+        wrap.appendChild(trigger);
+
+        var rec = { select: selectEl, wrap: wrap, trigger: trigger, textSpan: textSpan };
+        if (enhancedSet) enhancedSet.add(selectEl);
+        if (instanceMap) instanceMap.set(selectEl, rec);
+        else selectEl._pbSelectRec = rec;
+
+        if (nativeValueDesc && nativeValueDesc.get && nativeValueDesc.set) {
+          try {
+            Object.defineProperty(selectEl, 'value', {
+              configurable: true,
+              get: function () {
+                return nativeValueDesc.get.call(this);
+              },
+              set: function (v) {
+                nativeValueDesc.set.call(this, v);
+                syncSelectUi(this);
+              }
+            });
+          } catch (eProp1) {}
+        }
+        if (nativeIdxDesc && nativeIdxDesc.get && nativeIdxDesc.set) {
+          try {
+            Object.defineProperty(selectEl, 'selectedIndex', {
+              configurable: true,
+              get: function () {
+                return nativeIdxDesc.get.call(this);
+              },
+              set: function (v) {
+                nativeIdxDesc.set.call(this, v);
+                syncSelectUi(this);
+              }
+            });
+          } catch (eProp2) {}
+        }
+
+        selectEl.addEventListener('change', function () {
+          syncSelectUi(selectEl);
+        });
+
+        trigger.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          openMenuForSelect(rec);
+        });
+        trigger.addEventListener('keydown', function (ev) {
+          if (activeSelectEl === selectEl && activeMenuEl) return;
+          if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+            ev.preventDefault();
+            openMenuForSelect(rec);
+          }
+        });
+
+        if (typeof MutationObserver === 'function') {
+          var selObs = new MutationObserver(function () {
+            syncSelectUi(selectEl);
+          });
+          selObs.observe(selectEl, {
+            childList: true,
+            subtree: true,
+            characterData: true,
+            attributes: true,
+            attributeFilter: ['class', 'disabled', 'hidden', 'style']
+          });
+        }
+
+        syncSelectUi(selectEl);
+        return rec;
+      }
+
+      function enhanceAll(opt_root) {
+        var root = opt_root || document;
+        if (!root || typeof root.querySelectorAll !== 'function') return;
+        if (root.tagName === 'SELECT') {
+          enhance(root);
+          return;
+        }
+        var sels = root.querySelectorAll('select');
+        for (var i = 0; i < sels.length; i++) {
+          enhance(sels[i]);
+        }
+      }
+
+      function startAutoObserver() {
+        enhanceAll(document);
+        if (domObserver || typeof MutationObserver !== 'function' || !document.body) return;
+        domObserver = new MutationObserver(function (mutations) {
+          for (var i = 0; i < mutations.length; i++) {
+            var added = mutations[i].addedNodes;
+            if (!added) continue;
+            for (var j = 0; j < added.length; j++) {
+              var n = added[j];
+              if (n && n.nodeType === 1) {
+                if (n.tagName === 'SELECT') {
+                  enhance(n);
+                } else if (n.querySelector && n.querySelector('select')) {
+                  enhanceAll(n);
+                }
+              }
+            }
+          }
+        });
+        domObserver.observe(document.body, { childList: true, subtree: true });
+      }
+
+      return Object.freeze({
+        enhance: enhance,
+        enhanceAll: enhanceAll,
+        sync: syncSelectUi,
+        closeActive: closeActiveMenu,
+        startAutoObserver: startAutoObserver
+      });
+    })();
 
     var PBUI = (function () {
       function el(tagName, opt_attrs, opt_children) {
@@ -2565,6 +3081,12 @@
     function resetAllPortalSessionState(opt_reason) {
       currentStudentCourseFromAdminPreview = false;
       isExamStudioModeActive = false;
+      if (typeof PBEnhancedSelect === 'object' && PBEnhancedSelect) {
+        PBEnhancedSelect.closeActive(true, false);
+      }
+      if (typeof exitAdminExamsStudioMode === 'function') {
+        exitAdminExamsStudioMode(true, { targetAdminTab: 'settings', skipDataLoad: true });
+      }
       studentCourseDetailCacheById = {};
       if (typeof clearRpcReadCache === 'function') clearRpcReadCache();
       if (typeof PBObjectUrlManager === 'object' && PBObjectUrlManager && typeof PBObjectUrlManager.clearPersistentCache === 'function') {
@@ -2869,6 +3391,9 @@
       var modalEl = document.getElementById(modalId);
       if (!modalEl) {
         return;
+      }
+      if (typeof PBEnhancedSelect === 'object' && PBEnhancedSelect) {
+        PBEnhancedSelect.closeActive(true, false);
       }
       if (modalId === 'modal-recording-detail' && typeof unmountRecordingYouTubePlayer === 'function') {
         unmountRecordingYouTubePlayer();
@@ -3610,6 +4135,9 @@
       }
 
       /* Update active state on desktop and mobile navigation buttons across all views */
+      if (typeof PBEnhancedSelect === 'object' && PBEnhancedSelect) {
+        PBEnhancedSelect.closeActive(true, false);
+      }
       var effectiveNavView =
         viewName === 'courseDetail'
           ? currentStudentCourseFromAdminPreview && isCurrentSessionAdminUser()
@@ -3633,6 +4161,13 @@
             btn.removeAttribute('aria-current');
           }
         }
+      }
+      if (
+        effectiveNavView === 'admin' &&
+        isExamStudioModeActive &&
+        typeof updateNavbarActiveForExamStudio === 'function'
+      ) {
+        updateNavbarActiveForExamStudio(true);
       }
       var pubSecBtns = document.querySelectorAll('[data-public-section-nav="true"]');
       for (var p = 0; p < pubSecBtns.length; p++) {
@@ -4478,6 +5013,16 @@
       populateProfileView(sessionSummary);
 
       var targetAuthView = usr.role === 'ADMIN' ? 'admin' : 'profile';
+      if (usr.role === 'ADMIN') {
+        if (typeof exitAdminExamsStudioMode === 'function') {
+          exitAdminExamsStudioMode(true, {
+            targetAdminTab: 'settings',
+            skipDataLoad: Boolean(usr.requiresPrivacyAck)
+          });
+        } else if (typeof switchAdminSubTab === 'function' && !usr.requiresPrivacyAck) {
+          switchAdminSubTab('settings', true, false);
+        }
+      }
       if (usr.requiresPrivacyAck) {
         showSectionView(targetAuthView);
         scrollToTopOfActiveView(targetAuthView, true);
@@ -6096,7 +6641,7 @@
           return;
         }
         if (typeof exitAdminExamsStudioMode === 'function') {
-          exitAdminExamsStudioMode();
+          exitAdminExamsStudioMode(true);
         }
         showSectionView('admin');
         refreshAdminDashboardSummary();
@@ -6233,13 +6778,25 @@
     }
 
 
-    function switchAdminExamCreationSubCategory(subTabKey) {
+    function switchAdminExamCreationSubCategory(subTabKey, opt_opts) {
+      var opts = opt_opts && typeof opt_opts === 'object' ? opt_opts : {};
       var setsCard = document.getElementById('admin-exam-builder-catalog-card');
       var qbankCard = document.getElementById('admin-question-bank-card');
+      var workspace = document.getElementById('pb-forms-builder-workspace');
       var btnSets = document.getElementById('btn-exam-creation-subtab-sets');
       var btnQbank = document.getElementById('btn-exam-creation-subtab-qbank');
       var isQbank = subTabKey === 'qbank';
-      if (setsCard) setsCard.classList.toggle('hidden', isQbank);
+      if (isQbank && workspace && !workspace.classList.contains('hidden')) {
+        if (typeof closeFormsExamBuilderToCatalog === 'function') {
+          closeFormsExamBuilderToCatalog({ skipSubTabSync: true });
+        } else {
+          workspace.classList.add('hidden');
+        }
+      }
+      if (setsCard) {
+        var hideSets = isQbank || Boolean(workspace && !workspace.classList.contains('hidden'));
+        setsCard.classList.toggle('hidden', hideSets);
+      }
       if (qbankCard) qbankCard.classList.toggle('hidden', !isQbank);
       if (btnSets) {
         btnSets.classList.toggle('is-active', !isQbank);
@@ -6249,10 +6806,12 @@
         btnQbank.classList.toggle('is-active', isQbank);
         btnQbank.setAttribute('aria-selected', isQbank ? 'true' : 'false');
       }
-      if (isQbank && typeof loadAdminQuestionBankPhase2 === 'function') {
-        loadAdminQuestionBankPhase2(1);
-      } else if (!isQbank && typeof loadAdminExamSetsPhase3 === 'function') {
-        loadAdminExamSetsPhase3();
+      if (!opts.skipDataLoad) {
+        if (isQbank && typeof loadAdminQuestionBankPhase2 === 'function') {
+          loadAdminQuestionBankPhase2(1);
+        } else if (!isQbank && typeof loadAdminExamSetsPhase3 === 'function') {
+          loadAdminExamSetsPhase3();
+        }
       }
     }
 
@@ -9733,10 +10292,11 @@
       closeModalDialog('modal-pb-pdf-viewer');
     }
 
-    function openInAppPdfViewerModal(entry) {
+    function openInAppPdfViewerModal(entry, opt_opts) {
       if (!entry || !entry.objectUrl) return;
       var modalEl = document.getElementById('modal-pb-pdf-viewer');
       if (!modalEl) return;
+      var allowDownload = !(opt_opts && opt_opts.allowDownload === false);
       if (activeModalId && activeModalId !== 'modal-pb-pdf-viewer') {
         pbPdfViewerReturnModalId = activeModalId;
       }
@@ -9755,17 +10315,31 @@
         metaEl.textContent =
           (sizeKb ? String(sizeKb) + ' KB • ' : '') +
           String(entry.mimeType || 'application/pdf') +
-          (entry.mechanism ? ' (' + String(entry.mechanism) + ')' : '');
+          (entry.mechanism ? ' (' + String(entry.mechanism) + ')' : '') +
+          (allowDownload ? '' : ' • View Only (Download Disabled)');
       }
       if (openTabLink) {
-        openTabLink.href = entry.objectUrl;
+        openTabLink.classList.toggle('hidden', !allowDownload);
+        if (allowDownload) {
+          openTabLink.href = entry.objectUrl;
+        } else {
+          openTabLink.removeAttribute('href');
+        }
       }
       if (downloadLink) {
-        downloadLink.href = entry.objectUrl;
-        downloadLink.setAttribute('download', safeFilename || 'document.pdf');
+        downloadLink.classList.toggle('hidden', !allowDownload);
+        if (allowDownload) {
+          downloadLink.href = entry.objectUrl;
+          downloadLink.setAttribute('download', safeFilename || 'document.pdf');
+        } else {
+          downloadLink.removeAttribute('href');
+          downloadLink.removeAttribute('download');
+        }
       }
       if (iframeEl) {
-        iframeEl.src = entry.objectUrl;
+        iframeEl.src = allowDownload
+          ? entry.objectUrl
+          : entry.objectUrl + '#toolbar=0&navpanes=0';
       }
       openModalDialog('modal-pb-pdf-viewer', 'btn-pb-pdf-viewer-close');
     }
@@ -10919,7 +11493,12 @@
             badge.textContent = 'Image Diagram • ' + (blk.widthPct || 100) + '%';
           } else if (blk.type === 'pdf_attachment') {
             badge.textContent =
-              'Embedded PDF • ' + (blk.widthPct || 100) + '% × ' + (blk.heightPx || 420) + 'px';
+              'Embedded PDF • ' +
+              (blk.widthPct || 100) +
+              '% × ' +
+              (blk.heightPx || 420) +
+              'px • ' +
+              (blk.allowDownload === false ? 'View Only (No Download)' : 'Downloadable');
           } else {
             var rLen = Array.isArray(blk.rows) ? blk.rows.length : 0;
             var cLen = Array.isArray(blk.headers) && blk.headers.length > 0
@@ -10973,12 +11552,41 @@
               ctrls.appendChild(hb);
             });
 
+            var allowPdfDl = blk.allowDownload !== false;
+            var dlPermBtn = document.createElement('button');
+            dlPermBtn.type = 'button';
+            dlPermBtn.className =
+              'btn btn-outline btn-sm pb-q-media-ctrl-btn pb-pdf-dl-toggle-btn ' +
+              (allowPdfDl ? 'is-allowed' : 'is-locked');
+            setElementVectorIconLabel(
+              dlPermBtn,
+              allowPdfDl ? 'download' : 'shield-lock',
+              allowPdfDl ? 'Download: Allowed' : 'View Only (No Download)',
+              'pb-icon-xs'
+            );
+            dlPermBtn.title = allowPdfDl
+              ? 'Students can download this embedded PDF. Click to set View Only.'
+              : 'View Only: students can view/zoom in-app but cannot download. Click to allow downloads.';
+            dlPermBtn.addEventListener('click', function () {
+              var next = list.slice();
+              next[idx] = Object.assign({}, blk, { allowDownload: !allowPdfDl });
+              commitList(next);
+            });
+            ctrls.appendChild(dlPermBtn);
+
             var zPdfBtn = document.createElement('button');
             zPdfBtn.type = 'button';
             zPdfBtn.className = 'btn btn-outline btn-sm pb-q-media-ctrl-btn';
             setElementVectorIconLabel(zPdfBtn, 'zoom-in', 'Zoom Modal', 'pb-icon-xs');
             zPdfBtn.addEventListener('click', function () {
-              openOrDownloadExamPdfWithNotice(zPdfBtn, blk.fileId, courseId, true, 'Zoom Modal');
+              openOrDownloadExamPdfWithNotice(
+                zPdfBtn,
+                blk.fileId,
+                courseId,
+                true,
+                'Zoom Modal',
+                { allowDownload: blk.allowDownload !== false }
+              );
             });
             ctrls.appendChild(zPdfBtn);
           }
@@ -11070,9 +11678,29 @@
       hostEl.appendChild(wrap);
     }
 
-    function openOrDownloadExamPdfWithNotice(btnEl, fileId, courseId, openInNewTab, defaultLabel) {
+    function openOrDownloadExamPdfWithNotice(btnEl, fileId, courseId, openInNewTab, defaultLabel, opt_viewerOpts) {
       if (!fileId) return;
+      var allowDownload = !(opt_viewerOpts && opt_viewerOpts.allowDownload === false);
+      if (!openInNewTab && !allowDownload) {
+        if (typeof PBNotify === 'object' && PBNotify) {
+          PBNotify.toast('warning', 'View Only PDF', 'Downloading is disabled for this embedded PDF.');
+        }
+        return;
+      }
+      var origChildren = btnEl ? Array.prototype.slice.call(btnEl.childNodes || []) : [];
       var origText = defaultLabel || (btnEl ? btnEl.textContent : 'Open PDF');
+      function restoreBtnContent() {
+        if (!btnEl) return;
+        btnEl.disabled = false;
+        while (btnEl.firstChild) btnEl.removeChild(btnEl.firstChild);
+        if (origChildren.length > 0) {
+          for (var ci = 0; ci < origChildren.length; ci++) {
+            btnEl.appendChild(origChildren[ci]);
+          }
+        } else {
+          btnEl.textContent = origText;
+        }
+      }
       if (btnEl) {
         btnEl.disabled = true;
         btnEl.textContent = openInNewTab ? 'Opening PDF...' : 'Downloading PDF...';
@@ -11082,8 +11710,11 @@
             skipRevokeCheck: true
           }).then(function (entry) {
             if (document.getElementById('modal-pb-pdf-viewer')) {
-              openInAppPdfViewerModal(entry);
+              openInAppPdfViewerModal(entry, { allowDownload: allowDownload });
               return entry;
+            }
+            if (!allowDownload) {
+              throw new Error('View-only PDF viewer is unavailable.');
             }
             return PBObjectUrlManager.triggerAuthorizedDownload(fileId, courseId || '', true);
           })
@@ -11091,16 +11722,10 @@
 
       actionPromise
         .then(function () {
-          if (btnEl) {
-            btnEl.disabled = false;
-            btnEl.textContent = origText;
-          }
+          restoreBtnContent();
         })
         .catch(function (err) {
-          if (btnEl) {
-            btnEl.disabled = false;
-            btnEl.textContent = origText;
-          }
+          restoreBtnContent();
           var msg = String((err && err.message) || 'Could not open PDF.');
           if (err && err.code === 'ERR_FORBIDDEN_RESOURCE' && msg.indexOf('not actively referenced') !== -1) {
             msg =
@@ -11588,6 +12213,7 @@
           }
           renderedAnyContent = true;
           (function (pdfBlock) {
+            var allowPdfDownload = pdfBlock.allowDownload !== false;
             var isEmbeddedPdf =
               String(pdfBlock.displayMode || '').toLowerCase() === 'embed' ||
               Boolean(pdfBlock.heightPx) ||
@@ -11598,7 +12224,12 @@
               );
             if (isEmbeddedPdf) {
               var embedBox = document.createElement('div');
-              embedBox.className = 'pb-rt-pdf-embed-box';
+              embedBox.className = 'pb-rt-pdf-embed-box' + (allowPdfDownload ? '' : ' is-view-only');
+              if (!allowPdfDownload) {
+                embedBox.addEventListener('contextmenu', function (ev) {
+                  ev.preventDefault();
+                });
+              }
               var pWidth = pdfBlock.widthPct
                 ? Math.min(100, Math.max(30, Math.round(Number(pdfBlock.widthPct))))
                 : 100;
@@ -11622,6 +12253,15 @@
               pTitle.className = 'pb-rt-pdf-embed-title';
               pTitle.textContent = pdfBlock.title || pdfBlock.filename || 'Attached PDF Document';
               titleGrp.appendChild(pTitle);
+              if (!allowPdfDownload) {
+                var voPill = document.createElement('span');
+                voPill.className = 'pb-pdf-viewonly-pill';
+                voPill.appendChild(PBIcons.create('shield-lock', 'pb-icon-xs'));
+                var voTxt = document.createElement('span');
+                voTxt.textContent = 'View Only';
+                voPill.appendChild(voTxt);
+                titleGrp.appendChild(voPill);
+              }
               bar.appendChild(titleGrp);
 
               var actGrp = document.createElement('div');
@@ -11638,7 +12278,8 @@
                   pdfBlock.fileId,
                   effectiveCourseId,
                   true,
-                  'Zoom / Full View'
+                  'Zoom / Full View',
+                  { allowDownload: allowPdfDownload }
                 );
               });
               actGrp.appendChild(zoomModalBtn);
@@ -11649,20 +12290,23 @@
               fitHeightBtn.textContent = curHeightPx > 500 ? 'Compact View' : 'Expand View';
               actGrp.appendChild(fitHeightBtn);
 
-              var dlPdfBtn = document.createElement('button');
-              dlPdfBtn.type = 'button';
-              dlPdfBtn.className = 'btn btn-outline btn-sm';
-              setElementVectorIconLabel(dlPdfBtn, 'download', 'Download', 'pb-icon-xs');
-              dlPdfBtn.addEventListener('click', function () {
-                openOrDownloadExamPdfWithNotice(
-                  dlPdfBtn,
-                  pdfBlock.fileId,
-                  effectiveCourseId,
-                  false,
-                  'Download'
-                );
-              });
-              actGrp.appendChild(dlPdfBtn);
+              if (allowPdfDownload) {
+                var dlPdfBtn = document.createElement('button');
+                dlPdfBtn.type = 'button';
+                dlPdfBtn.className = 'btn btn-outline btn-sm';
+                setElementVectorIconLabel(dlPdfBtn, 'download', 'Download', 'pb-icon-xs');
+                dlPdfBtn.addEventListener('click', function () {
+                  openOrDownloadExamPdfWithNotice(
+                    dlPdfBtn,
+                    pdfBlock.fileId,
+                    effectiveCourseId,
+                    false,
+                    'Download',
+                    { allowDownload: true }
+                  );
+                });
+                actGrp.appendChild(dlPdfBtn);
+              }
               bar.appendChild(actGrp);
               embedBox.appendChild(bar);
 
@@ -11692,14 +12336,17 @@
                 })
                   .then(function (entry) {
                     if (entry && entry.objectUrl && pdfFrame && pdfFrame.parentNode === frameWrap) {
-                      pdfFrame.src = entry.objectUrl;
+                      pdfFrame.src = allowPdfDownload
+                        ? entry.objectUrl
+                        : entry.objectUrl + '#toolbar=0&navpanes=0';
                       pdfFrame.classList.remove('hidden');
                       loadingLbl.classList.add('hidden');
                     }
                   })
                   .catch(function (err) {
-                    loadingLbl.textContent =
-                      'Unable to embed PDF (' + ((err && err.code) || 'ERR') + '). Use Download or Zoom above.';
+                    loadingLbl.textContent = allowPdfDownload
+                      ? 'Unable to embed PDF (' + ((err && err.code) || 'ERR') + '). Use Download or Zoom above.'
+                      : 'Unable to embed PDF (' + ((err && err.code) || 'ERR') + '). Use Zoom / Full View above.';
                     loadingLbl.classList.remove('hidden');
                   });
               }
@@ -11725,7 +12372,7 @@
             var infoDiv = document.createElement('div');
             var pdfBadge = document.createElement('span');
             pdfBadge.className = 'badge badge-ok';
-            pdfBadge.textContent = 'Private PDF Attachment';
+            pdfBadge.textContent = allowPdfDownload ? 'Private PDF Attachment' : 'Private View-Only PDF';
             infoDiv.appendChild(pdfBadge);
 
             var titleStrong = document.createElement('div');
@@ -11739,7 +12386,9 @@
             var idNote = document.createElement('div');
             idNote.style.fontSize = '0.78rem';
             idNote.style.color = 'var(--color-text-muted)';
-            idNote.textContent = 'Protected Course Document • Ready for authorized viewing';
+            idNote.textContent = allowPdfDownload
+              ? 'Protected Course Document • Ready for authorized viewing'
+              : 'View Only Document • Download disabled by instructor';
             idNote.title = 'File ID: ' + (pdfBlock.fileId || '');
             infoDiv.appendChild(idNote);
             card.appendChild(infoDiv);
@@ -11759,34 +12408,37 @@
                 pdfBlock.fileId,
                 effectiveCourseId,
                 true,
-                'View / Zoom PDF'
+                'View / Zoom PDF',
+                { allowDownload: allowPdfDownload }
               );
             });
             btnGroup.appendChild(viewModalBtn);
 
-            var dlBtn = document.createElement('button');
-            dlBtn.type = 'button';
-            dlBtn.className = 'btn btn-primary btn-sm';
-            dlBtn.textContent = 'Download PDF';
-            dlBtn.addEventListener('click', function () {
-              dlBtn.disabled = true;
-              dlBtn.textContent = 'Authorizing PDF...';
-              PBObjectUrlManager.triggerAuthorizedDownload(
-                pdfBlock.fileId,
-                effectiveCourseId,
-                false
-              )
-                .then(function () {
-                  dlBtn.disabled = false;
-                  dlBtn.textContent = 'Download PDF (Ready)';
-                })
-                .catch(function (err) {
-                  dlBtn.disabled = false;
-                  dlBtn.textContent = 'Download PDF';
-                  showUiErrorBanner(err);
-                });
-            });
-            btnGroup.appendChild(dlBtn);
+            if (allowPdfDownload) {
+              var dlBtn = document.createElement('button');
+              dlBtn.type = 'button';
+              dlBtn.className = 'btn btn-primary btn-sm';
+              dlBtn.textContent = 'Download PDF';
+              dlBtn.addEventListener('click', function () {
+                dlBtn.disabled = true;
+                dlBtn.textContent = 'Authorizing PDF...';
+                PBObjectUrlManager.triggerAuthorizedDownload(
+                  pdfBlock.fileId,
+                  effectiveCourseId,
+                  false
+                )
+                  .then(function () {
+                    dlBtn.disabled = false;
+                    dlBtn.textContent = 'Download PDF (Ready)';
+                  })
+                  .catch(function (err) {
+                    dlBtn.disabled = false;
+                    dlBtn.textContent = 'Download PDF';
+                    showUiErrorBanner(err);
+                  });
+              });
+              btnGroup.appendChild(dlBtn);
+            }
 
             card.appendChild(btnGroup);
             containerEl.appendChild(card);
@@ -12824,6 +13476,7 @@
               var pdfMetaRow = document.createElement('div');
               pdfMetaRow.style.display = 'flex';
               pdfMetaRow.style.flexWrap = 'wrap';
+              pdfMetaRow.style.alignItems = 'center';
               pdfMetaRow.style.gap = '6px';
               pdfMetaRow.style.marginTop = '4px';
 
@@ -12846,6 +13499,13 @@
                 updatePreviewAndToolbarState();
               });
               pdfMetaRow.appendChild(ttlInp);
+
+              var rtPdfDlPill = createPdfDownloadTogglePill(blk.allowDownload !== false, function (allowed) {
+                blk.allowDownload = allowed;
+                setCourseEditorDirtyState(true, editorLabel);
+                updatePreviewAndToolbarState();
+              });
+              pdfMetaRow.appendChild(rtPdfDlPill.element);
               blockRow.appendChild(pdfMetaRow);
             } else {
               renderSpansInputs(blk.spans, null);
@@ -13187,7 +13847,8 @@
                   type: 'pdf_attachment',
                   fileId: uploaded.fileId,
                   title: uploaded.originalFilename || 'PDF Handout',
-                  filename: uploaded.originalFilename || 'handout.pdf'
+                  filename: uploaded.originalFilename || 'handout.pdf',
+                  allowDownload: true
                 });
                 state.activeBlockIdx = state.doc.blocks.length - 1;
                 setCourseEditorDirtyState(true, editorLabel);
@@ -23873,22 +24534,29 @@ var qrcode = (function() {
       pdfBtn.type = 'button';
       pdfBtn.className = 'btn btn-outline btn-sm';
       setElementVectorIconLabel(pdfBtn, 'file-pdf', 'Embed PDF', 'pb-icon-xs');
+      var qPdfAllowDlToggle = createPdfDownloadTogglePill(true);
       pdfBtn.addEventListener('click', function () { pdfInp.click(); });
       pdfInp.addEventListener('change', function () {
         var f = pdfInp.files && pdfInp.files[0];
         if (!f) return;
         runButtonWithLoadingState(pdfBtn, 'Uploading PDF...', function () {
           return uploadQuestionStemAttachmentFile(f, 'pdf', '').then(function (res) {
+            var allowDl = qPdfAllowDlToggle.isAllowed();
             ed.addMediaBlock({
               type: 'pdf_attachment',
               fileId: res.fileId,
               title: res.originalFilename || 'Question PDF Reference.pdf',
               displayMode: 'embed',
               widthPct: 100,
-              heightPx: 420
+              heightPx: 420,
+              allowDownload: allowDl
             });
             pdfInp.value = '';
-            PBNotify.toast('success', 'PDF Embedded', 'Attached embedded PDF ' + res.fileId + ' (resizable/zoomable).');
+            PBNotify.toast(
+              'success',
+              'PDF Embedded',
+              'Attached embedded PDF ' + res.fileId + (allowDl ? ' (Downloadable).' : ' (View Only / No Download).')
+            );
           });
         });
       });
@@ -23908,6 +24576,7 @@ var qrcode = (function() {
       bar.appendChild(imgBtn);
       bar.appendChild(pdfInp);
       bar.appendChild(pdfBtn);
+      bar.appendChild(qPdfAllowDlToggle.element);
       bar.appendChild(tblBtn);
       host.appendChild(bar);
 
@@ -28117,27 +28786,79 @@ var qrcode = (function() {
       switchAdminExamStudioTab(opt_studioTab || currentExamStudioTab || 'builder');
     }
 
-    function exitAdminExamsStudioMode() {
-      if (!isExamStudioModeActive) return;
+    function exitAdminExamsStudioMode(opt_force, opt_opts) {
+      var opts = opt_opts && typeof opt_opts === 'object' ? opt_opts : {};
+      if (!isExamStudioModeActive && !opt_force) return;
       isExamStudioModeActive = false;
+      currentExamStudioTab = 'builder';
+      if (typeof PBEnhancedSelect === 'object' && PBEnhancedSelect) {
+        PBEnhancedSelect.closeActive(true, false);
+      }
       var adminHeader = document.getElementById('admin-header-overview-card');
       var studioHeader = document.getElementById('admin-exams-studio-header-card');
       if (adminHeader) adminHeader.classList.remove('hidden');
       if (studioHeader) studioHeader.classList.add('hidden');
-      closeFormsExamBuilderToCatalog();
-      if (
-        currentAdminTab === 'exam-creation' ||
-        currentAdminTab === 'exam-integrity' ||
-        currentAdminTab === 'assessments'
-      ) {
-        switchAdminSubTab('settings', true, false);
+      var studioTabBtns = document.querySelectorAll('[data-exam-studio-tab]');
+      for (var st = 0; st < studioTabBtns.length; st++) {
+        var stb = studioTabBtns[st];
+        var isBuilderBtn = stb.getAttribute('data-exam-studio-tab') === 'builder';
+        stb.classList.toggle('is-active', isBuilderBtn);
+        stb.setAttribute('aria-selected', isBuilderBtn ? 'true' : 'false');
+      }
+      if (typeof closeFormsExamBuilderToCatalog === 'function') {
+        closeFormsExamBuilderToCatalog({ skipSubTabSync: true });
+      }
+      if (typeof switchAdminExamCreationSubCategory === 'function') {
+        switchAdminExamCreationSubCategory('sets', { skipDataLoad: true });
+      }
+      var destTab = opts.targetAdminTab;
+      if (!destTab) {
+        if (
+          currentAdminTab === 'exam-creation' ||
+          currentAdminTab === 'exam-integrity' ||
+          currentAdminTab === 'assessments' ||
+          !currentAdminTab
+        ) {
+          destTab = 'settings';
+        } else {
+          destTab = currentAdminTab;
+        }
+      }
+      if (opts.skipDataLoad) {
+        currentAdminTab = destTab;
+        var tabDefs = [
+          { key: 'settings', btnId: 'btn-admin-tab-settings', panelId: 'admin-panel-settings' },
+          { key: 'users', btnId: 'btn-admin-tab-users', panelId: 'admin-panel-users' },
+          { key: 'courses', btnId: 'btn-admin-tab-courses', panelId: 'admin-panel-courses' },
+          { key: 'assessments', btnId: 'btn-admin-tab-assessments', panelId: 'admin-panel-assessments' },
+          { key: 'exam-creation', btnId: 'btn-admin-tab-exam-creation', panelId: 'admin-panel-exam-creation' },
+          { key: 'exam-integrity', btnId: 'btn-admin-tab-exam-integrity', panelId: 'admin-panel-exam-integrity' },
+          { key: 'overview', btnId: 'btn-admin-tab-overview', panelId: 'admin-panel-overview' },
+          { key: 'unavailability', btnId: 'btn-admin-tab-unavailability', panelId: 'admin-panel-unavailability' }
+        ];
+        for (var ti = 0; ti < tabDefs.length; ti++) {
+          var td = tabDefs[ti];
+          var isMatch = td.key === currentAdminTab;
+          var tBtn = document.getElementById(td.btnId);
+          var tPanel = document.getElementById(td.panelId);
+          if (tBtn) {
+            tBtn.classList.toggle('is-active', isMatch);
+            tBtn.setAttribute('aria-selected', isMatch ? 'true' : 'false');
+          }
+          if (tPanel) {
+            tPanel.classList.toggle('hidden', !isMatch);
+          }
+        }
       } else {
-        switchAdminSubTab(currentAdminTab || 'settings', true, false);
+        switchAdminSubTab(destTab, true, false);
       }
       updateNavbarActiveForExamStudio(false);
     }
 
     function switchAdminExamStudioTab(studioTab) {
+      if (typeof PBEnhancedSelect === 'object' && PBEnhancedSelect) {
+        PBEnhancedSelect.closeActive(true, false);
+      }
       currentExamStudioTab = studioTab || 'builder';
       var tabIds = [
         { k: 'builder', id: 'btn-exam-studio-tab-builder' },
@@ -28164,15 +28885,15 @@ var qrcode = (function() {
         switchAdminSubTab('exam-creation', true, false);
         switchAdminExamCreationSubCategory('sets');
       } else if (currentExamStudioTab === 'qbank') {
-        closeFormsExamBuilderToCatalog();
+        closeFormsExamBuilderToCatalog({ skipSubTabSync: true });
         switchAdminSubTab('exam-creation', true, false);
         switchAdminExamCreationSubCategory('qbank');
       } else if (currentExamStudioTab === 'grading') {
-        closeFormsExamBuilderToCatalog();
+        closeFormsExamBuilderToCatalog({ skipSubTabSync: true });
         switchAdminSubTab('assessments', true, false);
         switchAdminAssessmentsSubCategory('attempts');
       } else if (currentExamStudioTab === 'integrity') {
-        closeFormsExamBuilderToCatalog();
+        closeFormsExamBuilderToCatalog({ skipSubTabSync: true });
         switchAdminSubTab('exam-integrity', true, false);
       }
       updateNavbarActiveForExamStudio(isExamStudioModeActive);
@@ -28511,7 +29232,8 @@ var qrcode = (function() {
           var upBtn = document.createElement('button');
           upBtn.type = 'button';
           upBtn.className = 'btn btn-outline btn-sm';
-          upBtn.textContent = '\u2191';
+          setElementVectorIconLabel(upBtn, 'arrow-up', '', 'pb-icon-xs');
+          upBtn.setAttribute('aria-label', 'Move Question Up');
           upBtn.title = 'Move Question Up';
           upBtn.disabled = cardIndex === 0;
           upBtn.addEventListener('click', function () {
@@ -28526,7 +29248,8 @@ var qrcode = (function() {
           var dnBtn = document.createElement('button');
           dnBtn.type = 'button';
           dnBtn.className = 'btn btn-outline btn-sm';
-          dnBtn.textContent = '\u2193';
+          setElementVectorIconLabel(dnBtn, 'arrow-down', '', 'pb-icon-xs');
+          dnBtn.setAttribute('aria-label', 'Move Question Down');
           dnBtn.title = 'Move Question Down';
           dnBtn.disabled = cardIndex === formsBuilderQuestionCards.length - 1;
           dnBtn.addEventListener('click', function () {
@@ -29146,6 +29869,29 @@ var qrcode = (function() {
           upPdfBtn.type = 'button';
           upPdfBtn.className = 'btn btn-outline btn-sm';
           setElementVectorIconLabel(upPdfBtn, 'file-pdf', 'Embed PDF', 'pb-icon-xs');
+          var existingCardMedia = typeof stemEd.getMediaBlocks === 'function' ? stemEd.getMediaBlocks() : [];
+          var existingCardPdfs = existingCardMedia.filter(function (mb) { return mb && mb.type === 'pdf_attachment'; });
+          var initialCardPdfAllowed = existingCardPdfs.length > 0 ? existingCardPdfs[existingCardPdfs.length - 1].allowDownload !== false : true;
+          var fmPdfAllowDlToggle = createPdfDownloadTogglePill(initialCardPdfAllowed, function (allowed) {
+            if (typeof stemEd.getMediaBlocks === 'function' && typeof stemEd.setMediaBlocks === 'function') {
+              var curBlocks = stemEd.getMediaBlocks();
+              var hadPdf = false;
+              var updatedBlocks = curBlocks.map(function (mb) {
+                if (mb && mb.type === 'pdf_attachment') {
+                  hadPdf = true;
+                  return Object.assign({}, mb, { allowDownload: allowed });
+                }
+                return mb;
+              });
+              if (hadPdf) {
+                stemEd.setMediaBlocks(updatedBlocks);
+                card.stemDoc = stemEd.getValueDoc();
+                card.stem = extractPlainTextFromRichTextDoc(card.stemDoc);
+                card.isDirty = true;
+                syncCardRichMediaTray();
+              }
+            }
+          });
           upPdfBtn.addEventListener('click', function () {
             pdfFileInp.click();
           });
@@ -29155,25 +29901,32 @@ var qrcode = (function() {
             var assignedCrs = ((document.getElementById('select-forms-exam-course') || {}).value || '').trim();
             runButtonWithLoadingState(upPdfBtn, 'Uploading PDF...', function () {
               return uploadQuestionStemAttachmentFile(f, 'pdf', assignedCrs).then(function (res) {
+                var allowDl = fmPdfAllowDlToggle.isAllowed();
                 stemEd.addMediaBlock({
                   type: 'pdf_attachment',
                   fileId: res.fileId,
                   title: res.originalFilename || 'Attached PDF.pdf',
                   displayMode: 'embed',
                   widthPct: 100,
-                  heightPx: 420
+                  heightPx: 420,
+                  allowDownload: allowDl
                 });
                 card.stemDoc = stemEd.getValueDoc();
                 card.stem = extractPlainTextFromRichTextDoc(card.stemDoc);
                 card.isDirty = true;
                 syncCardRichMediaTray();
                 pdfFileInp.value = '';
-                PBNotify.toast('success', 'PDF Embedded', 'Attached embedded PDF ' + res.fileId + ' to Question ' + (cardIndex + 1) + '.');
+                PBNotify.toast(
+                  'success',
+                  'PDF Embedded',
+                  'Attached embedded PDF ' + res.fileId + ' to Question ' + (cardIndex + 1) + (allowDl ? ' (Downloadable).' : ' (View Only / No Download).')
+                );
               });
             });
           });
           rightFtr.appendChild(pdfFileInp);
           rightFtr.appendChild(upPdfBtn);
+          rightFtr.appendChild(fmPdfAllowDlToggle.element);
 
           var addTblBtn = document.createElement('button');
           addTblBtn.type = 'button';
@@ -29245,16 +29998,62 @@ var qrcode = (function() {
       }
     }
 
-    function openFormsExamBuilderForNewExam() {
-      restoreFormsPreviewButtonsState();
-      populateAdminExamBuilderCourseAndStudentDropdownsPhase3();
+    function enterFormsBuilderWorkspaceLayout() {
+      if (typeof PBEnhancedSelect === 'object' && PBEnhancedSelect) {
+        PBEnhancedSelect.closeActive(true, false);
+      }
       var catalogCard = document.getElementById('admin-exam-builder-catalog-card');
+      var qbankCard = document.getElementById('admin-question-bank-card');
       var workspace = document.getElementById('pb-forms-builder-workspace');
       if (catalogCard) catalogCard.classList.add('hidden');
+      if (qbankCard) qbankCard.classList.add('hidden');
+      if (isExamStudioModeActive) {
+        currentExamStudioTab = 'builder';
+        var studioTabs = [
+          { id: 'btn-exam-studio-tab-builder', active: true },
+          { id: 'btn-exam-studio-tab-grading', active: false },
+          { id: 'btn-exam-studio-tab-integrity', active: false },
+          { id: 'btn-exam-studio-tab-qbank', active: false }
+        ];
+        for (var st = 0; st < studioTabs.length; st++) {
+          var sEl = document.getElementById(studioTabs[st].id);
+          if (sEl) {
+            sEl.classList.toggle('is-active', studioTabs[st].active);
+            sEl.setAttribute('aria-selected', studioTabs[st].active ? 'true' : 'false');
+          }
+        }
+        if (typeof switchAdminSubTab === 'function' && currentAdminTab !== 'exam-creation') {
+          switchAdminSubTab('exam-creation', true, false);
+        }
+        var creationPanel = document.getElementById('admin-panel-exam-creation');
+        if (creationPanel && creationPanel.firstElementChild && creationPanel.firstElementChild.querySelector('#admin-exam-creation-subnav')) {
+          creationPanel.firstElementChild.classList.add('hidden');
+        }
+        if (typeof updateNavbarActiveForExamStudio === 'function') {
+          updateNavbarActiveForExamStudio(true);
+        }
+      }
+      var btnSets = document.getElementById('btn-exam-creation-subtab-sets');
+      var btnQbank = document.getElementById('btn-exam-creation-subtab-qbank');
+      if (btnSets) {
+        btnSets.classList.add('is-active');
+        btnSets.setAttribute('aria-selected', 'true');
+      }
+      if (btnQbank) {
+        btnQbank.classList.remove('is-active');
+        btnQbank.setAttribute('aria-selected', 'false');
+      }
       if (workspace) workspace.classList.remove('hidden');
+      syncFormsStickyToolbarOffset();
       if (typeof PBFloatingToc === 'object' && PBFloatingToc && typeof PBFloatingToc.syncForActiveView === 'function') {
         PBFloatingToc.syncForActiveView();
       }
+    }
+
+    function openFormsExamBuilderForNewExam() {
+      restoreFormsPreviewButtonsState();
+      populateAdminExamBuilderCourseAndStudentDropdownsPhase3();
+      enterFormsBuilderWorkspaceLayout();
 
       var idEl = document.getElementById('input-forms-exam-id');
       var verEl = document.getElementById('input-forms-exam-version');
@@ -29322,13 +30121,7 @@ var qrcode = (function() {
       }
       restoreFormsPreviewButtonsState();
       populateAdminExamBuilderCourseAndStudentDropdownsPhase3();
-      var catalogCard = document.getElementById('admin-exam-builder-catalog-card');
-      var workspace = document.getElementById('pb-forms-builder-workspace');
-      if (catalogCard) catalogCard.classList.add('hidden');
-      if (workspace) workspace.classList.remove('hidden');
-      if (typeof PBFloatingToc === 'object' && PBFloatingToc && typeof PBFloatingToc.syncForActiveView === 'function') {
-        PBFloatingToc.syncForActiveView();
-      }
+      enterFormsBuilderWorkspaceLayout();
 
       var idEl = document.getElementById('input-forms-exam-id');
       var verEl = document.getElementById('input-forms-exam-version');
@@ -29475,15 +30268,33 @@ var qrcode = (function() {
       }
     }
 
-    function closeFormsExamBuilderToCatalog() {
+    function closeFormsExamBuilderToCatalog(opt_opts) {
+      var opts = opt_opts && typeof opt_opts === 'object' ? opt_opts : {};
       restoreFormsPreviewButtonsState();
+      if (typeof PBEnhancedSelect === 'object' && PBEnhancedSelect) {
+        PBEnhancedSelect.closeActive(true, false);
+      }
       var catalogCard = document.getElementById('admin-exam-builder-catalog-card');
+      var qbankCard = document.getElementById('admin-question-bank-card');
       var workspace = document.getElementById('pb-forms-builder-workspace');
       if (workspace) {
         unloadEmbeddedPdfFramesInElement(workspace);
         workspace.classList.add('hidden');
       }
-      if (catalogCard) catalogCard.classList.remove('hidden');
+      if (!opts.skipSubTabSync) {
+        if (catalogCard) catalogCard.classList.remove('hidden');
+        if (qbankCard) qbankCard.classList.add('hidden');
+        var btnSets = document.getElementById('btn-exam-creation-subtab-sets');
+        var btnQbank = document.getElementById('btn-exam-creation-subtab-qbank');
+        if (btnSets) {
+          btnSets.classList.add('is-active');
+          btnSets.setAttribute('aria-selected', 'true');
+        }
+        if (btnQbank) {
+          btnQbank.classList.remove('is-active');
+          btnQbank.setAttribute('aria-selected', 'false');
+        }
+      }
       if (typeof PBFloatingToc === 'object' && PBFloatingToc && typeof PBFloatingToc.syncForActiveView === 'function') {
         PBFloatingToc.syncForActiveView();
       }
@@ -29501,7 +30312,11 @@ var qrcode = (function() {
       var matches = questions.filter(function (q) {
         if (q.status === 'ARCHIVED') return false;
         if (!kw) return true;
-        var hay = ((q.questionCode || '') + ' ' + (q.title || '') + ' ' + (q.stemPlainText || '')).toLowerCase();
+        var cleanHayText =
+          typeof stripInternalMediaMarkerTags === 'function'
+            ? stripInternalMediaMarkerTags((q.title || '') + ' ' + (q.stemPlainText || ''))
+            : (q.title || '') + ' ' + (q.stemPlainText || '');
+        var hay = ((q.questionCode || '') + ' ' + cleanHayText).toLowerCase();
         return hay.indexOf(kw) !== -1;
       });
 
@@ -29526,8 +30341,13 @@ var qrcode = (function() {
           strong.style.color = 'var(--color-brand-deep)';
           strong.textContent = '[' + qDto.questionCode + '] ';
           info.appendChild(strong);
+          var rawPreview = qDto.stemPlainText || qDto.title || '';
+          var cleanPreview =
+            typeof stripInternalMediaMarkerTags === 'function'
+              ? stripInternalMediaMarkerTags(rawPreview)
+              : rawPreview;
           var span = document.createElement('span');
-          span.textContent = (qDto.stemPlainText || qDto.title || '').slice(0, 120);
+          span.textContent = (cleanPreview || qDto.questionCode || 'Question').slice(0, 120);
           info.appendChild(span);
           row.appendChild(info);
 
@@ -30010,7 +30830,7 @@ var qrcode = (function() {
           if (btn.dataset) btn.dataset.boundFormsOpen = '1';
           btn.addEventListener('click', function () {
             if (isExamStudioModeActive && currentExamStudioTab !== 'builder') {
-              switchAdminExamStudioTab('builder');
+              currentExamStudioTab = 'builder';
             }
             openFormsExamBuilderForNewExam();
           });
@@ -32409,7 +33229,11 @@ var qrcode = (function() {
           for (var k = 0; k < items.length; k++) {
             var opt = document.createElement('option');
             opt.value = items[k].questionId;
-            opt.textContent = '[' + items[k].questionCode + '] ' + items[k].title;
+            var cleanQTitle =
+              typeof stripInternalMediaMarkerTags === 'function'
+                ? stripInternalMediaMarkerTags(items[k].title || '')
+                : String(items[k].title || '');
+            opt.textContent = '[' + items[k].questionCode + '] ' + (cleanQTitle || 'Question');
             qSel.appendChild(opt);
           }
         }
@@ -32457,7 +33281,11 @@ var qrcode = (function() {
             var row = ia[i];
             var tr = document.createElement('tr');
             var td1 = document.createElement('td');
-            td1.textContent = '[' + row.questionCode + '] ' + row.title;
+            var cleanRowTitle =
+              typeof stripInternalMediaMarkerTags === 'function'
+                ? stripInternalMediaMarkerTags(row.title || '')
+                : String(row.title || '');
+            td1.textContent = '[' + row.questionCode + '] ' + (cleanRowTitle || 'Question');
             tr.appendChild(td1);
             var td2 = document.createElement('td');
             td2.textContent = row.questionType;
@@ -34815,6 +35643,9 @@ var qrcode = (function() {
       var backAdminBtn = document.getElementById('btn-course-detail-back-admin');
       if (backAdminBtn) {
         backAdminBtn.addEventListener('click', function () {
+          if (typeof exitAdminExamsStudioMode === 'function') {
+            exitAdminExamsStudioMode(true, { targetAdminTab: 'courses', skipDataLoad: true });
+          }
           showSectionView('admin');
           switchAdminSubTab('courses', true);
         });
@@ -38222,6 +39053,13 @@ var qrcode = (function() {
         bindNavigationAndDiagnosticEvents();
       } catch (bindErr) {
         console.error('Non-fatal event binding error during startup:', bindErr);
+      }
+      try {
+        if (typeof PBEnhancedSelect === 'object' && PBEnhancedSelect && typeof PBEnhancedSelect.startAutoObserver === 'function') {
+          PBEnhancedSelect.startAutoObserver();
+        }
+      } catch (selInitErr) {
+        console.error('Non-fatal select enhancer init error:', selInitErr);
       }
       try {
         applySchoolLogoBranding(null, 'PB');

@@ -9926,11 +9926,17 @@ function validateAndNormalizeRichTextInput_(
         }
       }
       var pdfDisplayMode = String(rawBlock.displayMode || '').trim().toLowerCase();
+      var pdfAllowDownload =
+        rawBlock.allowDownload === false ||
+        String(rawBlock.allowDownload || '').trim().toLowerCase() === 'false'
+          ? false
+          : true;
       plainTextParts.push('[PDF: ' + pdfTitle + ']');
       var normalizedPdfBlock = {
         type: 'pdf_attachment',
         fileId: pdfFileId,
-        title: pdfTitle
+        title: pdfTitle,
+        allowDownload: pdfAllowDownload
       };
       if (pdfWidthPct !== undefined) {
         normalizedPdfBlock.widthPct = pdfWidthPct;

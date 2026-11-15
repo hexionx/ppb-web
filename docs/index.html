@@ -15,7 +15,7 @@
       href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/styles.css?v=2909a6f5" />
+    <link rel="stylesheet" href="css/styles.css?v=6f42bc56" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -346,20 +346,19 @@
         <div class="pb-logout-orb-stage" aria-hidden="true">
           <span class="pb-logout-orbit-ring pb-logout-orbit-outer"></span>
           <span class="pb-logout-orbit-ring pb-logout-orbit-inner"></span>
-          <div class="pb-logout-spinner-ring" id="pb-logout-spinner-ring">
-            <div class="pb-logout-spinner-core">
-              <!-- Active Revoking Icon (Shield Lock) -->
-              <svg id="pb-logout-icon-lock" class="pb-logout-stage-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                <rect x="9" y="9" width="6" height="5" rx="1"></rect>
-                <path d="M10 9V7a2 2 0 0 1 4 0v2"></path>
-              </svg>
-              <!-- Completed Sign-Out Icon (Verified Checkmark) -->
-              <svg id="pb-logout-icon-check" class="pb-logout-stage-icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-              </svg>
-            </div>
+          <div class="pb-logout-spinner-ring" id="pb-logout-spinner-ring"></div>
+          <div class="pb-logout-spinner-core">
+            <!-- Active Revoking Icon (Shield Lock) -->
+            <svg id="pb-logout-icon-lock" class="pb-logout-stage-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              <rect x="9" y="10" width="6" height="5" rx="1"></rect>
+              <path d="M10.5 10V8.5a1.5 1.5 0 0 1 3 0V10"></path>
+            </svg>
+            <!-- Completed Sign-Out Icon (Verified Checkmark) -->
+            <svg id="pb-logout-icon-check" class="pb-logout-stage-icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
           </div>
         </div>
         <span class="badge badge-ok pb-logout-step-chip" id="pb-logout-step-chip">Signing Out Safely</span>
@@ -8159,13 +8158,13 @@
 
         <!-- Essential Exam Settings Row -->
         <div class="pb-forms-QuickSettings-grid">
-          <div class="form-group" style="margin: 0;">
+          <div class="form-group pb-forms-qs-course" style="margin: 0;">
             <label for="select-forms-exam-course" class="form-label" style="font-size: 0.78rem;">Assigned Course *</label>
             <select id="select-forms-exam-course" class="form-input">
               <option value="">-- Select Course --</option>
             </select>
           </div>
-          <div class="form-group" style="margin: 0;">
+          <div class="form-group pb-forms-qs-mode" style="margin: 0;">
             <label for="select-forms-exam-mode" class="form-label" style="font-size: 0.78rem;">Exam / Quiz Mode</label>
             <select id="select-forms-exam-mode" class="form-input">
               <option value="PRACTICE">Practice Quiz (Retakes &amp; Instant Key)</option>
@@ -8173,15 +8172,15 @@
               <option value="ASSIGNED_ASSESSMENT">Assigned Course Assessment</option>
             </select>
           </div>
-          <div class="form-group" style="margin: 0;">
+          <div class="form-group pb-forms-qs-dur" style="margin: 0;">
             <label for="input-forms-exam-duration" class="form-label" style="font-size: 0.78rem;">Time Limit (Minutes, A-Level = 90)</label>
             <input type="number" id="input-forms-exam-duration" class="form-input" min="0" max="600" value="90" />
           </div>
-          <div class="form-group" style="margin: 0;">
+          <div class="form-group pb-forms-qs-pass" style="margin: 0;">
             <label for="input-forms-exam-pass-pct" class="form-label" style="font-size: 0.78rem;">Pass Threshold (%)</label>
             <input type="number" id="input-forms-exam-pass-pct" class="form-input" min="0" max="100" value="60" />
           </div>
-          <div class="form-group" style="margin: 0;">
+          <div class="form-group pb-forms-qs-attempts" style="margin: 0;">
             <label for="select-forms-exam-attempt-policy" class="form-label" style="font-size: 0.78rem;">Attempts (Single vs. Multiple)</label>
             <div class="pb-attempt-policy-pair" id="wrap-forms-exam-attempt-pair">
               <select id="select-forms-exam-attempt-policy" class="form-select">
@@ -11963,6 +11962,6 @@
     <!-- Backend endpoint config, fetch transport shim, then the original client app -->
     <script src="js/config.js?v=9a51d76b"></script>
     <script src="js/api.js?v=155c4573"></script>
-    <script src="js/app.js?v=3ca95357"></script>
+    <script src="js/app.js?v=98df1a68"></script>
   </body>
 </html>
