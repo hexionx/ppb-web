@@ -145,6 +145,46 @@
     }
 
     /**
+     * Unmounts or reloads embedded PDF viewer iframes around container visibility
+     * transitions so Chromium never orphans PDF plugin compositor surfaces at (0,0).
+     */
+    function unloadEmbeddedPdfFramesInElement(rootEl) {
+      if (!rootEl || typeof rootEl.querySelectorAll !== 'function') {
+        return;
+      }
+      var frames = rootEl.querySelectorAll('iframe');
+      for (var i = 0; i < frames.length; i++) {
+        var fr = frames[i];
+        try {
+          fr.src = 'about:blank';
+        } catch (ignoreSrcErr) {}
+        if (fr.classList && fr.classList.contains('pb-rt-pdf-embed-frame')) {
+          var pWrap = fr.parentNode;
+          if (pWrap) {
+            pWrap.removeChild(fr);
+            var waitLbl = pWrap.querySelector('.pb-rt-pdf-embed-loading');
+            if (waitLbl) {
+              waitLbl.classList.remove('hidden');
+            }
+          }
+        }
+      }
+    }
+
+    function resumeEmbeddedPdfFramesInElement(rootEl) {
+      if (!rootEl || typeof rootEl.querySelectorAll !== 'function') {
+        return;
+      }
+      var wraps = rootEl.querySelectorAll('.pb-rt-pdf-embed-frame-wrap');
+      for (var i = 0; i < wraps.length; i++) {
+        var w = wraps[i];
+        if (typeof w._pbPdfMountFn === 'function' && !w.querySelector('iframe.pb-rt-pdf-embed-frame')) {
+          w._pbPdfMountFn();
+        }
+      }
+    }
+
+    /**
      * Safely removes all child nodes from a DOM element (or element ID) without using innerHTML.
      */
     function clearChildren(target) {
@@ -155,6 +195,7 @@
       if (!el) {
         return;
       }
+      unloadEmbeddedPdfFramesInElement(el);
       while (el.firstChild) {
         el.removeChild(el.firstChild);
       }
@@ -2759,6 +2800,14 @@
      */
     var pbPdfViewerReturnModalId = null;
 
+    function isSecondaryOverlayModalId(modalId) {
+      return (
+        modalId === 'modal-pb-pdf-viewer' ||
+        modalId === 'modal-pb-image-zoom' ||
+        modalId === 'modal-pb-table-editor'
+      );
+    }
+
     function closeModalDialog(modalId) {
       var modalEl = document.getElementById(modalId);
       if (!modalEl) {
@@ -2773,13 +2822,20 @@
           pdfViewerIframe.src = 'about:blank';
         }
       }
+      if (modalId === 'modal-pb-image-zoom') {
+        var zoomImg = document.getElementById('img-pb-image-zoom-target');
+        if (zoomImg) {
+          zoomImg.removeAttribute('src');
+        }
+      }
+      unloadEmbeddedPdfFramesInElement(modalEl);
       modalEl.classList.add('hidden');
       modalEl.setAttribute('aria-hidden', 'true');
 
       if (activeModalId === modalId) {
         activeModalId = null;
       }
-      if (modalId === 'modal-pb-pdf-viewer' && pbPdfViewerReturnModalId) {
+      if (isSecondaryOverlayModalId(modalId) && pbPdfViewerReturnModalId) {
         var prevModalEl = document.getElementById(pbPdfViewerReturnModalId);
         if (prevModalEl && !prevModalEl.classList.contains('hidden')) {
           activeModalId = pbPdfViewerReturnModalId;
@@ -2945,6 +3001,11 @@
         if (activeModalId) {
           var el = document.getElementById(activeModalId);
           if (el) {
+            if (activeModalId === 'admin-question-preview-card') {
+              clearChildren('qbank-preview-body-container');
+            } else {
+              unloadEmbeddedPdfFramesInElement(el);
+            }
             el.classList.remove('is-modal-open');
             if (activeModalId === 'admin-unavail-detail-drawer') {
               el.classList.add('hidden');
@@ -3478,7 +3539,13 @@
         var el = document.getElementById(ALL_SECTION_VIEW_IDS[key]);
         if (el) {
           var isMatch = key === viewName;
+          if (!isMatch) {
+            unloadEmbeddedPdfFramesInElement(el);
+          }
           el.classList.toggle('hidden', !isMatch);
+          if (isMatch) {
+            resumeEmbeddedPdfFramesInElement(el);
+          }
           if (key === 'loading') {
             el.setAttribute('aria-busy', isMatch ? 'true' : 'false');
           }
@@ -6322,7 +6389,13 @@
           btn.setAttribute('aria-selected', isMatch ? 'true' : 'false');
         }
         if (panel) {
+          if (!isMatch) {
+            unloadEmbeddedPdfFramesInElement(panel);
+          }
           panel.classList.toggle('hidden', !isMatch);
+          if (isMatch) {
+            resumeEmbeddedPdfFramesInElement(panel);
+          }
         }
       }
       if (currentAdminTab === 'settings') {
@@ -8522,6 +8595,26 @@
             }
             lines.push(itemTxt);
           }
+        } else if (blk.type === 'image_attachment' && blk.fileId) {
+          lines.push('[Image: ' + (blk.caption || blk.altText || blk.fileId) + ']');
+        } else if (blk.type === 'pdf_attachment' && blk.fileId) {
+          lines.push('[PDF: ' + (blk.title || blk.fileId) + ']');
+        } else if (blk.type === 'table' && Array.isArray(blk.rows)) {
+          var tblParts = [];
+          if (blk.caption) tblParts.push('[Table: ' + blk.caption + ']');
+          if (Array.isArray(blk.headers)) {
+            for (var hi = 0; hi < blk.headers.length; hi++) {
+              if (blk.headers[hi]) tblParts.push(String(blk.headers[hi]));
+            }
+          }
+          for (var ri = 0; ri < blk.rows.length; ri++) {
+            if (Array.isArray(blk.rows[ri])) {
+              for (var ci = 0; ci < blk.rows[ri].length; ci++) {
+                if (blk.rows[ri][ci]) tblParts.push(String(blk.rows[ri][ci]));
+              }
+            }
+          }
+          lines.push(tblParts.length > 0 ? tblParts.join(' ') : '[Table]');
         } else if (Array.isArray(blk.spans)) {
           var pTxt = '';
           for (var ps = 0; ps < blk.spans.length; ps++) {
@@ -9350,7 +9443,16 @@
             continue;
           }
         }
-        if (typeof b.text === 'string' && b.text.trim()) {
+        if (Array.isArray(b.spans)) {
+          var spanText = b.spans
+            .map(function (sp) {
+              return sp && sp.text !== undefined && sp.text !== null ? String(sp.text) : '';
+            })
+            .join('');
+          if (spanText.trim()) {
+            textParts.push(spanText);
+          }
+        } else if (typeof b.text === 'string' && b.text.trim()) {
           textParts.push(b.text);
         }
       }
@@ -9376,7 +9478,7 @@
       }
       if (filtered.length === 0) return '';
       return {
-        format: richTextDoc.format || 'pb-richtext-v1',
+        schemaVersion: richTextDoc.schemaVersion || richTextDoc.format || 'pb-richtext-v1',
         blocks: filtered
       };
     }
@@ -9389,7 +9491,7 @@
         for (var i = 0; i < paras.length; i++) {
           var seg = paras[i].trim();
           if (seg) {
-            blocks.push({ type: 'paragraph', text: seg });
+            blocks.push({ type: 'paragraph', spans: [{ text: seg }] });
           }
         }
       }
@@ -9416,7 +9518,7 @@
         });
       }
       if (blocks.length === 0) return '';
-      return { format: 'pb-richtext-v1', blocks: blocks };
+      return { schemaVersion: 'pb-richtext-v1', blocks: blocks };
     }
 
     function canStudentViewExamAnswerSheetPdf(answerSheetPdf, ctx) {
@@ -9469,6 +9571,1304 @@
         iframeEl.src = entry.objectUrl;
       }
       openModalDialog('modal-pb-pdf-viewer', 'btn-pb-pdf-viewer-close');
+    }
+
+    var pbImageZoomCurrentPct = 100;
+
+    function applyImageZoomPercent(pctVal) {
+      var zoomImg = document.getElementById('img-pb-image-zoom-target');
+      var pctLbl = document.getElementById('pb-image-zoom-pct-label');
+      if (!zoomImg) return;
+      if (pctVal === 'fit') {
+        pbImageZoomCurrentPct = 100;
+        zoomImg.style.width = 'auto';
+        zoomImg.style.maxWidth = '100%';
+        zoomImg.style.maxHeight = '66dvh';
+        if (pctLbl) pctLbl.textContent = 'Fit';
+        return;
+      }
+      var cleanPct = Math.min(250, Math.max(40, Math.round(Number(pctVal) || 100)));
+      pbImageZoomCurrentPct = cleanPct;
+      zoomImg.style.maxWidth = 'none';
+      zoomImg.style.maxHeight = 'none';
+      zoomImg.style.width = cleanPct + '%';
+      if (pctLbl) pctLbl.textContent = cleanPct + '%';
+    }
+
+    function closeInAppImageZoomModal() {
+      closeModalDialog('modal-pb-image-zoom');
+    }
+
+    function openInAppImageZoomModal(entryOrFileId, opt_courseId, opt_altOrTitle) {
+      var modalEl = document.getElementById('modal-pb-image-zoom');
+      if (!modalEl) return;
+      if (activeModalId && activeModalId !== 'modal-pb-image-zoom') {
+        pbPdfViewerReturnModalId = activeModalId;
+      }
+      var titleEl = document.getElementById('pb-image-zoom-title');
+      var metaEl = document.getElementById('pb-image-zoom-meta');
+      var zoomImg = document.getElementById('img-pb-image-zoom-target');
+      var dlLink = document.getElementById('link-pb-image-zoom-download');
+
+      function applyEntryToZoomModal(entry) {
+        if (!entry || !entry.objectUrl) return;
+        var safeTitle = String(
+          opt_altOrTitle || entry.originalFilename || 'Question Diagram'
+        ).trim();
+        var sizeKb = entry.sizeBytes ? Math.max(1, Math.round(Number(entry.sizeBytes) / 1024)) : 0;
+        if (titleEl) titleEl.textContent = safeTitle;
+        if (metaEl) {
+          metaEl.textContent =
+            (sizeKb ? String(sizeKb) + ' KB • ' : '') +
+            String(entry.mimeType || 'image/png') +
+            ' • Use +/- or presets to inspect details';
+        }
+        if (zoomImg) {
+          zoomImg.src = entry.objectUrl;
+          zoomImg.alt = safeTitle;
+        }
+        if (dlLink) {
+          dlLink.href = entry.objectUrl;
+          dlLink.setAttribute('download', entry.originalFilename || 'diagram.png');
+        }
+        applyImageZoomPercent('fit');
+        openModalDialog('modal-pb-image-zoom', 'btn-pb-image-zoom-close');
+      }
+
+      if (entryOrFileId && typeof entryOrFileId === 'object' && entryOrFileId.objectUrl) {
+        applyEntryToZoomModal(entryOrFileId);
+        return;
+      }
+      var fid = String(entryOrFileId || '').trim();
+      if (!fid) return;
+      if (currentQBankLocalImagePreviewDataUrlByIdPhase2 && currentQBankLocalImagePreviewDataUrlByIdPhase2[fid]) {
+        applyEntryToZoomModal({
+          objectUrl: currentQBankLocalImagePreviewDataUrlByIdPhase2[fid],
+          originalFilename: opt_altOrTitle || (fid + '.png'),
+          mimeType: 'image/*'
+        });
+        return;
+      }
+      PBObjectUrlManager.fetchAndCreateObjectUrl(fid, opt_courseId || '', { skipRevokeCheck: true })
+        .then(function (fetched) {
+          if (fetched && fetched.objectUrl) {
+            currentQBankLocalImagePreviewDataUrlByIdPhase2[fid] = fetched.objectUrl;
+            applyEntryToZoomModal(fetched);
+          }
+        })
+        .catch(function (err) {
+          if (typeof PBNotify === 'object' && PBNotify) {
+            PBNotify.toast('warning', 'Image Preview Notice', (err && err.message) || 'Could not load image.');
+          }
+        });
+    }
+
+    var PBSpreadsheetTableImporter = (function () {
+      var MAX_TABLE_ROWS = 40;
+      var MAX_TABLE_COLS = 12;
+
+      function readU16LE(view, off) {
+        return view.getUint16(off, true);
+      }
+      function readU32LE(view, off) {
+        return view.getUint32(off, true);
+      }
+
+      function decodeUtf8Bytes(uint8Arr) {
+        if (typeof TextDecoder === 'function') {
+          return new TextDecoder('utf-8', { fatal: false }).decode(uint8Arr);
+        }
+        var out = '';
+        for (var i = 0; i < uint8Arr.length; i++) {
+          out += String.fromCharCode(uint8Arr[i]);
+        }
+        try {
+          return decodeURIComponent(escape(out));
+        } catch (e) {
+          return out;
+        }
+      }
+
+      function unzipEntriesFromBuffer(arrayBuffer) {
+        var bytes = new Uint8Array(arrayBuffer);
+        var view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        var eocdOffset = -1;
+        var minOffset = Math.max(0, bytes.length - 65558);
+        for (var p = bytes.length - 22; p >= minOffset; p--) {
+          if (readU32LE(view, p) === 0x06054b50) {
+            eocdOffset = p;
+            break;
+          }
+        }
+        if (eocdOffset === -1) {
+          return Promise.reject(new Error('Invalid .xlsx archive: ZIP End-of-Central-Directory not found.'));
+        }
+        var cdOffset = readU32LE(view, eocdOffset + 16);
+        var cdEntries = readU16LE(view, eocdOffset + 10);
+        var entries = {};
+        var cursor = cdOffset;
+        var tasks = [];
+
+        for (var idx = 0; idx < cdEntries && cursor + 46 <= bytes.length; idx++) {
+          if (readU32LE(view, cursor) !== 0x02014b50) break;
+          var compMethod = readU16LE(view, cursor + 10);
+          var compSize = readU32LE(view, cursor + 20);
+          var fnameLen = readU16LE(view, cursor + 28);
+          var extraLen = readU16LE(view, cursor + 30);
+          var commentLen = readU16LE(view, cursor + 32);
+          var localHdrOffset = readU32LE(view, cursor + 42);
+          var fname = decodeUtf8Bytes(bytes.subarray(cursor + 46, cursor + 46 + fnameLen)).replace(/^\/+/, '');
+          cursor += 46 + fnameLen + extraLen + commentLen;
+
+          if (!fname || /\/$/.test(fname)) continue;
+          if (localHdrOffset + 30 > bytes.length || readU32LE(view, localHdrOffset) !== 0x04034b50) {
+            continue;
+          }
+          var lNameLen = readU16LE(view, localHdrOffset + 26);
+          var lExtraLen = readU16LE(view, localHdrOffset + 28);
+          var dataStart = localHdrOffset + 30 + lNameLen + lExtraLen;
+          var sliceEnd = Math.min(bytes.length, dataStart + compSize);
+          var rawSlice = bytes.subarray(dataStart, sliceEnd);
+
+          (function (entryName, method, compressedBytes) {
+            if (method === 0) {
+              entries[entryName] = compressedBytes;
+            } else if (method === 8) {
+              if (typeof DecompressionStream !== 'function') {
+                tasks.push(Promise.reject(new Error('This browser does not support DecompressionStream for compressed .xlsx files. Try .csv or Google Sheets import.')));
+                return;
+              }
+              var stream = new Blob([compressedBytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+              tasks.push(
+                new Response(stream).arrayBuffer().then(function (decBuf) {
+                  entries[entryName] = new Uint8Array(decBuf);
+                })
+              );
+            }
+          })(fname, compMethod, rawSlice);
+        }
+
+        return Promise.all(tasks).then(function () {
+          return entries;
+        });
+      }
+
+      function colLettersToZeroIndex(refStr) {
+        var m = String(refStr || '').match(/^([A-Z]+)/i);
+        if (!m) return -1;
+        var letters = m[1].toUpperCase();
+        var col = 0;
+        for (var i = 0; i < letters.length; i++) {
+          col = col * 26 + (letters.charCodeAt(i) - 64);
+        }
+        return col - 1;
+      }
+
+      function normalizeGridResult(rawGrid, meta) {
+        var useHeader = !(meta && meta.useFirstRowAsHeader === false);
+        var caption = String((meta && meta.caption) || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, 240);
+        var cleanGrid = [];
+        var maxUsedCols = 0;
+        var origRowCount = Array.isArray(rawGrid) ? rawGrid.length : 0;
+        var origColCount = 0;
+
+        for (var r = 0; r < rawGrid.length; r++) {
+          var rowSrc = Array.isArray(rawGrid[r]) ? rawGrid[r] : [];
+          if (rowSrc.length > origColCount) origColCount = rowSrc.length;
+          var cleanRow = [];
+          var hasVal = false;
+          for (var c = 0; c < Math.min(MAX_TABLE_COLS, rowSrc.length); c++) {
+            var val = String(rowSrc[c] === null || rowSrc[c] === undefined ? '' : rowSrc[c])
+              .replace(/[\r\n\t]+/g, ' ')
+              .trim()
+              .slice(0, 300);
+            cleanRow.push(val);
+            if (val) {
+              hasVal = true;
+              if (c + 1 > maxUsedCols) maxUsedCols = c + 1;
+            }
+          }
+          if (hasVal || r === 0) {
+            cleanGrid.push(cleanRow);
+          }
+        }
+
+        while (cleanGrid.length > 1) {
+          var tail = cleanGrid[cleanGrid.length - 1];
+          var tailHas = tail.some(function (x) { return Boolean(x); });
+          if (!tailHas) cleanGrid.pop();
+          else break;
+        }
+        if (maxUsedCols < 1) maxUsedCols = Math.max(1, Math.min(MAX_TABLE_COLS, origColCount || 1));
+        for (var pr = 0; pr < cleanGrid.length; pr++) {
+          while (cleanGrid[pr].length < maxUsedCols) cleanGrid[pr].push('');
+          if (cleanGrid[pr].length > maxUsedCols) cleanGrid[pr] = cleanGrid[pr].slice(0, maxUsedCols);
+        }
+
+        var rowCap = useHeader ? MAX_TABLE_ROWS + 1 : MAX_TABLE_ROWS;
+        var truncated = origRowCount > rowCap || origColCount > MAX_TABLE_COLS;
+        cleanGrid = cleanGrid.slice(0, rowCap);
+
+        var headers = [];
+        var rows = [];
+        if (useHeader && cleanGrid.length >= 2) {
+          headers = cleanGrid[0].map(function (h) { return String(h || '').slice(0, 200); });
+          rows = cleanGrid.slice(1, MAX_TABLE_ROWS + 1);
+        } else {
+          rows = cleanGrid.slice(0, MAX_TABLE_ROWS);
+        }
+        if (rows.length === 0) {
+          rows = [new Array(maxUsedCols + 1).join(',').split(',').map(function () { return ''; })];
+        }
+
+        return {
+          caption: caption,
+          headers: headers,
+          rows: rows,
+          sheetNames: (meta && meta.sheetNames) || [],
+          activeSheetName: (meta && meta.activeSheetName) || '',
+          totalRows: origRowCount,
+          totalCols: origColCount,
+          truncated: truncated
+        };
+      }
+
+      function parseDelimitedText(rawText, meta) {
+        var str = String(rawText || '').replace(/^\uFEFF/, '');
+        var lines = str.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        var tabCount = (lines.slice(0, 2000).match(/\t/g) || []).length;
+        var commaCount = (lines.slice(0, 2000).match(/,/g) || []).length;
+        var semiCount = (lines.slice(0, 2000).match(/;/g) || []).length;
+        var delim = tabCount > 0 ? '\t' : (commaCount >= semiCount ? ',' : ';');
+
+        var grid = [];
+        var row = [];
+        var field = '';
+        var inQuotes = false;
+
+        for (var i = 0; i < lines.length; i++) {
+          var ch = lines.charAt(i);
+          if (inQuotes) {
+            if (ch === '"') {
+              if (lines.charAt(i + 1) === '"') {
+                field += '"';
+                i++;
+              } else {
+                inQuotes = false;
+              }
+            } else {
+              field += ch;
+            }
+          } else {
+            if (ch === '"' && field.length === 0) {
+              inQuotes = true;
+            } else if (ch === delim) {
+              row.push(field);
+              field = '';
+            } else if (ch === '\n') {
+              row.push(field);
+              grid.push(row);
+              row = [];
+              field = '';
+            } else {
+              field += ch;
+            }
+          }
+        }
+        if (field.length > 0 || row.length > 0) {
+          row.push(field);
+          grid.push(row);
+        }
+        return normalizeGridResult(grid, meta);
+      }
+
+      function parseXmlText(bytes) {
+        var parser = new DOMParser();
+        return parser.parseFromString(decodeUtf8Bytes(bytes), 'text/xml');
+      }
+
+      function getSharedStringsFromZip(entries) {
+        var key = Object.keys(entries).find(function (k) { return /^xl\/sharedStrings\.xml$/i.test(k); });
+        if (!key) return [];
+        var xmlDoc = parseXmlText(entries[key]);
+        var siNodes = xmlDoc.getElementsByTagName('si');
+        var out = [];
+        for (var i = 0; i < siNodes.length; i++) {
+          var tNodes = siNodes[i].getElementsByTagName('t');
+          var parts = [];
+          for (var j = 0; j < tNodes.length; j++) {
+            parts.push(tNodes[j].textContent || '');
+          }
+          out.push(parts.join(''));
+        }
+        return out;
+      }
+
+      function getWorkbookSheetsFromZip(entries) {
+        var wbKey = Object.keys(entries).find(function (k) { return /^xl\/workbook\.xml$/i.test(k); });
+        var relsKey = Object.keys(entries).find(function (k) { return /^xl\/_rels\/workbook\.xml\.rels$/i.test(k); });
+        var relMap = {};
+        if (relsKey) {
+          var relDoc = parseXmlText(entries[relsKey]);
+          var rels = relDoc.getElementsByTagName('Relationship');
+          for (var i = 0; i < rels.length; i++) {
+            var rid = rels[i].getAttribute('Id') || '';
+            var target = rels[i].getAttribute('Target') || '';
+            if (rid && target) {
+              target = target.replace(/^\/+/, '');
+              if (target.indexOf('xl/') !== 0) target = 'xl/' + target.replace(/^\.\//, '');
+              relMap[rid] = target;
+            }
+          }
+        }
+        var sheets = [];
+        if (wbKey) {
+          var wbDoc = parseXmlText(entries[wbKey]);
+          var shNodes = wbDoc.getElementsByTagName('sheet');
+          for (var s = 0; s < shNodes.length; s++) {
+            var name = shNodes[s].getAttribute('name') || ('Sheet ' + (s + 1));
+            var rId = shNodes[s].getAttribute('r:id') || shNodes[s].getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id') || '';
+            var path = relMap[rId] || ('xl/worksheets/sheet' + (s + 1) + '.xml');
+            if (entries[path]) {
+              sheets.push({ name: name, path: path });
+            }
+          }
+        }
+        if (sheets.length === 0) {
+          var fallbackPaths = Object.keys(entries).filter(function (k) {
+            return /^xl\/worksheets\/sheet\d+\.xml$/i.test(k);
+          }).sort();
+          for (var f = 0; f < fallbackPaths.length; f++) {
+            sheets.push({ name: 'Sheet ' + (f + 1), path: fallbackPaths[f] });
+          }
+        }
+        return sheets;
+      }
+
+      function parseXlsxWorksheetGrid(entries, sheetPath, sharedStrings) {
+        var wsBytes = entries[sheetPath];
+        if (!wsBytes) throw new Error('Worksheet XML not found: ' + sheetPath);
+        var wsDoc = parseXmlText(wsBytes);
+        var rowNodes = wsDoc.getElementsByTagName('row');
+        var grid = [];
+        var expectedRowIdx = 0;
+
+        for (var r = 0; r < rowNodes.length && grid.length < MAX_TABLE_ROWS + 5; r++) {
+          var rowNumAttr = Number(rowNodes[r].getAttribute('r') || (expectedRowIdx + 1));
+          while (expectedRowIdx + 1 < rowNumAttr && grid.length < MAX_TABLE_ROWS + 5) {
+            grid.push([]);
+            expectedRowIdx++;
+          }
+          var rowArr = [];
+          var cells = rowNodes[r].getElementsByTagName('c');
+          for (var c = 0; c < cells.length; c++) {
+            var cell = cells[c];
+            var ref = cell.getAttribute('r') || '';
+            var colIdx = colLettersToZeroIndex(ref);
+            if (colIdx < 0) colIdx = rowArr.length;
+            if (colIdx >= MAX_TABLE_COLS + 4) continue;
+            while (rowArr.length <= colIdx) rowArr.push('');
+
+            var cType = cell.getAttribute('t') || '';
+            var valText = '';
+            if (cType === 'inlineStr') {
+              var isT = cell.getElementsByTagName('t');
+              var isParts = [];
+              for (var k = 0; k < isT.length; k++) isParts.push(isT[k].textContent || '');
+              valText = isParts.join('');
+            } else {
+              var vNode = cell.getElementsByTagName('v')[0];
+              var rawVal = vNode ? (vNode.textContent || '') : '';
+              if (cType === 's') {
+                var sIdx = Number(rawVal);
+                valText = isFinite(sIdx) && sharedStrings[sIdx] !== undefined ? sharedStrings[sIdx] : rawVal;
+              } else if (cType === 'b') {
+                valText = rawVal === '1' ? 'TRUE' : 'FALSE';
+              } else {
+                valText = rawVal;
+              }
+            }
+            rowArr[colIdx] = valText;
+          }
+          grid.push(rowArr);
+          expectedRowIdx++;
+        }
+        return grid;
+      }
+
+      function parseXlsxFile(fileOrBuffer, opts) {
+        var o = opts || {};
+        var fname = (fileOrBuffer && fileOrBuffer.name) || o.filename || 'Spreadsheet.xlsx';
+        var bufPromise = fileOrBuffer && typeof fileOrBuffer.arrayBuffer === 'function'
+          ? fileOrBuffer.arrayBuffer()
+          : Promise.resolve(fileOrBuffer);
+        return bufPromise.then(unzipEntriesFromBuffer).then(function (entries) {
+          var sheets = getWorkbookSheetsFromZip(entries);
+          if (sheets.length === 0) {
+            throw new Error('No readable worksheets were found inside "' + fname + '".');
+          }
+          var sharedStrings = getSharedStringsFromZip(entries);
+          var sheetNames = sheets.map(function (s) { return s.name; });
+          var targetSheet = sheets[0];
+          if (o.sheetName) {
+            var found = sheets.find(function (s) { return s.name === o.sheetName; });
+            if (found) targetSheet = found;
+          }
+          var grid = parseXlsxWorksheetGrid(entries, targetSheet.path, sharedStrings);
+          var baseCap = String(fname).replace(/\.xlsx$/i, '');
+          var res = normalizeGridResult(grid, {
+            useFirstRowAsHeader: o.useFirstRowAsHeader !== false,
+            caption: baseCap + (sheets.length > 1 ? ' (' + targetSheet.name + ')' : ''),
+            sheetNames: sheetNames,
+            activeSheetName: targetSheet.name
+          });
+          res._cachedXlsx = { entries: entries, sheets: sheets, sharedStrings: sharedStrings, filename: fname };
+          return res;
+        });
+      }
+
+      function parseGsheetSource(urlOrIdOrFileText, opts) {
+        var o = opts || {};
+        var raw = String(urlOrIdOrFileText || '').trim();
+        var docId = '';
+        var docUrl = '';
+        var parsedJsonName = '';
+
+        if (raw.charAt(0) === '{') {
+          try {
+            var gObj = JSON.parse(raw);
+            docId = String(gObj.doc_id || gObj.spreadsheetId || gObj.id || '').trim();
+            docUrl = String(gObj.url || '').trim();
+            parsedJsonName = String(gObj.title || '').trim();
+          } catch (e) {}
+        }
+        if (!docId) {
+          var m =
+            raw.match(/\/spreadsheets\/d\/([A-Za-z0-9_-]{10,120})/) ||
+            raw.match(/[?&]id=([A-Za-z0-9_-]{10,120})/) ||
+            (/^[A-Za-z0-9_-]{16,120}$/.test(raw) ? [raw, raw] : null);
+          if (m && m[1]) {
+            docId = m[1];
+          }
+        }
+        if (!docId && !docUrl) {
+          return Promise.reject(new Error('Could not find a valid Google Sheet ID or URL inside the .gsheet file or input.'));
+        }
+
+        return rpcCallEnvelope('admin.spreadsheet.parseGsheet', {
+          spreadsheetId: docId,
+          url: docUrl || raw,
+          sheetName: o.sheetName || '',
+          useFirstRowAsHeader: o.useFirstRowAsHeader !== false
+        })
+          .then(function (env) {
+            var d = env.data || {};
+            return {
+              caption: d.caption || parsedJsonName || d.title || 'Google Sheet Table',
+              headers: Array.isArray(d.headers) ? d.headers : [],
+              rows: Array.isArray(d.rows) ? d.rows : [['']],
+              sheetNames: Array.isArray(d.sheetNames) ? d.sheetNames : [],
+              activeSheetName: d.activeSheetName || '',
+              totalRows: d.totalRows || (d.rows ? d.rows.length : 0),
+              totalCols: d.totalCols || (d.headers ? d.headers.length : 0),
+              truncated: Boolean(d.truncated),
+              _gsheetSource: { spreadsheetId: docId, url: docUrl || raw }
+            };
+          })
+          .catch(function (rpcErr) {
+            var msg = String((rpcErr && rpcErr.message) || '');
+            var isUnregistered =
+              (rpcErr && rpcErr.code === 'ERR_UNKNOWN_ACTION') ||
+              msg.indexOf('Unknown') !== -1 ||
+              msg.indexOf('parseGsheet') !== -1;
+            if (!isUnregistered || !docId) {
+              throw rpcErr;
+            }
+            var csvUrl = 'https://docs.google.com/spreadsheets/d/' + encodeURIComponent(docId) + '/export?format=csv';
+            return fetch(csvUrl)
+              .then(function (resp) {
+                if (!resp.ok) {
+                  throw new Error('HTTP ' + resp.status);
+                }
+                return resp.text();
+              })
+              .then(function (csvText) {
+                var parsed = parseDelimitedText(csvText, {
+                  useFirstRowAsHeader: o.useFirstRowAsHeader !== false,
+                  caption: parsedJsonName || 'Google Sheet Table'
+                });
+                parsed._gsheetSource = { spreadsheetId: docId, url: docUrl || raw };
+                return parsed;
+              })
+              .catch(function () {
+                throw new Error(
+                  'To import private .gsheet files directly, redeploy Google Apps Script with the updated Code.gs and CourseService.gs — OR download the Google Sheet as .xlsx / .csv and import it here.'
+                );
+              });
+          });
+      }
+
+      return Object.freeze({
+        MAX_ROWS: MAX_TABLE_ROWS,
+        MAX_COLS: MAX_TABLE_COLS,
+        parseXlsxFile: parseXlsxFile,
+        parseDelimitedText: parseDelimitedText,
+        parseGsheetSource: parseGsheetSource,
+        normalizeGridResult: normalizeGridResult,
+        switchCachedXlsxSheet: function (cachedXlsx, sheetName, useHeader) {
+          var target = cachedXlsx.sheets.find(function (s) { return s.name === sheetName; }) || cachedXlsx.sheets[0];
+          var grid = parseXlsxWorksheetGrid(cachedXlsx.entries, target.path, cachedXlsx.sharedStrings);
+          var baseCap = String(cachedXlsx.filename || 'Spreadsheet').replace(/\.xlsx$/i, '');
+          var res = normalizeGridResult(grid, {
+            useFirstRowAsHeader: useHeader !== false,
+            caption: baseCap + (cachedXlsx.sheets.length > 1 ? ' (' + target.name + ')' : ''),
+            sheetNames: cachedXlsx.sheets.map(function (s) { return s.name; }),
+            activeSheetName: target.name
+          });
+          res._cachedXlsx = cachedXlsx;
+          return res;
+        }
+      });
+    })();
+
+    var pbTableEditorSession = {
+      onSaveCallback: null,
+      useFirstRowAsHeader: true,
+      headers: ['Parameter', 'Control', 'Treatment'],
+      rows: [
+        ['Rate (umol/min)', '0.42', '1.18'],
+        ['pH', '7.0', '7.2']
+      ],
+      caption: '',
+      cachedXlsx: null,
+      gsheetSource: null
+    };
+
+    function syncTableEditorModalControls() {
+      var capInp = document.getElementById('input-pb-table-caption');
+      var hdrChk = document.getElementById('chk-pb-table-first-row-header');
+      if (capInp) capInp.value = pbTableEditorSession.caption || '';
+      if (hdrChk) hdrChk.checked = Boolean(pbTableEditorSession.useFirstRowAsHeader);
+      renderTableEditorGridDom();
+    }
+
+    function renderTableEditorGridDom() {
+      var host = document.getElementById('pb-table-grid-editor-host');
+      var dimBadge = document.getElementById('pb-table-dim-badge');
+      if (!host) return;
+      while (host.firstChild) host.removeChild(host.firstChild);
+
+      var rows = pbTableEditorSession.rows;
+      var headers = pbTableEditorSession.headers;
+      var colCount = Math.max(
+        1,
+        pbTableEditorSession.useFirstRowAsHeader && headers.length > 0
+          ? headers.length
+          : (rows[0] ? rows[0].length : 1)
+      );
+
+      for (var r = 0; r < rows.length; r++) {
+        while (rows[r].length < colCount) rows[r].push('');
+        if (rows[r].length > colCount) rows[r] = rows[r].slice(0, colCount);
+      }
+      if (pbTableEditorSession.useFirstRowAsHeader) {
+        while (headers.length < colCount) headers.push('Header ' + (headers.length + 1));
+        if (headers.length > colCount) headers = pbTableEditorSession.headers = headers.slice(0, colCount);
+      }
+
+      if (dimBadge) {
+        dimBadge.textContent =
+          colCount + ' cols \u00D7 ' + rows.length + ' data rows' +
+          (pbTableEditorSession.useFirstRowAsHeader ? ' (+ header)' : '');
+      }
+
+      var tbl = document.createElement('table');
+      tbl.className = 'pb-table-grid-editor';
+
+      if (pbTableEditorSession.useFirstRowAsHeader) {
+        var thead = document.createElement('thead');
+        var hTr = document.createElement('tr');
+        var corner = document.createElement('th');
+        corner.className = 'pb-table-row-idx-col';
+        corner.textContent = 'Hdr';
+        hTr.appendChild(corner);
+
+        for (var hc = 0; hc < colCount; hc++) {
+          (function (colIdx) {
+            var th = document.createElement('th');
+            var inp = document.createElement('input');
+            inp.type = 'text';
+            inp.maxLength = 200;
+            inp.className = 'pb-table-grid-input is-header-cell';
+            inp.value = headers[colIdx] || '';
+            inp.placeholder = 'Col ' + (colIdx + 1);
+            inp.setAttribute('aria-label', 'Header column ' + (colIdx + 1));
+            inp.addEventListener('input', function () {
+              headers[colIdx] = inp.value;
+            });
+            th.appendChild(inp);
+            hTr.appendChild(th);
+          })(hc);
+        }
+        thead.appendChild(hTr);
+        tbl.appendChild(thead);
+      }
+
+      var tbody = document.createElement('tbody');
+      for (var ri = 0; ri < rows.length; ri++) {
+        (function (rowIdx) {
+          var tr = document.createElement('tr');
+          var idxTd = document.createElement('td');
+          idxTd.className = 'pb-table-row-idx-col';
+          idxTd.textContent = String(rowIdx + 1);
+          tr.appendChild(idxTd);
+
+          for (var ci = 0; ci < colCount; ci++) {
+            (function (cIdx) {
+              var td = document.createElement('td');
+              var cInp = document.createElement('input');
+              cInp.type = 'text';
+              cInp.maxLength = 300;
+              cInp.className = 'pb-table-grid-input';
+              cInp.value = rows[rowIdx][cIdx] || '';
+              cInp.setAttribute('aria-label', 'Row ' + (rowIdx + 1) + ' Column ' + (cIdx + 1));
+              cInp.addEventListener('input', function () {
+                rows[rowIdx][cIdx] = cInp.value;
+              });
+              td.appendChild(cInp);
+              tr.appendChild(td);
+            })(ci);
+          }
+          tbody.appendChild(tr);
+        })(ri);
+      }
+      tbl.appendChild(tbody);
+      host.appendChild(tbl);
+    }
+
+    function applyImportedTablePayloadToModal(parsedTable, sourceLabel) {
+      if (!parsedTable) return;
+      var hasHdr = Array.isArray(parsedTable.headers) && parsedTable.headers.length > 0;
+      pbTableEditorSession.useFirstRowAsHeader = hasHdr;
+      pbTableEditorSession.headers = hasHdr ? parsedTable.headers.slice() : [];
+      pbTableEditorSession.rows =
+        Array.isArray(parsedTable.rows) && parsedTable.rows.length > 0
+          ? parsedTable.rows.map(function (r) { return Array.isArray(r) ? r.slice() : []; })
+          : [['']];
+      pbTableEditorSession.caption = parsedTable.caption || pbTableEditorSession.caption || '';
+      pbTableEditorSession.cachedXlsx = parsedTable._cachedXlsx || null;
+      pbTableEditorSession.gsheetSource = parsedTable._gsheetSource || null;
+
+      var pickerWrap = document.getElementById('pb-table-sheet-picker-wrap');
+      var pickerSel = document.getElementById('select-pb-table-sheet-name');
+      var names = Array.isArray(parsedTable.sheetNames) ? parsedTable.sheetNames : [];
+      if (pickerWrap && pickerSel) {
+        while (pickerSel.firstChild) pickerSel.removeChild(pickerSel.firstChild);
+        if (names.length > 1) {
+          names.forEach(function (nm) {
+            var opt = document.createElement('option');
+            opt.value = nm;
+            opt.textContent = nm;
+            if (nm === parsedTable.activeSheetName) opt.selected = true;
+            pickerSel.appendChild(opt);
+          });
+          pickerWrap.classList.remove('hidden');
+        } else {
+          pickerWrap.classList.add('hidden');
+        }
+      }
+
+      var st = document.getElementById('pb-table-import-status');
+      if (st) {
+        var note =
+          (sourceLabel ? sourceLabel + ': ' : '') +
+          'Loaded ' +
+          pbTableEditorSession.rows.length +
+          ' data row(s)' +
+          (hasHdr ? ' + header row' : '') +
+          (parsedTable.activeSheetName ? ' from "' + parsedTable.activeSheetName + '"' : '') +
+          '.';
+        if (parsedTable.truncated) {
+          note += ' Note: Large spreadsheets are capped at 40 data rows \u00D7 12 columns to fit exam cards.';
+        }
+        st.textContent = note;
+        st.style.color = '#0F766E';
+      }
+      syncTableEditorModalControls();
+    }
+
+    function openQuestionTableEditorModal(initialTableBlock, onApplyFn) {
+      if (activeModalId && activeModalId !== 'modal-pb-table-editor') {
+        pbPdfViewerReturnModalId = activeModalId;
+      }
+      pbTableEditorSession.onSaveCallback = typeof onApplyFn === 'function' ? onApplyFn : null;
+      pbTableEditorSession.cachedXlsx = null;
+      pbTableEditorSession.gsheetSource = null;
+
+      if (initialTableBlock && initialTableBlock.type === 'table') {
+        var hasH = Array.isArray(initialTableBlock.headers) && initialTableBlock.headers.length > 0;
+        pbTableEditorSession.useFirstRowAsHeader = hasH;
+        pbTableEditorSession.headers = hasH ? initialTableBlock.headers.slice() : [];
+        pbTableEditorSession.rows =
+          Array.isArray(initialTableBlock.rows) && initialTableBlock.rows.length > 0
+            ? initialTableBlock.rows.map(function (r) { return Array.isArray(r) ? r.slice() : []; })
+            : [['', '', ''], ['', '', '']];
+        pbTableEditorSession.caption = initialTableBlock.caption || '';
+      } else {
+        pbTableEditorSession.useFirstRowAsHeader = true;
+        pbTableEditorSession.headers = ['Column 1', 'Column 2', 'Column 3'];
+        pbTableEditorSession.rows = [
+          ['', '', ''],
+          ['', '', ''],
+          ['', '', '']
+        ];
+        pbTableEditorSession.caption = '';
+      }
+
+      var fileInp = document.getElementById('input-pb-table-import-file');
+      var urlInp = document.getElementById('input-pb-table-gsheet-url');
+      var pasteDrawer = document.getElementById('pb-table-paste-drawer');
+      var pasteTxt = document.getElementById('textarea-pb-table-paste');
+      var pickerWrap = document.getElementById('pb-table-sheet-picker-wrap');
+      var st = document.getElementById('pb-table-import-status');
+      if (fileInp) fileInp.value = '';
+      if (urlInp) urlInp.value = '';
+      if (pasteDrawer) pasteDrawer.classList.add('hidden');
+      if (pasteTxt) pasteTxt.value = '';
+      if (pickerWrap) pickerWrap.classList.add('hidden');
+      if (st) {
+        st.textContent = 'Ready: edit cells below or upload .xlsx, .gsheet, or .csv to auto-convert into a table.';
+        st.style.color = 'var(--color-text-muted)';
+      }
+
+      syncTableEditorModalControls();
+      openModalDialog('modal-pb-table-editor', 'input-pb-table-caption');
+    }
+
+    function bindQuestionTableEditorModalEvents() {
+      var closeBtn = document.getElementById('btn-pb-table-editor-close');
+      var cancelBtn = document.getElementById('btn-pb-table-editor-cancel');
+      var saveBtn = document.getElementById('btn-pb-table-save');
+      var backdrop = document.getElementById('modal-pb-table-editor');
+      if (backdrop && backdrop.dataset && backdrop.dataset.boundModal === '1') return;
+      if (backdrop && backdrop.dataset) backdrop.dataset.boundModal = '1';
+
+      function closeTbl() {
+        closeModalDialog('modal-pb-table-editor');
+      }
+      if (closeBtn) closeBtn.addEventListener('click', closeTbl);
+      if (cancelBtn) cancelBtn.addEventListener('click', closeTbl);
+      if (backdrop) {
+        backdrop.addEventListener('click', function (evt) {
+          if (evt && evt.target === backdrop) closeTbl();
+        });
+      }
+
+      var zoomOutBtn = document.getElementById('btn-pb-image-zoom-out');
+      var zoomInBtn = document.getElementById('btn-pb-image-zoom-in');
+      var zoomCloseBtn = document.getElementById('btn-pb-image-zoom-close');
+      var zoomBackdrop = document.getElementById('modal-pb-image-zoom');
+      if (zoomOutBtn) zoomOutBtn.addEventListener('click', function () { applyImageZoomPercent(pbImageZoomCurrentPct - 25); });
+      if (zoomInBtn) zoomInBtn.addEventListener('click', function () { applyImageZoomPercent(pbImageZoomCurrentPct + 25); });
+      if (zoomCloseBtn) zoomCloseBtn.addEventListener('click', closeInAppImageZoomModal);
+      if (zoomBackdrop) {
+        zoomBackdrop.addEventListener('click', function (evt) {
+          if (evt && evt.target === zoomBackdrop) closeInAppImageZoomModal();
+        });
+        var presetBtns = zoomBackdrop.querySelectorAll('[data-pb-zoom-preset]');
+        for (var pIdx = 0; pIdx < presetBtns.length; pIdx++) {
+          (function (btn) {
+            btn.addEventListener('click', function () {
+              applyImageZoomPercent(btn.getAttribute('data-pb-zoom-preset'));
+            });
+          })(presetBtns[pIdx]);
+        }
+      }
+
+      var capInp = document.getElementById('input-pb-table-caption');
+      if (capInp) {
+        capInp.addEventListener('input', function () {
+          pbTableEditorSession.caption = capInp.value;
+        });
+      }
+      var hdrChk = document.getElementById('chk-pb-table-first-row-header');
+      if (hdrChk) {
+        hdrChk.addEventListener('change', function () {
+          var nextUse = Boolean(hdrChk.checked);
+          if (nextUse === pbTableEditorSession.useFirstRowAsHeader) return;
+          if (nextUse) {
+            if (pbTableEditorSession.rows.length >= 2) {
+              pbTableEditorSession.headers = pbTableEditorSession.rows.shift().slice();
+            } else {
+              var cLen = pbTableEditorSession.rows[0] ? pbTableEditorSession.rows[0].length : 3;
+              pbTableEditorSession.headers = [];
+              for (var i = 0; i < cLen; i++) pbTableEditorSession.headers.push('Column ' + (i + 1));
+            }
+          } else if (pbTableEditorSession.headers.length > 0) {
+            pbTableEditorSession.rows.unshift(pbTableEditorSession.headers.slice());
+            pbTableEditorSession.headers = [];
+          }
+          pbTableEditorSession.useFirstRowAsHeader = nextUse;
+          renderTableEditorGridDom();
+        });
+      }
+
+      var addRowBtn = document.getElementById('btn-pb-table-add-row');
+      var delRowBtn = document.getElementById('btn-pb-table-del-row');
+      var addColBtn = document.getElementById('btn-pb-table-add-col');
+      var delColBtn = document.getElementById('btn-pb-table-del-col');
+      if (addRowBtn) {
+        addRowBtn.addEventListener('click', function () {
+          if (pbTableEditorSession.rows.length >= 40) {
+            PBNotify.toast('info', 'Row Limit', 'Tables support up to 40 data rows.');
+            return;
+          }
+          var cols = pbTableEditorSession.useFirstRowAsHeader && pbTableEditorSession.headers.length > 0
+            ? pbTableEditorSession.headers.length
+            : (pbTableEditorSession.rows[0] ? pbTableEditorSession.rows[0].length : 3);
+          pbTableEditorSession.rows.push(new Array(cols + 1).join(',').split(',').map(function () { return ''; }));
+          renderTableEditorGridDom();
+        });
+      }
+      if (delRowBtn) {
+        delRowBtn.addEventListener('click', function () {
+          if (pbTableEditorSession.rows.length <= 1) return;
+          pbTableEditorSession.rows.pop();
+          renderTableEditorGridDom();
+        });
+      }
+      if (addColBtn) {
+        addColBtn.addEventListener('click', function () {
+          var curCols = pbTableEditorSession.useFirstRowAsHeader && pbTableEditorSession.headers.length > 0
+            ? pbTableEditorSession.headers.length
+            : (pbTableEditorSession.rows[0] ? pbTableEditorSession.rows[0].length : 1);
+          if (curCols >= 12) {
+            PBNotify.toast('info', 'Column Limit', 'Tables support up to 12 columns.');
+            return;
+          }
+          if (pbTableEditorSession.useFirstRowAsHeader) {
+            pbTableEditorSession.headers.push('Col ' + (curCols + 1));
+          }
+          for (var r = 0; r < pbTableEditorSession.rows.length; r++) {
+            pbTableEditorSession.rows[r].push('');
+          }
+          renderTableEditorGridDom();
+        });
+      }
+      if (delColBtn) {
+        delColBtn.addEventListener('click', function () {
+          var curCols = pbTableEditorSession.useFirstRowAsHeader && pbTableEditorSession.headers.length > 0
+            ? pbTableEditorSession.headers.length
+            : (pbTableEditorSession.rows[0] ? pbTableEditorSession.rows[0].length : 1);
+          if (curCols <= 1) return;
+          if (pbTableEditorSession.useFirstRowAsHeader && pbTableEditorSession.headers.length > 1) {
+            pbTableEditorSession.headers.pop();
+          }
+          for (var r = 0; r < pbTableEditorSession.rows.length; r++) {
+            pbTableEditorSession.rows[r].pop();
+          }
+          renderTableEditorGridDom();
+        });
+      }
+
+      var fileInp = document.getElementById('input-pb-table-import-file');
+      var impFileBtn = document.getElementById('btn-pb-table-import-file');
+      function handleTableFileChosen(fileObj) {
+        if (!fileObj) return;
+        var st = document.getElementById('pb-table-import-status');
+        if (st) {
+          st.textContent = 'Reading "' + fileObj.name + '"...';
+          st.style.color = '#0F766E';
+        }
+        var lowerName = String(fileObj.name || '').toLowerCase();
+        var hdrChkEl = document.getElementById('chk-pb-table-first-row-header');
+        var useHeader = hdrChkEl ? Boolean(hdrChkEl.checked) : true;
+        var workPromise;
+        if (/\.xlsx$/.test(lowerName)) {
+          workPromise = PBSpreadsheetTableImporter.parseXlsxFile(fileObj, {
+            useFirstRowAsHeader: useHeader,
+            filename: fileObj.name
+          });
+        } else if (/\.gsheet$/.test(lowerName)) {
+          workPromise = fileObj.text().then(function (txt) {
+            return PBSpreadsheetTableImporter.parseGsheetSource(txt, {
+              useFirstRowAsHeader: useHeader
+            });
+          });
+        } else if (/\.(csv|tsv|txt)$/.test(lowerName)) {
+          workPromise = fileObj.text().then(function (txt) {
+            return PBSpreadsheetTableImporter.parseDelimitedText(txt, {
+              useFirstRowAsHeader: useHeader,
+              caption: String(fileObj.name || '').replace(/\.(csv|tsv|txt)$/i, '')
+            });
+          });
+        } else if (/\.xls$/.test(lowerName)) {
+          workPromise = Promise.reject(new Error('Legacy binary .xls format is not supported in browser. Save as .xlsx or .csv and re-import.'));
+        } else {
+          workPromise = Promise.reject(new Error('Unsupported file extension. Upload .xlsx, .gsheet, .csv, or .tsv.'));
+        }
+        workPromise
+          .then(function (parsed) {
+            applyImportedTablePayloadToModal(parsed, fileObj.name);
+          })
+          .catch(function (err) {
+            if (st) {
+              st.textContent = (err && err.message) || 'Failed to parse spreadsheet file.';
+              st.style.color = '#B91C1C';
+            }
+          });
+      }
+      if (fileInp) {
+        fileInp.addEventListener('change', function () {
+          if (fileInp.files && fileInp.files[0]) handleTableFileChosen(fileInp.files[0]);
+        });
+      }
+      if (impFileBtn) {
+        impFileBtn.addEventListener('click', function () {
+          if (fileInp && fileInp.files && fileInp.files[0]) {
+            handleTableFileChosen(fileInp.files[0]);
+          } else if (fileInp) {
+            fileInp.click();
+          }
+        });
+      }
+
+      var fetchSheetBtn = document.getElementById('btn-pb-table-gsheet-fetch');
+      if (fetchSheetBtn) {
+        fetchSheetBtn.addEventListener('click', function () {
+          var urlVal = ((document.getElementById('input-pb-table-gsheet-url') || {}).value || '').trim();
+          var hdrChkEl = document.getElementById('chk-pb-table-first-row-header');
+          var useHeader = hdrChkEl ? Boolean(hdrChkEl.checked) : true;
+          var st = document.getElementById('pb-table-import-status');
+          if (!urlVal) {
+            if (st) {
+              st.textContent = 'Enter a Google Sheets URL or Spreadsheet ID first.';
+              st.style.color = '#B91C1C';
+            }
+            return;
+          }
+          runButtonWithLoadingState(fetchSheetBtn, 'Importing...', function () {
+            return PBSpreadsheetTableImporter.parseGsheetSource(urlVal, {
+              useFirstRowAsHeader: useHeader
+            })
+              .then(function (parsed) {
+                applyImportedTablePayloadToModal(parsed, 'Google Sheets');
+              })
+              .catch(function (err) {
+                if (st) {
+                  st.textContent = (err && err.message) || 'Unable to import Google Sheet.';
+                  st.style.color = '#B91C1C';
+                }
+              });
+          });
+        });
+      }
+
+      var sheetSel = document.getElementById('select-pb-table-sheet-name');
+      if (sheetSel) {
+        sheetSel.addEventListener('change', function () {
+          var hdrChkEl = document.getElementById('chk-pb-table-first-row-header');
+          var useHeader = hdrChkEl ? Boolean(hdrChkEl.checked) : true;
+          var chosen = sheetSel.value;
+          if (pbTableEditorSession.cachedXlsx) {
+            var sw = PBSpreadsheetTableImporter.switchCachedXlsxSheet(
+              pbTableEditorSession.cachedXlsx,
+              chosen,
+              useHeader
+            );
+            applyImportedTablePayloadToModal(sw, pbTableEditorSession.cachedXlsx.filename);
+          } else if (pbTableEditorSession.gsheetSource) {
+            PBSpreadsheetTableImporter.parseGsheetSource(
+              pbTableEditorSession.gsheetSource.url || pbTableEditorSession.gsheetSource.spreadsheetId,
+              { sheetName: chosen, useFirstRowAsHeader: useHeader }
+            )
+              .then(function (parsed) {
+                applyImportedTablePayloadToModal(parsed, 'Google Sheets');
+              })
+              .catch(function (err) {
+                var st = document.getElementById('pb-table-import-status');
+                if (st) {
+                  st.textContent = (err && err.message) || 'Failed to switch worksheet.';
+                  st.style.color = '#B91C1C';
+                }
+              });
+          }
+        });
+      }
+
+      var togglePasteBtn = document.getElementById('btn-pb-table-toggle-paste');
+      var pasteDrawer = document.getElementById('pb-table-paste-drawer');
+      if (togglePasteBtn && pasteDrawer) {
+        togglePasteBtn.addEventListener('click', function () {
+          pasteDrawer.classList.toggle('hidden');
+        });
+      }
+      var applyPasteBtn = document.getElementById('btn-pb-table-apply-paste');
+      if (applyPasteBtn) {
+        applyPasteBtn.addEventListener('click', function () {
+          var rawPaste = ((document.getElementById('textarea-pb-table-paste') || {}).value || '');
+          var hdrChkEl = document.getElementById('chk-pb-table-first-row-header');
+          var useHeader = hdrChkEl ? Boolean(hdrChkEl.checked) : true;
+          if (!rawPaste.trim()) return;
+          var parsed = PBSpreadsheetTableImporter.parseDelimitedText(rawPaste, {
+            useFirstRowAsHeader: useHeader,
+            caption: pbTableEditorSession.caption || ''
+          });
+          applyImportedTablePayloadToModal(parsed, 'Pasted Grid');
+          if (pasteDrawer) pasteDrawer.classList.add('hidden');
+        });
+      }
+
+      if (saveBtn) {
+        saveBtn.addEventListener('click', function () {
+          var captionTxt = ((document.getElementById('input-pb-table-caption') || {}).value || '').trim().slice(0, 240);
+          var outBlock = {
+            type: 'table',
+            caption: captionTxt,
+            headers: pbTableEditorSession.useFirstRowAsHeader
+              ? pbTableEditorSession.headers.map(function (h) { return String(h || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, 200); })
+              : [],
+            rows: pbTableEditorSession.rows.map(function (r) {
+              return r.map(function (c) { return String(c || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, 300); });
+            })
+          };
+          var cb = pbTableEditorSession.onSaveCallback;
+          closeTbl();
+          if (typeof cb === 'function') cb(outBlock);
+        });
+      }
+    }
+
+    function uploadQuestionStemAttachmentFile(fileObj, kind, courseId) {
+      var isPdf = kind === 'pdf';
+      return readBrowserFileAsBase64Step8(fileObj).then(function (fData) {
+        var primaryPurpose = isPdf ? 'QUESTION_PDF' : 'QUESTION_IMAGE';
+        return rpcCallEnvelope('admin.uploadFile', {
+          purpose: primaryPurpose,
+          originalFilename: fData.originalFilename,
+          mimeType: fData.mimeType,
+          dataBase64: fData.dataBase64
+        })
+          .catch(function (err) {
+            var errMsg = String((err && err.message) || '');
+            if (isPdf && (errMsg.indexOf('Allowed purposes') !== -1 || errMsg.indexOf('QUESTION_PDF') !== -1)) {
+              return rpcCallEnvelope('admin.uploadFile', {
+                purpose: 'EXPLANATION_ATTACHMENT',
+                originalFilename: fData.originalFilename,
+                mimeType: fData.mimeType,
+                dataBase64: fData.dataBase64
+              });
+            }
+            throw err;
+          })
+          .then(function (env) {
+            var fid = env.data && env.data.file && env.data.file.fileId;
+            if (!fid) throw new Error('Upload succeeded without returning fileId.');
+            if (typeof PBObjectUrlManager.seedCacheFromBase64 === 'function') {
+              PBObjectUrlManager.seedCacheFromBase64(
+                fid,
+                fData.dataBase64,
+                fData.mimeType,
+                fData.originalFilename,
+                courseId || ''
+              );
+            }
+            if (!isPdf) {
+              currentQBankLocalImagePreviewDataUrlByIdPhase2[fid] =
+                'data:' + fData.mimeType + ';base64,' + fData.dataBase64;
+            }
+            return {
+              fileId: fid,
+              originalFilename: fData.originalFilename || fileObj.name || (isPdf ? 'Attachment.pdf' : 'Diagram.png'),
+              mimeType: fData.mimeType
+            };
+          });
+      });
+    }
+
+    function renderQuestionRichMediaTray(hostEl, mediaBlocks, opts) {
+      if (!hostEl) return;
+      clearChildren(hostEl);
+      var list = Array.isArray(mediaBlocks) ? mediaBlocks : [];
+      var o = opts || {};
+      var courseId = o.courseId || '';
+
+      function commitList(nextList) {
+        if (typeof o.onUpdate === 'function') {
+          o.onUpdate(nextList);
+        }
+      }
+
+      if (list.length === 0) return;
+
+      var wrap = document.createElement('div');
+      wrap.className = 'pb-q-media-tray';
+
+      for (var i = 0; i < list.length; i++) {
+        (function (blk, idx) {
+          if (!blk || typeof blk !== 'object') return;
+          if (blk.type !== 'image_attachment' && blk.type !== 'pdf_attachment' && blk.type !== 'table') {
+            return;
+          }
+          var card = document.createElement('div');
+          card.className = 'pb-q-media-block-card';
+
+          var hdr = document.createElement('div');
+          hdr.className = 'pb-q-media-block-header';
+
+          var badge = document.createElement('span');
+          badge.className = 'badge badge-ok';
+          if (blk.type === 'image_attachment') {
+            badge.textContent = 'Image Diagram • ' + (blk.widthPct || 100) + '%';
+          } else if (blk.type === 'pdf_attachment') {
+            badge.textContent =
+              'Embedded PDF • ' + (blk.widthPct || 100) + '% × ' + (blk.heightPx || 420) + 'px';
+          } else {
+            var rLen = Array.isArray(blk.rows) ? blk.rows.length : 0;
+            var cLen = Array.isArray(blk.headers) && blk.headers.length > 0
+              ? blk.headers.length
+              : (Array.isArray(blk.rows) && blk.rows[0] ? blk.rows[0].length : 0);
+            badge.textContent = 'Data Table • ' + cLen + ' cols × ' + rLen + ' rows';
+          }
+          hdr.appendChild(badge);
+
+          var ctrls = document.createElement('div');
+          ctrls.className = 'pb-q-media-block-controls';
+
+          if (blk.type === 'image_attachment' || blk.type === 'pdf_attachment') {
+            var widthPresets = blk.type === 'image_attachment' ? [25, 50, 75, 100] : [50, 75, 100];
+            widthPresets.forEach(function (wp) {
+              var wb = document.createElement('button');
+              wb.type = 'button';
+              var curW = blk.widthPct || 100;
+              wb.className = 'btn btn-outline btn-sm pb-q-media-ctrl-btn' + (curW === wp ? ' is-active' : '');
+              wb.textContent = wp + '%';
+              wb.title = 'Set width to ' + wp + '%';
+              wb.addEventListener('click', function () {
+                var next = list.slice();
+                next[idx] = Object.assign({}, blk, { widthPct: wp });
+                commitList(next);
+              });
+              ctrls.appendChild(wb);
+            });
+          }
+
+          if (blk.type === 'pdf_attachment') {
+            [
+              { label: 'Compact', px: 280 },
+              { label: 'Medium', px: 420 },
+              { label: 'Tall', px: 620 }
+            ].forEach(function (hp) {
+              var hb = document.createElement('button');
+              hb.type = 'button';
+              var curH = blk.heightPx || 420;
+              hb.className = 'btn btn-outline btn-sm pb-q-media-ctrl-btn' + (curH === hp.px ? ' is-active' : '');
+              hb.textContent = hp.label;
+              hb.title = 'Set embedded PDF height to ' + hp.px + 'px';
+              hb.addEventListener('click', function () {
+                var next = list.slice();
+                next[idx] = Object.assign({}, blk, {
+                  displayMode: 'embed',
+                  heightPx: hp.px
+                });
+                commitList(next);
+              });
+              ctrls.appendChild(hb);
+            });
+
+            var zPdfBtn = document.createElement('button');
+            zPdfBtn.type = 'button';
+            zPdfBtn.className = 'btn btn-outline btn-sm pb-q-media-ctrl-btn';
+            zPdfBtn.textContent = 'Zoom Modal';
+            zPdfBtn.addEventListener('click', function () {
+              openOrDownloadExamPdfWithNotice(zPdfBtn, blk.fileId, courseId, true, 'Zoom Modal');
+            });
+            ctrls.appendChild(zPdfBtn);
+          }
+
+          if (blk.type === 'image_attachment') {
+            var zImgBtn = document.createElement('button');
+            zImgBtn.type = 'button';
+            zImgBtn.className = 'btn btn-outline btn-sm pb-q-media-ctrl-btn';
+            zImgBtn.textContent = 'Zoom';
+            zImgBtn.addEventListener('click', function () {
+              openInAppImageZoomModal(blk.fileId, courseId, blk.altText || blk.caption || 'Question Diagram');
+            });
+            ctrls.appendChild(zImgBtn);
+          }
+
+          if (blk.type === 'table') {
+            var editTblBtn = document.createElement('button');
+            editTblBtn.type = 'button';
+            editTblBtn.className = 'btn btn-secondary btn-sm pb-q-media-ctrl-btn';
+            editTblBtn.textContent = 'Edit / Re-import Table';
+            editTblBtn.addEventListener('click', function () {
+              openQuestionTableEditorModal(blk, function (updatedTbl) {
+                var next = list.slice();
+                next[idx] = updatedTbl;
+                commitList(next);
+              });
+            });
+            ctrls.appendChild(editTblBtn);
+          }
+
+          if (idx > 0) {
+            var upB = document.createElement('button');
+            upB.type = 'button';
+            upB.className = 'btn btn-outline btn-sm pb-q-media-ctrl-btn';
+            upB.textContent = '\u2191';
+            upB.title = 'Move Up';
+            upB.addEventListener('click', function () {
+              var next = list.slice();
+              var tmp = next[idx - 1];
+              next[idx - 1] = next[idx];
+              next[idx] = tmp;
+              commitList(next);
+            });
+            ctrls.appendChild(upB);
+          }
+          if (idx < list.length - 1) {
+            var dnB = document.createElement('button');
+            dnB.type = 'button';
+            dnB.className = 'btn btn-outline btn-sm pb-q-media-ctrl-btn';
+            dnB.textContent = '\u2193';
+            dnB.title = 'Move Down';
+            dnB.addEventListener('click', function () {
+              var next = list.slice();
+              var tmp = next[idx + 1];
+              next[idx + 1] = next[idx];
+              next[idx] = tmp;
+              commitList(next);
+            });
+            ctrls.appendChild(dnB);
+          }
+
+          var rmB = document.createElement('button');
+          rmB.type = 'button';
+          rmB.className = 'btn btn-outline btn-sm pb-q-media-ctrl-btn';
+          rmB.textContent = 'Remove';
+          rmB.addEventListener('click', function () {
+            var next = list.slice();
+            next.splice(idx, 1);
+            commitList(next);
+          });
+          ctrls.appendChild(rmB);
+
+          hdr.appendChild(ctrls);
+          card.appendChild(hdr);
+
+          var previewBox = document.createElement('div');
+          renderRichTextDocumentToDom(
+            previewBox,
+            { schemaVersion: 'pb-richtext-v1', blocks: [blk] },
+            courseId
+          );
+          card.appendChild(previewBox);
+          wrap.appendChild(card);
+        })(list[i], i);
+      }
+
+      hostEl.appendChild(wrap);
     }
 
     function openOrDownloadExamPdfWithNotice(btnEl, fileId, courseId, openInNewTab, defaultLabel) {
@@ -9765,13 +11165,12 @@
       defaultName: 'Answer Sheet.pdf'
     };
 
-    function renderRichTextDocumentToDom(containerEl, richTextDoc, opt_courseId) {
+    function renderRichTextDocumentToDom(containerEl, richTextDoc, opt_courseId, opt_renderOpts) {
       if (!containerEl) {
         return;
       }
-      while (containerEl.firstChild) {
-        containerEl.removeChild(containerEl.firstChild);
-      }
+      var renderOpts = opt_renderOpts && typeof opt_renderOpts === 'object' ? opt_renderOpts : {};
+      clearChildren(containerEl);
 
       var effectiveCourseId =
         opt_courseId ||
@@ -9918,6 +11317,11 @@
           (function (imgBlock) {
             var fig = document.createElement('figure');
             fig.className = 'pb-rt-attachment-figure';
+            if (imgBlock.widthPct && Number(imgBlock.widthPct) > 0) {
+              var wPct = Math.min(100, Math.max(20, Math.round(Number(imgBlock.widthPct))));
+              fig.classList.add('has-custom-width');
+              fig.style.width = wPct + '%';
+            }
 
             var badge = document.createElement('span');
             badge.className = 'badge badge-ok';
@@ -9926,8 +11330,11 @@
             fig.appendChild(badge);
 
             var imgEl = document.createElement('img');
-            imgEl.className = 'pb-rt-attachment-img hidden';
-            imgEl.alt = imgBlock.altText || imgBlock.caption || 'Course illustration';
+            imgEl.className = 'pb-rt-attachment-img is-zoomable hidden';
+            imgEl.alt = imgBlock.altText || imgBlock.caption || 'Question illustration';
+            if (fig.classList.contains('has-custom-width')) {
+              imgEl.style.width = '100%';
+            }
             fig.appendChild(imgEl);
 
             if (imgBlock.caption && !/\.(png|jpe?g|webp|gif|svg|bmp)$/i.test(String(imgBlock.caption).trim())) {
@@ -9936,18 +11343,28 @@
               cap.textContent = imgBlock.caption;
               fig.appendChild(cap);
             }
+            var actionBar = document.createElement('div');
+            actionBar.className = 'pb-rt-figure-actions';
             var zoomBtn = document.createElement('button');
             zoomBtn.type = 'button';
             zoomBtn.className = 'btn btn-outline btn-sm';
-            zoomBtn.style.marginTop = '6px';
-            zoomBtn.textContent = 'Zoom / Open Full Resolution';
-            zoomBtn.addEventListener('click', function () {
-              PBObjectUrlManager.triggerAuthorizedDownload(imgBlock.fileId, effectiveCourseId, true);
-            });
-            fig.appendChild(zoomBtn);
+            zoomBtn.textContent = 'Zoom / Inspect Image';
+            var fetchedEntryRef = null;
+            function openThisImageZoom() {
+              openInAppImageZoomModal(
+                fetchedEntryRef || imgBlock.fileId,
+                effectiveCourseId,
+                imgBlock.altText || imgBlock.caption || 'Question Image'
+              );
+            }
+            zoomBtn.addEventListener('click', openThisImageZoom);
+            imgEl.addEventListener('click', openThisImageZoom);
+            actionBar.appendChild(zoomBtn);
+            fig.appendChild(actionBar);
 
             PBObjectUrlManager.fetchAndCreateObjectUrl(imgBlock.fileId, effectiveCourseId)
               .then(function (entry) {
+                fetchedEntryRef = entry;
                 imgEl.src = entry.objectUrl;
                 imgEl.classList.remove('hidden');
                 if (badge && badge.parentNode) {
@@ -9972,6 +11389,137 @@
           }
           renderedAnyContent = true;
           (function (pdfBlock) {
+            var isEmbeddedPdf =
+              String(pdfBlock.displayMode || '').toLowerCase() === 'embed' ||
+              Boolean(pdfBlock.heightPx) ||
+              Boolean(pdfBlock.widthPct) ||
+              Boolean(
+                renderOpts.defaultEmbedPdf &&
+                  String(pdfBlock.displayMode || '').toLowerCase() !== 'card'
+              );
+            if (isEmbeddedPdf) {
+              var embedBox = document.createElement('div');
+              embedBox.className = 'pb-rt-pdf-embed-box';
+              var pWidth = pdfBlock.widthPct
+                ? Math.min(100, Math.max(30, Math.round(Number(pdfBlock.widthPct))))
+                : 100;
+              var pHeight = pdfBlock.heightPx
+                ? Math.min(900, Math.max(180, Math.round(Number(pdfBlock.heightPx))))
+                : 420;
+              if (pWidth < 100) {
+                embedBox.classList.add('has-custom-width');
+                embedBox.style.width = pWidth + '%';
+              }
+
+              var bar = document.createElement('div');
+              bar.className = 'pb-rt-pdf-embed-toolbar';
+              var titleGrp = document.createElement('div');
+              titleGrp.className = 'pb-rt-pdf-embed-title-group';
+              var pBadge = document.createElement('span');
+              pBadge.className = 'badge badge-ok';
+              pBadge.textContent = 'PDF';
+              titleGrp.appendChild(pBadge);
+              var pTitle = document.createElement('span');
+              pTitle.className = 'pb-rt-pdf-embed-title';
+              pTitle.textContent = pdfBlock.title || pdfBlock.filename || 'Attached PDF Document';
+              titleGrp.appendChild(pTitle);
+              bar.appendChild(titleGrp);
+
+              var actGrp = document.createElement('div');
+              actGrp.className = 'pb-rt-pdf-embed-actions';
+
+              var curHeightPx = pHeight;
+              var zoomModalBtn = document.createElement('button');
+              zoomModalBtn.type = 'button';
+              zoomModalBtn.className = 'btn btn-secondary btn-sm';
+              zoomModalBtn.textContent = 'Zoom / Full View';
+              zoomModalBtn.addEventListener('click', function () {
+                openOrDownloadExamPdfWithNotice(
+                  zoomModalBtn,
+                  pdfBlock.fileId,
+                  effectiveCourseId,
+                  true,
+                  'Zoom / Full View'
+                );
+              });
+              actGrp.appendChild(zoomModalBtn);
+
+              var fitHeightBtn = document.createElement('button');
+              fitHeightBtn.type = 'button';
+              fitHeightBtn.className = 'btn btn-outline btn-sm';
+              fitHeightBtn.textContent = curHeightPx > 500 ? 'Compact View' : 'Expand View';
+              actGrp.appendChild(fitHeightBtn);
+
+              var dlPdfBtn = document.createElement('button');
+              dlPdfBtn.type = 'button';
+              dlPdfBtn.className = 'btn btn-outline btn-sm';
+              dlPdfBtn.textContent = 'Download';
+              dlPdfBtn.addEventListener('click', function () {
+                openOrDownloadExamPdfWithNotice(
+                  dlPdfBtn,
+                  pdfBlock.fileId,
+                  effectiveCourseId,
+                  false,
+                  'Download'
+                );
+              });
+              actGrp.appendChild(dlPdfBtn);
+              bar.appendChild(actGrp);
+              embedBox.appendChild(bar);
+
+              var frameWrap = document.createElement('div');
+              frameWrap.className = 'pb-rt-pdf-embed-frame-wrap';
+              var loadingLbl = document.createElement('div');
+              loadingLbl.className = 'pb-rt-pdf-embed-loading';
+              loadingLbl.textContent = 'Loading embedded PDF object...';
+              frameWrap.appendChild(loadingLbl);
+
+              var pdfFrame = null;
+              function mountEmbeddedPdfFrame() {
+                if (pdfFrame && pdfFrame.parentNode === frameWrap) {
+                  return;
+                }
+                loadingLbl.textContent = 'Loading embedded PDF object...';
+                loadingLbl.classList.remove('hidden');
+                pdfFrame = document.createElement('iframe');
+                pdfFrame.className = 'pb-rt-pdf-embed-frame hidden';
+                pdfFrame.style.height = curHeightPx + 'px';
+                pdfFrame.setAttribute('loading', 'lazy');
+                pdfFrame.title = pdfBlock.title || 'Embedded Question PDF';
+                frameWrap.appendChild(pdfFrame);
+
+                PBObjectUrlManager.fetchAndCreateObjectUrl(pdfBlock.fileId, effectiveCourseId, {
+                  skipRevokeCheck: true
+                })
+                  .then(function (entry) {
+                    if (entry && entry.objectUrl && pdfFrame && pdfFrame.parentNode === frameWrap) {
+                      pdfFrame.src = entry.objectUrl;
+                      pdfFrame.classList.remove('hidden');
+                      loadingLbl.classList.add('hidden');
+                    }
+                  })
+                  .catch(function (err) {
+                    loadingLbl.textContent =
+                      'Unable to embed PDF (' + ((err && err.code) || 'ERR') + '). Use Download or Zoom above.';
+                    loadingLbl.classList.remove('hidden');
+                  });
+              }
+              frameWrap._pbPdfMountFn = mountEmbeddedPdfFrame;
+
+              fitHeightBtn.addEventListener('click', function () {
+                curHeightPx = curHeightPx > 500 ? 320 : 580;
+                if (pdfFrame) {
+                  pdfFrame.style.height = curHeightPx + 'px';
+                }
+                fitHeightBtn.textContent = curHeightPx > 500 ? 'Compact View' : 'Expand View';
+              });
+
+              embedBox.appendChild(frameWrap);
+              containerEl.appendChild(embedBox);
+              mountEmbeddedPdfFrame();
+              return;
+            }
+
             var card = document.createElement('div');
             card.className = 'pb-rt-pdf-attachment-card';
 
@@ -10002,6 +11550,21 @@
             btnGroup.style.gap = '6px';
             btnGroup.style.flexWrap = 'wrap';
 
+            var viewModalBtn = document.createElement('button');
+            viewModalBtn.type = 'button';
+            viewModalBtn.className = 'btn btn-secondary btn-sm';
+            viewModalBtn.textContent = 'View / Zoom PDF';
+            viewModalBtn.addEventListener('click', function () {
+              openOrDownloadExamPdfWithNotice(
+                viewModalBtn,
+                pdfBlock.fileId,
+                effectiveCourseId,
+                true,
+                'View / Zoom PDF'
+              );
+            });
+            btnGroup.appendChild(viewModalBtn);
+
             var dlBtn = document.createElement('button');
             dlBtn.type = 'button';
             dlBtn.className = 'btn btn-primary btn-sm';
@@ -10025,21 +11588,6 @@
                 });
             });
             btnGroup.appendChild(dlBtn);
-
-            var openTabBtn = document.createElement('button');
-            openTabBtn.type = 'button';
-            openTabBtn.className = 'btn btn-outline btn-sm';
-            openTabBtn.textContent = 'Open Blob in New Tab';
-            openTabBtn.addEventListener('click', function () {
-              PBObjectUrlManager.triggerAuthorizedDownload(
-                pdfBlock.fileId,
-                effectiveCourseId,
-                true
-              ).catch(function (err) {
-                showUiErrorBanner(err);
-              });
-            });
-            btnGroup.appendChild(openTabBtn);
 
             card.appendChild(btnGroup);
             containerEl.appendChild(card);
@@ -10190,7 +11738,7 @@
         return out.length > 0 ? out : [{ text: '' }];
       }
 
-      function editableDomToRichTextDoc(rootEl) {
+      function editableDomToRichTextDoc(rootEl, opt_extraBlocks) {
         if (!rootEl) return createDefaultEmptyRichTextDoc();
         var paragraphs = [[]];
 
@@ -10250,10 +11798,21 @@
         }
         var blocks = [];
         for (var p = 0; p < paragraphs.length; p++) {
-          blocks.push({
-            type: 'paragraph',
-            spans: normalizeSpansList(paragraphs[p])
-          });
+          var normSpans = normalizeSpansList(paragraphs[p]);
+          var hasParaTxt = normSpans.some(function (sp) { return Boolean(sp && sp.text); });
+          if (hasParaTxt || !(Array.isArray(opt_extraBlocks) && opt_extraBlocks.length > 0) || p > 0) {
+            blocks.push({
+              type: 'paragraph',
+              spans: normSpans
+            });
+          }
+        }
+        if (Array.isArray(opt_extraBlocks)) {
+          for (var eb = 0; eb < opt_extraBlocks.length; eb++) {
+            if (opt_extraBlocks[eb] && typeof opt_extraBlocks[eb] === 'object') {
+              blocks.push(opt_extraBlocks[eb]);
+            }
+          }
         }
         if (blocks.length === 0) return createDefaultEmptyRichTextDoc();
         return {
@@ -10262,18 +11821,26 @@
         };
       }
 
-      function richTextDocToEditableDom(rootEl, richDoc) {
+      function richTextDocToEditableDom(rootEl, richDoc, opt_outExtraBlocks) {
         if (!rootEl) return;
         while (rootEl.firstChild) rootEl.removeChild(rootEl.firstChild);
         var doc = cloneRichTextDocSafe(richDoc);
         var blocks = Array.isArray(doc.blocks) ? doc.blocks : [];
         var hasText = false;
+        var paraIdx = 0;
         for (var b = 0; b < blocks.length; b++) {
           var blk = blocks[b];
-          if (!blk || !Array.isArray(blk.spans)) continue;
-          if (b > 0) {
+          if (!blk || typeof blk !== 'object') continue;
+          if (blk.type !== 'paragraph' || !Array.isArray(blk.spans)) {
+            if (Array.isArray(opt_outExtraBlocks)) {
+              opt_outExtraBlocks.push(blk);
+            }
+            continue;
+          }
+          if (paraIdx > 0) {
             rootEl.appendChild(document.createElement('br'));
           }
+          paraIdx++;
           for (var s = 0; s < blk.spans.length; s++) {
             var sp = blk.spans[s];
             if (!sp || !sp.text) continue;
@@ -10607,23 +12174,46 @@
         if (opts.placeholder) el.setAttribute('data-placeholder', opts.placeholder);
         if (opts.ariaLabel) el.setAttribute('aria-label', opts.ariaLabel);
 
-        richTextDocToEditableDom(el, opts.initialValue || '');
+        var mediaBlocks = [];
+        richTextDocToEditableDom(el, opts.initialValue || '', mediaBlocks);
 
         var inst = {
           el: el,
           savedRange: null,
           getValueDoc: function () {
-            return editableDomToRichTextDoc(el);
+            return editableDomToRichTextDoc(el, mediaBlocks);
           },
           getPlainText: function () {
-            return extractPlainTextFromRichTextDoc(editableDomToRichTextDoc(el));
+            return extractPlainTextFromRichTextDoc(editableDomToRichTextDoc(el, mediaBlocks));
           },
           setValue: function (val) {
-            richTextDocToEditableDom(el, val);
+            mediaBlocks = [];
+            richTextDocToEditableDom(el, val, mediaBlocks);
+            if (typeof opts.onMediaChange === 'function') {
+              opts.onMediaChange(mediaBlocks.slice());
+            }
+          },
+          getMediaBlocks: function () {
+            return mediaBlocks.slice();
+          },
+          setMediaBlocks: function (nextList) {
+            mediaBlocks = Array.isArray(nextList) ? nextList.slice() : [];
+            inst.notifyChange();
+            if (typeof opts.onMediaChange === 'function') {
+              opts.onMediaChange(mediaBlocks.slice());
+            }
+          },
+          addMediaBlock: function (blk) {
+            if (!blk || typeof blk !== 'object') return;
+            mediaBlocks.push(blk);
+            inst.notifyChange();
+            if (typeof opts.onMediaChange === 'function') {
+              opts.onMediaChange(mediaBlocks.slice());
+            }
           },
           notifyChange: function () {
             if (typeof opts.onChange === 'function') {
-              var docVal = editableDomToRichTextDoc(el);
+              var docVal = editableDomToRichTextDoc(el, mediaBlocks);
               opts.onChange(docVal, extractPlainTextFromRichTextDoc(docVal));
             }
           }
@@ -10730,7 +12320,10 @@
           element: el,
           getValueDoc: inst.getValueDoc,
           getPlainText: inst.getPlainText,
-          setValue: inst.setValue
+          setValue: inst.setValue,
+          getMediaBlocks: inst.getMediaBlocks,
+          setMediaBlocks: inst.setMediaBlocks,
+          addMediaBlock: inst.addMediaBlock
         };
       }
 
@@ -21643,9 +23236,13 @@ var qrcode = (function() {
       if (currentQBankLocalImagePreviewDataUrlByIdPhase2 && currentQBankLocalImagePreviewDataUrlByIdPhase2[cleanId]) {
         stage.classList.remove('pb-img-stage-loading');
         var localImg = document.createElement('img');
-        localImg.className = 'pb-actual-image-preview';
+        localImg.className = 'pb-actual-image-preview is-zoomable';
         localImg.src = currentQBankLocalImagePreviewDataUrlByIdPhase2[cleanId];
         localImg.alt = altText || ('Diagram ' + cleanId);
+        localImg.title = 'Click to Zoom / Inspect Diagram';
+        localImg.addEventListener('click', function () {
+          openInAppImageZoomModal(cleanId, courseId || '', localImg.alt);
+        });
         stage.appendChild(localImg);
         return;
       }
@@ -21665,9 +23262,13 @@ var qrcode = (function() {
           if (entry && entry.objectUrl) {
             currentQBankLocalImagePreviewDataUrlByIdPhase2[cleanId] = entry.objectUrl;
             var img = document.createElement('img');
-            img.className = 'pb-actual-image-preview';
+            img.className = 'pb-actual-image-preview is-zoomable';
             img.src = entry.objectUrl;
             img.alt = altText || entry.originalFilename || ('Diagram ' + cleanId);
+            img.title = 'Click to Zoom / Inspect Diagram';
+            img.addEventListener('click', function () {
+              openInAppImageZoomModal(entry, courseId || '', img.alt);
+            });
             stage.appendChild(img);
           }
         })
@@ -21807,7 +23408,9 @@ var qrcode = (function() {
 
           var bodyEl = document.createElement('div');
           bodyEl.className = 'pb-complex-mc-stmt-body pb-rt-rendered';
-          renderRichTextDocumentToDom(bodyEl, opt.contentRichText || opt.text || '', opt_courseId || '');
+          renderRichTextDocumentToDom(bodyEl, opt.contentRichText || opt.text || '', opt_courseId || '', {
+            defaultEmbedPdf: true
+          });
           stmtWrap.appendChild(bodyEl);
           row.appendChild(stmtWrap);
 
@@ -22005,16 +23608,118 @@ var qrcode = (function() {
           if (editorKey !== 'stem' && editorKey !== 'explanation') {
             qbankWordStatePhase2.optionDocs[editorKey] = doc;
           }
+        },
+        onMediaChange: function () {
+          if (editorKey === 'stem') {
+            renderQBankStemRichMediaTrayPhase2();
+          }
         }
       });
       if (isSingleLine) {
         ed.element.style.flex = '1';
       }
       origEl.parentNode.insertBefore(ed.element, origEl.nextSibling);
-      if (editorKey === 'stem') qbankWordStatePhase2.stemEditor = ed;
-      else if (editorKey === 'explanation') qbankWordStatePhase2.expEditor = ed;
+      if (editorKey === 'stem') {
+        qbankWordStatePhase2.stemEditor = ed;
+        renderQBankStemRichMediaTrayPhase2();
+      } else if (editorKey === 'explanation') qbankWordStatePhase2.expEditor = ed;
       else qbankWordStatePhase2.optionEditors[editorKey] = ed;
       return ed;
+    }
+
+    function renderQBankStemRichMediaTrayPhase2() {
+      var host = document.getElementById('qbank-stem-rich-media-tray');
+      var ed = qbankWordStatePhase2.stemEditor;
+      if (!host || !ed) return;
+      while (host.firstChild) host.removeChild(host.firstChild);
+
+      var bar = document.createElement('div');
+      bar.style.display = 'flex';
+      bar.style.alignItems = 'center';
+      bar.style.gap = '6px';
+      bar.style.flexWrap = 'wrap';
+
+      var imgInp = document.createElement('input');
+      imgInp.type = 'file';
+      imgInp.accept = 'image/png,image/jpeg,image/webp,image/gif';
+      imgInp.className = 'hidden';
+      var imgBtn = document.createElement('button');
+      imgBtn.type = 'button';
+      imgBtn.className = 'btn btn-outline btn-sm';
+      imgBtn.textContent = '+ Resizable Stem Image';
+      imgBtn.addEventListener('click', function () { imgInp.click(); });
+      imgInp.addEventListener('change', function () {
+        var f = imgInp.files && imgInp.files[0];
+        if (!f) return;
+        runButtonWithLoadingState(imgBtn, 'Uploading...', function () {
+          return uploadQuestionStemAttachmentFile(f, 'image', '').then(function (res) {
+            ed.addMediaBlock({
+              type: 'image_attachment',
+              fileId: res.fileId,
+              altText: String(res.originalFilename || 'Question diagram').replace(/\.[^.]+$/, ''),
+              caption: '',
+              widthPct: 75
+            });
+            imgInp.value = '';
+            PBNotify.toast('success', 'Image Embedded', 'Added resizable diagram ' + res.fileId + ' to stem.');
+          });
+        });
+      });
+
+      var pdfInp = document.createElement('input');
+      pdfInp.type = 'file';
+      pdfInp.accept = 'application/pdf,.pdf';
+      pdfInp.className = 'hidden';
+      var pdfBtn = document.createElement('button');
+      pdfBtn.type = 'button';
+      pdfBtn.className = 'btn btn-outline btn-sm';
+      pdfBtn.textContent = '+ Embed PDF in Stem';
+      pdfBtn.addEventListener('click', function () { pdfInp.click(); });
+      pdfInp.addEventListener('change', function () {
+        var f = pdfInp.files && pdfInp.files[0];
+        if (!f) return;
+        runButtonWithLoadingState(pdfBtn, 'Uploading PDF...', function () {
+          return uploadQuestionStemAttachmentFile(f, 'pdf', '').then(function (res) {
+            ed.addMediaBlock({
+              type: 'pdf_attachment',
+              fileId: res.fileId,
+              title: res.originalFilename || 'Question PDF Reference.pdf',
+              displayMode: 'embed',
+              widthPct: 100,
+              heightPx: 420
+            });
+            pdfInp.value = '';
+            PBNotify.toast('success', 'PDF Embedded', 'Attached embedded PDF ' + res.fileId + ' (resizable/zoomable).');
+          });
+        });
+      });
+
+      var tblBtn = document.createElement('button');
+      tblBtn.type = 'button';
+      tblBtn.className = 'btn btn-outline btn-sm';
+      tblBtn.textContent = '+ Table (.xlsx / .gsheet / Editor)';
+      tblBtn.addEventListener('click', function () {
+        openQuestionTableEditorModal(null, function (tblBlock) {
+          ed.addMediaBlock(tblBlock);
+          PBNotify.toast('success', 'Table Added', 'Embedded structured table into question stem.');
+        });
+      });
+
+      bar.appendChild(imgInp);
+      bar.appendChild(imgBtn);
+      bar.appendChild(pdfInp);
+      bar.appendChild(pdfBtn);
+      bar.appendChild(tblBtn);
+      host.appendChild(bar);
+
+      var listHost = document.createElement('div');
+      host.appendChild(listHost);
+      renderQuestionRichMediaTray(listHost, ed.getMediaBlocks(), {
+        courseId: '',
+        onUpdate: function (nextBlocks) {
+          ed.setMediaBlocks(nextBlocks);
+        }
+      });
     }
 
     function ensureAllQBankWordEditorsMountedPhase2() {
@@ -22234,6 +23939,22 @@ var qrcode = (function() {
           badge.textContent = 'Image ' + (idx + 1);
           topRow.appendChild(badge);
 
+          var imgCardBtns = document.createElement('div');
+          imgCardBtns.style.display = 'flex';
+          imgCardBtns.style.gap = '4px';
+
+          var zoomCardBtn = document.createElement('button');
+          zoomCardBtn.type = 'button';
+          zoomCardBtn.className = 'btn btn-outline btn-sm';
+          zoomCardBtn.style.minHeight = '26px';
+          zoomCardBtn.style.padding = '2px 8px';
+          zoomCardBtn.style.fontSize = '0.74rem';
+          zoomCardBtn.textContent = 'Zoom';
+          zoomCardBtn.addEventListener('click', function () {
+            openInAppImageZoomModal(fid, '', 'Question Diagram ' + (idx + 1));
+          });
+          imgCardBtns.appendChild(zoomCardBtn);
+
           var delBtn = document.createElement('button');
           delBtn.type = 'button';
           delBtn.className = 'btn btn-outline btn-sm';
@@ -22246,7 +23967,8 @@ var qrcode = (function() {
           delBtn.addEventListener('click', function () {
             removeQBankEditorImageByIdPhase2(fid);
           });
-          topRow.appendChild(delBtn);
+          imgCardBtns.appendChild(delBtn);
+          topRow.appendChild(imgCardBtns);
           card.appendChild(topRow);
 
           var stageId = 'qbank-editor-img-preview-stage-' + idx;
@@ -22888,7 +24610,9 @@ var qrcode = (function() {
 
           var stimContent = document.createElement('div');
           stimContent.style.marginTop = '8px';
-          renderRichTextDocumentToDom(stimContent, q.stimulus.contentRichText, '');
+          renderRichTextDocumentToDom(stimContent, q.stimulus.contentRichText, '', {
+            defaultEmbedPdf: true
+          });
           stimBox.appendChild(stimContent);
           host.appendChild(stimBox);
         }
@@ -22923,7 +24647,9 @@ var qrcode = (function() {
         var stemContainer = document.createElement('div');
         stemContainer.style.fontSize = '1rem';
         stemContainer.style.marginBottom = '12px';
-        renderRichTextDocumentToDom(stemContainer, q.stemRichText, '');
+        renderRichTextDocumentToDom(stemContainer, q.stemRichText, '', {
+          defaultEmbedPdf: true
+        });
         qBox.appendChild(stemContainer);
 
         var previewImgIds = Array.isArray(q.imageFileIds) && q.imageFileIds.length > 0
@@ -23003,7 +24729,9 @@ var qrcode = (function() {
               if (pres.isTrueFalse) {
                 opTextDiv.textContent = pres.canonicalTfText;
               } else {
-                renderRichTextDocumentToDom(opTextDiv, op.contentRichText, '');
+                renderRichTextDocumentToDom(opTextDiv, op.contentRichText, '', {
+                  defaultEmbedPdf: true
+                });
               }
               lbl.appendChild(opTextDiv);
 
@@ -26740,7 +28468,24 @@ var qrcode = (function() {
           stemRow.appendChild(typeSel);
           cardEl.appendChild(stemRow);
 
-          // 3. Diagram Preview & Quick Upload Row (if images attached)
+          // 3. Diagram Preview & Embedded Media/Table Tray (Images, Embedded PDFs, Tables)
+          var cardMediaHost = document.createElement('div');
+          function syncCardRichMediaTray() {
+            var blocks = stemEd.getMediaBlocks();
+            renderQuestionRichMediaTray(cardMediaHost, blocks, {
+              courseId: ((document.getElementById('select-forms-exam-course') || {}).value || '').trim(),
+              onUpdate: function (nextList) {
+                stemEd.setMediaBlocks(nextList);
+                card.stemDoc = stemEd.getValueDoc();
+                card.stem = extractPlainTextFromRichTextDoc(card.stemDoc);
+                card.isDirty = true;
+                syncCardRichMediaTray();
+              }
+            });
+          }
+          syncCardRichMediaTray();
+          cardEl.appendChild(cardMediaHost);
+
           if (card.imageFileIds && card.imageFileIds.length > 0) {
             var imgBox = document.createElement('div');
             imgBox.style.padding = '10px 12px';
@@ -26753,6 +28498,8 @@ var qrcode = (function() {
             imgTop.style.display = 'flex';
             imgTop.style.alignItems = 'center';
             imgTop.style.justifyContent = 'space-between';
+            imgTop.style.gap = '6px';
+            imgTop.style.flexWrap = 'wrap';
             imgTop.style.marginBottom = '8px';
 
             var imgLbl = document.createElement('strong');
@@ -26760,6 +28507,22 @@ var qrcode = (function() {
             imgLbl.style.color = 'var(--color-brand-deep)';
             imgLbl.textContent = 'Attached Diagram(s): ' + card.imageFileIds.join(', ');
             imgTop.appendChild(imgLbl);
+
+            var imgTopActions = document.createElement('div');
+            imgTopActions.style.display = 'flex';
+            imgTopActions.style.gap = '6px';
+            var zoomDiagBtn = document.createElement('button');
+            zoomDiagBtn.type = 'button';
+            zoomDiagBtn.className = 'btn btn-outline btn-sm';
+            zoomDiagBtn.textContent = 'Zoom Diagram';
+            zoomDiagBtn.addEventListener('click', function () {
+              openInAppImageZoomModal(
+                card.imageFileIds[0],
+                ((document.getElementById('select-forms-exam-course') || {}).value || '').trim(),
+                card.imageAltText || ('Question ' + (cardIndex + 1) + ' Diagram')
+              );
+            });
+            imgTopActions.appendChild(zoomDiagBtn);
 
             var rmImgBtn = document.createElement('button');
             rmImgBtn.type = 'button';
@@ -26770,7 +28533,8 @@ var qrcode = (function() {
               card.isDirty = true;
               renderFormsBuilderQuestionCards();
             });
-            imgTop.appendChild(rmImgBtn);
+            imgTopActions.appendChild(rmImgBtn);
+            imgTop.appendChild(imgTopActions);
             imgBox.appendChild(imgTop);
 
             var gal = document.createElement('div');
@@ -26778,9 +28542,9 @@ var qrcode = (function() {
             for (var im = 0; im < card.imageFileIds.length; im++) {
               var stg = document.createElement('div');
               stg.className = 'pb-qbank-image-thumb-stage';
-              stg.style.maxWidth = '220px';
+              stg.style.maxWidth = '240px';
               gal.appendChild(stg);
-              renderDirectImageElementIntoStage(stg, card.imageFileIds[im], '', card.imageAltText || 'Biology diagram');
+              renderDirectImageElementIntoStage(stg, card.imageFileIds[im], '', card.imageAltText || 'Question diagram');
             }
             imgBox.appendChild(gal);
             cardEl.appendChild(imgBox);
@@ -27133,37 +28897,87 @@ var qrcode = (function() {
           var upImgBtn = document.createElement('button');
           upImgBtn.type = 'button';
           upImgBtn.className = 'btn btn-outline btn-sm';
-          upImgBtn.textContent = '\uD83D\uDDBC Add Diagram';
+          upImgBtn.textContent = '\uD83D\uDDBC + Image / Diagram';
           upImgBtn.addEventListener('click', function () {
             fileInp.click();
           });
           fileInp.addEventListener('change', function () {
             var f = fileInp.files && fileInp.files[0];
             if (!f) return;
+            var assignedCrs = ((document.getElementById('select-forms-exam-course') || {}).value || '').trim();
             runButtonWithLoadingState(upImgBtn, 'Uploading...', function () {
-              return readBrowserFileAsBase64Step8(f).then(function (fData) {
-                return rpcCallEnvelope('admin.uploadFile', {
-                  purpose: 'QUESTION_IMAGE',
-                  originalFilename: fData.originalFilename,
-                  mimeType: fData.mimeType,
-                  dataBase64: fData.dataBase64
-                }).then(function (env) {
-                  var fid = env.data && env.data.file && env.data.file.fileId;
-                  if (fid) {
-                    card.imageFileIds.push(fid);
-                    if (!card.imageAltText) {
-                      card.imageAltText = 'Biology diagram for question ' + (cardIndex + 1);
-                    }
-                    card.isDirty = true;
-                    renderFormsBuilderQuestionCards();
-                    PBNotify.toast('success', 'Diagram Uploaded', 'Attached ' + fid + ' to Question ' + (cardIndex + 1));
-                  }
+              return uploadQuestionStemAttachmentFile(f, 'image', assignedCrs).then(function (res) {
+                stemEd.addMediaBlock({
+                  type: 'image_attachment',
+                  fileId: res.fileId,
+                  altText: String(res.originalFilename || ('Figure ' + (cardIndex + 1))).replace(/\.[^.]+$/, ''),
+                  caption: '',
+                  widthPct: 75
                 });
+                card.stemDoc = stemEd.getValueDoc();
+                card.stem = extractPlainTextFromRichTextDoc(card.stemDoc);
+                card.isDirty = true;
+                syncCardRichMediaTray();
+                fileInp.value = '';
+                PBNotify.toast('success', 'Diagram Embedded', 'Added resizable image ' + res.fileId + ' to Question ' + (cardIndex + 1) + '.');
               });
             });
           });
           rightFtr.appendChild(fileInp);
           rightFtr.appendChild(upImgBtn);
+
+          var pdfFileInp = document.createElement('input');
+          pdfFileInp.type = 'file';
+          pdfFileInp.accept = 'application/pdf,.pdf';
+          pdfFileInp.className = 'hidden';
+          var upPdfBtn = document.createElement('button');
+          upPdfBtn.type = 'button';
+          upPdfBtn.className = 'btn btn-outline btn-sm';
+          upPdfBtn.textContent = '\uD83D\uDCC4 + Embed PDF';
+          upPdfBtn.addEventListener('click', function () {
+            pdfFileInp.click();
+          });
+          pdfFileInp.addEventListener('change', function () {
+            var f = pdfFileInp.files && pdfFileInp.files[0];
+            if (!f) return;
+            var assignedCrs = ((document.getElementById('select-forms-exam-course') || {}).value || '').trim();
+            runButtonWithLoadingState(upPdfBtn, 'Uploading PDF...', function () {
+              return uploadQuestionStemAttachmentFile(f, 'pdf', assignedCrs).then(function (res) {
+                stemEd.addMediaBlock({
+                  type: 'pdf_attachment',
+                  fileId: res.fileId,
+                  title: res.originalFilename || 'Attached PDF.pdf',
+                  displayMode: 'embed',
+                  widthPct: 100,
+                  heightPx: 420
+                });
+                card.stemDoc = stemEd.getValueDoc();
+                card.stem = extractPlainTextFromRichTextDoc(card.stemDoc);
+                card.isDirty = true;
+                syncCardRichMediaTray();
+                pdfFileInp.value = '';
+                PBNotify.toast('success', 'PDF Embedded', 'Attached embedded PDF ' + res.fileId + ' to Question ' + (cardIndex + 1) + '.');
+              });
+            });
+          });
+          rightFtr.appendChild(pdfFileInp);
+          rightFtr.appendChild(upPdfBtn);
+
+          var addTblBtn = document.createElement('button');
+          addTblBtn.type = 'button';
+          addTblBtn.className = 'btn btn-outline btn-sm';
+          addTblBtn.textContent = '\uD83D\uDCCA + Table (.xlsx / .gsheet)';
+          addTblBtn.addEventListener('click', function () {
+            openQuestionTableEditorModal(null, function (tblBlock) {
+              stemEd.addMediaBlock(tblBlock);
+              card.stemDoc = stemEd.getValueDoc();
+              card.stem = extractPlainTextFromRichTextDoc(card.stemDoc);
+              card.isDirty = true;
+              syncCardRichMediaTray();
+              PBNotify.toast('success', 'Table Added', 'Embedded data table into Question ' + (cardIndex + 1) + '.');
+            });
+          });
+          rightFtr.appendChild(addTblBtn);
 
           ftr.appendChild(rightFtr);
           cardEl.appendChild(ftr);
@@ -27453,7 +29267,10 @@ var qrcode = (function() {
       restoreFormsPreviewButtonsState();
       var catalogCard = document.getElementById('admin-exam-builder-catalog-card');
       var workspace = document.getElementById('pb-forms-builder-workspace');
-      if (workspace) workspace.classList.add('hidden');
+      if (workspace) {
+        unloadEmbeddedPdfFramesInElement(workspace);
+        workspace.classList.add('hidden');
+      }
       if (catalogCard) catalogCard.classList.remove('hidden');
       if (typeof PBFloatingToc === 'object' && PBFloatingToc && typeof PBFloatingToc.syncForActiveView === 'function') {
         PBFloatingToc.syncForActiveView();
@@ -27532,8 +29349,8 @@ var qrcode = (function() {
 
     function saveAllFormsQuestionsAndBuildExamPayload() {
       var examTitle = ((document.getElementById('input-forms-exam-title') || {}).value || '').trim();
-      if (!examTitle) {
-        return Promise.reject(new Error('Please enter an Exam or Quiz Title at the top of the form.'));
+      if (!examTitle || examTitle.length < 3) {
+        return Promise.reject(new Error('Please enter an Exam or Quiz Title (at least 3 characters) at the top of the form.'));
       }
       var courseId = ((document.getElementById('select-forms-exam-course') || {}).value || '').trim();
       if (!courseId) {
@@ -27637,8 +29454,10 @@ var qrcode = (function() {
 
         var imgIds = Array.isArray(card.imageFileIds) ? card.imageFileIds : [];
         var altTxt = String(card.imageAltText || '').trim();
+        var useVisualInterpFlag = false;
         if (imgIds.length > 0 && !altTxt) {
-          altTxt = 'Biology diagram for ' + qCode;
+          altTxt = 'Attached figure ' + (cardIdx + 1);
+          useVisualInterpFlag = true;
         }
         var stemDocPayload = card.stemDoc ? cloneRichTextDocSafe(card.stemDoc) : plainTextToRichTextDocSafe(card.stem);
         var expDocPayload = card.explanationDoc ? cloneRichTextDocSafe(card.explanationDoc) : plainTextToRichTextDocSafe(card.explanation || '');
@@ -27660,7 +29479,7 @@ var qrcode = (function() {
           imageFileId: imgIds.join(','),
           imageFileIds: imgIds,
           imageAltText: altTxt,
-          accessibleDesignFlag: 'STANDARD_ALT',
+          accessibleDesignFlag: useVisualInterpFlag ? 'VISUAL_INTERPRETATION_REQUIRED' : (card.accessibleDesignFlag || 'STANDARD_ALT'),
           options: optionsPayload,
           multiSelectScoringRule: card.multiSelectRule || 'EXACT_MATCH',
           unitLabel: card.numericUnit || '',
@@ -27815,6 +29634,15 @@ var qrcode = (function() {
       var msg = (err && err.message) || 'Failed to save exam.';
       if (msg.indexOf('Question type must be SINGLE_CHOICE') !== -1 && msg.indexOf('COMPLEX_MULTIPLE_CHOICE') === -1) {
         msg += ' — Note: Saving Complex Multiple Choice requires updating Google Apps Script from OneDrive\\PPB\\Web\\Code.gs and CourseService.gs.';
+      }
+      if (err && err.fieldErrors && typeof err.fieldErrors === 'object') {
+        var feKeys = Object.keys(err.fieldErrors);
+        if (feKeys.length > 0) {
+          var feDetails = feKeys.map(function (k) {
+            return k + ': ' + String(err.fieldErrors[k]);
+          });
+          msg += ' (' + feDetails.join(' | ') + ')';
+        }
       }
       return msg;
     }
@@ -28763,7 +30591,8 @@ var qrcode = (function() {
           renderRichTextDocumentToDom(
             document.getElementById('exam-ws-stimulus-richtext'),
             q.stimulus.contentRichText,
-            snap.attempt.courseId
+            snap.attempt.courseId,
+            { defaultEmbedPdf: true }
           );
           var stimImgStage = document.getElementById('exam-ws-stimulus-image-stage');
           if (q.stimulus.imageFileId && stimImgStage) {
@@ -28777,10 +30606,10 @@ var qrcode = (function() {
             if (stimZoomBtn) {
               stimZoomBtn.classList.remove('hidden');
               stimZoomBtn.onclick = function () {
-                PBObjectUrlManager.triggerAuthorizedDownload(
+                openInAppImageZoomModal(
                   q.stimulus.imageFileId,
                   snap.attempt.courseId,
-                  true
+                  q.stimulus.imageAltText || q.stimulus.title || 'Shared Stimulus Diagram'
                 );
               };
             }
@@ -28797,7 +30626,8 @@ var qrcode = (function() {
       renderRichTextDocumentToDom(
         document.getElementById('exam-ws-stem-richtext'),
         q.stemRichText,
-        snap.attempt.courseId
+        snap.attempt.courseId,
+        { defaultEmbedPdf: true }
       );
       var qImgStage = document.getElementById('exam-ws-question-image-stage');
       var qZoomBtn = document.getElementById('btn-exam-ws-question-zoom');
@@ -28838,10 +30668,10 @@ var qrcode = (function() {
         if (qZoomBtn) {
           qZoomBtn.classList.remove('hidden');
           qZoomBtn.onclick = function () {
-            PBObjectUrlManager.triggerAuthorizedDownload(
-              q.imageFileId,
+            openInAppImageZoomModal(
+              qImgIds[0],
               snap.attempt.courseId,
-              true
+              q.imageAltText || q.title || 'Question Diagram'
             );
           };
         }
@@ -28987,7 +30817,8 @@ var qrcode = (function() {
                 renderRichTextDocumentToDom(
                   contentDiv,
                   opt.contentRichText,
-                  snap.attempt.courseId
+                  snap.attempt.courseId,
+                  { defaultEmbedPdf: true }
                 );
               }
               cardLbl.appendChild(contentDiv);
@@ -29595,7 +31426,8 @@ var qrcode = (function() {
           renderRichTextDocumentToDom(
             document.getElementById('exam-ws-practice-feedback-richtext'),
             q.explanationRichText || 'Explanation preview.',
-            snap.attempt.courseId
+            snap.attempt.courseId,
+            { defaultEmbedPdf: true }
           );
           return Promise.resolve();
         }
@@ -29617,7 +31449,8 @@ var qrcode = (function() {
           renderRichTextDocumentToDom(
             document.getElementById('exam-ws-practice-feedback-richtext'),
             d.explanationRichText,
-            snap.attempt.courseId
+            snap.attempt.courseId,
+            { defaultEmbedPdf: true }
           );
         });
       });
@@ -30274,7 +32107,9 @@ var qrcode = (function() {
                 var stemDiv = document.createElement('div');
                 stemDiv.className = 'pb-rt-rendered';
                 stemDiv.style.marginTop = '6px';
-                renderRichTextDocumentToDom(stemDiv, it.question.stemRichText, '');
+                renderRichTextDocumentToDom(stemDiv, it.question.stemRichText, '', {
+                  defaultEmbedPdf: true
+                });
                 card.appendChild(stemDiv);
               }
 
@@ -30312,7 +32147,9 @@ var qrcode = (function() {
                 expBox.appendChild(expLbl);
                 var expRt = document.createElement('div');
                 expRt.className = 'pb-rt-rendered';
-                renderRichTextDocumentToDom(expRt, it.explanationRichText, '');
+                renderRichTextDocumentToDom(expRt, it.explanationRichText, '', {
+                  defaultEmbedPdf: true
+                });
                 expBox.appendChild(expRt);
                 card.appendChild(expBox);
               }
@@ -31807,6 +33644,12 @@ var qrcode = (function() {
           } else if (activeModalId === 'modal-pb-pdf-viewer') {
             evt.preventDefault();
             closeInAppPdfViewerModal();
+          } else if (activeModalId === 'modal-pb-image-zoom') {
+            evt.preventDefault();
+            closeInAppImageZoomModal();
+          } else if (activeModalId === 'modal-pb-table-editor') {
+            evt.preventDefault();
+            closeModalDialog('modal-pb-table-editor');
           } else if (activeModalId === 'modal-student-exam-instructions') {
             evt.preventDefault();
             closeStudentExamInstructionsModalPhase3();
@@ -36092,6 +37935,9 @@ var qrcode = (function() {
         }
       },
       renderRichTextDocumentToDom: renderRichTextDocumentToDom,
+      openInAppImageZoomModal: openInAppImageZoomModal,
+      openQuestionTableEditorModal: openQuestionTableEditorModal,
+      spreadsheetTableImporter: PBSpreadsheetTableImporter,
       objectUrlManager: PBObjectUrlManager,
       setCourseEditorDirtyState: setCourseEditorDirtyState,
       hasUnsavedChanges: function () {
@@ -36143,6 +37989,11 @@ var qrcode = (function() {
     });
 
     function safeStartApplicationShell() {
+      try {
+        bindQuestionTableEditorModalEvents();
+      } catch (tblBindErr) {
+        console.error('Non-fatal table/zoom modal binding error:', tblBindErr);
+      }
       try {
         bindNavigationAndDiagnosticEvents();
       } catch (bindErr) {

@@ -528,17 +528,28 @@ function validateAndNormalizeRichTextInput_(
         240
       );
       var imgCaption = sanitizeSingleLineTextStep7_(rawBlock.caption, 300);
+      var imgWidthPct;
+      if (rawBlock.widthPct !== undefined && rawBlock.widthPct !== null && rawBlock.widthPct !== '') {
+        var parsedImgWidth = Number(rawBlock.widthPct);
+        if (isFinite(parsedImgWidth) && parsedImgWidth > 0) {
+          imgWidthPct = Math.min(100, Math.max(20, Math.round(parsedImgWidth)));
+        }
+      }
       if (imgCaption) {
         plainTextParts.push('[Image: ' + imgCaption + ']');
       } else {
         plainTextParts.push('[Image: ' + imgFileId + ']');
       }
-      normalizedBlocks.push({
+      var normalizedImgBlock = {
         type: 'image_attachment',
         fileId: imgFileId,
         altText: imgAlt || 'Course diagram',
         caption: imgCaption
-      });
+      };
+      if (imgWidthPct !== undefined) {
+        normalizedImgBlock.widthPct = imgWidthPct;
+      }
+      normalizedBlocks.push(normalizedImgBlock);
     } else if (bType === 'pdf_attachment') {
       var pdfFileId = sanitizeSingleLineTextStep7_(rawBlock.fileId, 80);
       if (!pdfFileId) {
@@ -561,25 +572,50 @@ function validateAndNormalizeRichTextInput_(
       var pdfTitle =
         sanitizeSingleLineTextStep7_(rawBlock.title, 200) ||
         'Course PDF Handout';
+      var pdfWidthPct;
+      if (rawBlock.widthPct !== undefined && rawBlock.widthPct !== null && rawBlock.widthPct !== '') {
+        var parsedPdfWidth = Number(rawBlock.widthPct);
+        if (isFinite(parsedPdfWidth) && parsedPdfWidth > 0) {
+          pdfWidthPct = Math.min(100, Math.max(30, Math.round(parsedPdfWidth)));
+        }
+      }
+      var pdfHeightPx;
+      if (rawBlock.heightPx !== undefined && rawBlock.heightPx !== null && rawBlock.heightPx !== '') {
+        var parsedPdfHeight = Number(rawBlock.heightPx);
+        if (isFinite(parsedPdfHeight) && parsedPdfHeight > 0) {
+          pdfHeightPx = Math.min(900, Math.max(180, Math.round(parsedPdfHeight)));
+        }
+      }
+      var pdfDisplayMode = String(rawBlock.displayMode || '').trim().toLowerCase();
       plainTextParts.push('[PDF: ' + pdfTitle + ']');
-      normalizedBlocks.push({
+      var normalizedPdfBlock = {
         type: 'pdf_attachment',
         fileId: pdfFileId,
         title: pdfTitle
-      });
+      };
+      if (pdfWidthPct !== undefined) {
+        normalizedPdfBlock.widthPct = pdfWidthPct;
+      }
+      if (pdfHeightPx !== undefined) {
+        normalizedPdfBlock.heightPx = pdfHeightPx;
+      }
+      if (pdfDisplayMode === 'embed' || pdfDisplayMode === 'card') {
+        normalizedPdfBlock.displayMode = pdfDisplayMode;
+      }
+      normalizedBlocks.push(normalizedPdfBlock);
     } else if (bType === 'table') {
       var tblCaption = sanitizeSingleLineTextStep7_(rawBlock.caption, 240);
       var rawHeaders = Array.isArray(rawBlock.headers) ? rawBlock.headers : [];
       var rawRows = Array.isArray(rawBlock.rows) ? rawBlock.rows : [];
-      if (rawRows.length === 0 || rawRows.length > 25) {
+      if (rawRows.length === 0 || rawRows.length > 40) {
         fieldErrors[key] =
-          blockPath + ' (table): must contain between 1 and 25 rows.';
+          blockPath + ' (table): must contain between 1 and 40 rows.';
         continue;
       }
       var colCount = rawHeaders.length > 0 ? rawHeaders.length : (Array.isArray(rawRows[0]) ? rawRows[0].length : 0);
-      if (colCount < 1 || colCount > 10) {
+      if (colCount < 1 || colCount > 12) {
         fieldErrors[key] =
-          blockPath + ' (table): must contain between 1 and 10 columns.';
+          blockPath + ' (table): must contain between 1 and 12 columns.';
         continue;
       }
       var normHeaders = [];
@@ -619,6 +655,8 @@ function validateAndNormalizeRichTextInput_(
       }
       if (tblCaption) {
         plainTextParts.push('[Table: ' + tblCaption + ']');
+      } else {
+        plainTextParts.push('[Table: ' + normRows.length + 'x' + colCount + ']');
       }
       normalizedBlocks.push({
         type: 'table',

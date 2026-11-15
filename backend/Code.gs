@@ -1455,6 +1455,16 @@ function getRpcActionRegistry_() {
       maxRequestBytes: stdLimit,
       validatePayload: validateObjectPayloadOnly_,
       handler: handleAdminRunStep15VerificationSuite_
+    }),
+    'admin.spreadsheet.parseGsheet': Object.freeze({
+      actionName: 'admin.spreadsheet.parseGsheet',
+      visibility: 'PROTECTED',
+      requiredRoles: Object.freeze(['ADMIN']),
+      requiresPrivacyAck: true,
+      isFinancialMutation: false,
+      maxRequestBytes: stdLimit,
+      validatePayload: validateObjectPayloadOnly_,
+      handler: handleAdminParseGsheetSpreadsheet_
     })
   });
 }
@@ -9857,17 +9867,28 @@ function validateAndNormalizeRichTextInput_(
         240
       );
       var imgCaption = sanitizeSingleLineTextStep7_(rawBlock.caption, 300);
+      var imgWidthPct;
+      if (rawBlock.widthPct !== undefined && rawBlock.widthPct !== null && rawBlock.widthPct !== '') {
+        var parsedImgWidth = Number(rawBlock.widthPct);
+        if (isFinite(parsedImgWidth) && parsedImgWidth > 0) {
+          imgWidthPct = Math.min(100, Math.max(20, Math.round(parsedImgWidth)));
+        }
+      }
       if (imgCaption) {
         plainTextParts.push('[Image: ' + imgCaption + ']');
       } else {
         plainTextParts.push('[Image: ' + imgFileId + ']');
       }
-      normalizedBlocks.push({
+      var normalizedImgBlock = {
         type: 'image_attachment',
         fileId: imgFileId,
         altText: imgAlt || 'Course diagram',
         caption: imgCaption
-      });
+      };
+      if (imgWidthPct !== undefined) {
+        normalizedImgBlock.widthPct = imgWidthPct;
+      }
+      normalizedBlocks.push(normalizedImgBlock);
     } else if (bType === 'pdf_attachment') {
       var pdfFileId = sanitizeSingleLineTextStep7_(rawBlock.fileId, 80);
       if (!pdfFileId) {
@@ -9890,25 +9911,50 @@ function validateAndNormalizeRichTextInput_(
       var pdfTitle =
         sanitizeSingleLineTextStep7_(rawBlock.title, 200) ||
         'Course PDF Handout';
+      var pdfWidthPct;
+      if (rawBlock.widthPct !== undefined && rawBlock.widthPct !== null && rawBlock.widthPct !== '') {
+        var parsedPdfWidth = Number(rawBlock.widthPct);
+        if (isFinite(parsedPdfWidth) && parsedPdfWidth > 0) {
+          pdfWidthPct = Math.min(100, Math.max(30, Math.round(parsedPdfWidth)));
+        }
+      }
+      var pdfHeightPx;
+      if (rawBlock.heightPx !== undefined && rawBlock.heightPx !== null && rawBlock.heightPx !== '') {
+        var parsedPdfHeight = Number(rawBlock.heightPx);
+        if (isFinite(parsedPdfHeight) && parsedPdfHeight > 0) {
+          pdfHeightPx = Math.min(900, Math.max(180, Math.round(parsedPdfHeight)));
+        }
+      }
+      var pdfDisplayMode = String(rawBlock.displayMode || '').trim().toLowerCase();
       plainTextParts.push('[PDF: ' + pdfTitle + ']');
-      normalizedBlocks.push({
+      var normalizedPdfBlock = {
         type: 'pdf_attachment',
         fileId: pdfFileId,
         title: pdfTitle
-      });
+      };
+      if (pdfWidthPct !== undefined) {
+        normalizedPdfBlock.widthPct = pdfWidthPct;
+      }
+      if (pdfHeightPx !== undefined) {
+        normalizedPdfBlock.heightPx = pdfHeightPx;
+      }
+      if (pdfDisplayMode === 'embed' || pdfDisplayMode === 'card') {
+        normalizedPdfBlock.displayMode = pdfDisplayMode;
+      }
+      normalizedBlocks.push(normalizedPdfBlock);
     } else if (bType === 'table') {
       var tblCaption = sanitizeSingleLineTextStep7_(rawBlock.caption, 240);
       var rawHeaders = Array.isArray(rawBlock.headers) ? rawBlock.headers : [];
       var rawRows = Array.isArray(rawBlock.rows) ? rawBlock.rows : [];
-      if (rawRows.length === 0 || rawRows.length > 25) {
+      if (rawRows.length === 0 || rawRows.length > 40) {
         fieldErrors[key] =
-          blockPath + ' (table): must contain between 1 and 25 rows.';
+          blockPath + ' (table): must contain between 1 and 40 rows.';
         continue;
       }
       var colCount = rawHeaders.length > 0 ? rawHeaders.length : (Array.isArray(rawRows[0]) ? rawRows[0].length : 0);
-      if (colCount < 1 || colCount > 10) {
+      if (colCount < 1 || colCount > 12) {
         fieldErrors[key] =
-          blockPath + ' (table): must contain between 1 and 10 columns.';
+          blockPath + ' (table): must contain between 1 and 12 columns.';
         continue;
       }
       var normHeaders = [];
@@ -9948,6 +9994,8 @@ function validateAndNormalizeRichTextInput_(
       }
       if (tblCaption) {
         plainTextParts.push('[Table: ' + tblCaption + ']');
+      } else {
+        plainTextParts.push('[Table: ' + normRows.length + 'x' + colCount + ']');
       }
       normalizedBlocks.push({
         type: 'table',
@@ -14763,6 +14811,14 @@ var PB_FILE_PURPOSE_SPECS_STEP8_ = Object.freeze({
     }),
     requiresCourseId: false,
     requiresAdminUpload: true
+  }),
+  QUESTION_PDF: Object.freeze({
+    purpose: 'QUESTION_PDF',
+    allowedMimes: Object.freeze({
+      'application/pdf': true
+    }),
+    requiresCourseId: false,
+    requiresAdminUpload: true
   })
 });
 
@@ -15952,15 +16008,29 @@ function isFileReferencedWithinCourseStep8_(fileId, courseId) {
   try {
     if (typeof PB_SHEET_SCHEMAS_ === 'object' && PB_SHEET_SCHEMAS_ && PB_SHEET_SCHEMAS_.ExamSets) {
       var examSetsRefTbl = readSheetTable_('ExamSets');
+      var publishedCourseExamIds = {};
       for (var exi = 0; exi < examSetsRefTbl.records.length; exi++) {
         var exRec = examSetsRefTbl.records[exi];
         if (exRec.course_id !== courseId || exRec.status !== 'PUBLISHED') {
           continue;
         }
+        publishedCourseExamIds[exRec.exam_id] = true;
         var instStr = String(exRec.instructions_richtext_json || '');
         var descStr = String(exRec.description_richtext_json || '');
         if (instStr.indexOf(fileId) !== -1 || descStr.indexOf(fileId) !== -1) {
           return true;
+        }
+      }
+      if (PB_SHEET_SCHEMAS_.ExamVersions && Object.keys(publishedCourseExamIds).length > 0) {
+        var examVerRefTbl = readSheetTable_('ExamVersions');
+        for (var evi = 0; evi < examVerRefTbl.records.length; evi++) {
+          var evRec = examVerRefTbl.records[evi];
+          if (!publishedCourseExamIds[evRec.exam_id]) {
+            continue;
+          }
+          if (String(evRec.version_payload_json || '').indexOf(fileId) !== -1) {
+            return true;
+          }
         }
       }
     }
@@ -16200,9 +16270,12 @@ function handleFileGetContentStep8_(payload, context) {
       // Public/homepage CMS visual assets uploaded by an administrator
     } else if (
       purpose === 'QUESTION_IMAGE' ||
-      purpose === 'STIMULUS_IMAGE'
+      purpose === 'STIMULUS_IMAGE' ||
+      purpose === 'OPTION_IMAGE' ||
+      purpose === 'QUESTION_PDF' ||
+      purpose === 'EXPLANATION_ATTACHMENT'
     ) {
-      // Question Bank or Shared Stimulus diagrams delivered in authorized examinations
+      // Question Bank, Option, Explanation or Shared Stimulus diagrams/PDFs delivered in authorized examinations
       if (requestedCourseId) {
         assertStudentHasActiveCourseEnrollmentStep8_(currentUserId, requestedCourseId);
       }
@@ -42265,5 +42338,174 @@ function handleAdminReviewIntegrityActionPhaseD_(payload, context) {
   return {
     reviewAction: actionResultSummary,
     dashboard: dashboard
+  };
+}
+
+/**
+ * Extracts and normalizes tabular data from a Google Sheet (via spreadsheetId,
+ * Google Sheets URL, or parsed .gsheet pointer) into structured table headers/rows
+ * compatible with pb-richtext-v1 `table` blocks (up to 40 rows x 12 columns).
+ */
+function handleAdminParseGsheetSpreadsheet_(payload, context) {
+  assertStep7AdminRole_(context);
+  var req = payload && typeof payload === 'object' ? payload : {};
+  var rawId = String(req.spreadsheetId || req.docId || req.doc_id || '').trim();
+  var rawUrl = String(req.url || '').trim();
+  var ssId = rawId;
+  if (!ssId && rawUrl) {
+    var urlMatch =
+      rawUrl.match(/\/spreadsheets\/d\/([A-Za-z0-9_-]{10,120})/) ||
+      rawUrl.match(/[?&]id=([A-Za-z0-9_-]{10,120})/);
+    if (urlMatch && urlMatch[1]) {
+      ssId = urlMatch[1];
+    }
+  }
+  if (!ssId || !/^[A-Za-z0-9_-]{10,120}$/.test(ssId)) {
+    throw createAppError_(
+      PB_ERROR_CODES_.ERR_VALIDATION_FAILED,
+      'Provide a valid Google Sheet ID, URL, or .gsheet file containing a doc_id.',
+      {
+        spreadsheetId: 'Invalid or missing Google Spreadsheet ID.'
+      }
+    );
+  }
+
+  var ss = null;
+  try {
+    ss = SpreadsheetApp.openById(ssId);
+  } catch (openErr) {
+    throw createAppError_(
+      PB_ERROR_CODES_.ERR_FORBIDDEN_RESOURCE,
+      'Unable to open Google Sheet "' +
+        ssId +
+        '" from Apps Script (' +
+        String(openErr && openErr.message ? openErr.message : openErr) +
+        '). Ensure the spreadsheet is shared with the Apps Script owner account, or export/upload it as .xlsx or .csv.',
+      { spreadsheetId: ssId }
+    );
+  }
+
+  var sheets = ss.getSheets() || [];
+  if (sheets.length === 0) {
+    throw createAppError_(
+      PB_ERROR_CODES_.ERR_NOT_FOUND,
+      'The selected Google Sheet contains no worksheets.',
+      { spreadsheetId: ssId }
+    );
+  }
+
+  var sheetNames = [];
+  for (var sIdx = 0; sIdx < sheets.length; sIdx++) {
+    sheetNames.push(String(sheets[sIdx].getName() || 'Sheet ' + (sIdx + 1)));
+  }
+
+  var requestedSheetName = String(req.sheetName || '').trim();
+  var targetSheet = sheets[0];
+  if (requestedSheetName) {
+    for (var sExact = 0; sExact < sheets.length; sExact++) {
+      if (sheets[sExact].getName() === requestedSheetName) {
+        targetSheet = sheets[sExact];
+        break;
+      }
+    }
+    if (targetSheet === sheets[0] && sheets[0].getName() !== requestedSheetName) {
+      var reqLower = requestedSheetName.toLowerCase();
+      for (var sCi = 0; sCi < sheets.length; sCi++) {
+        if (String(sheets[sCi].getName() || '').toLowerCase() === reqLower) {
+          targetSheet = sheets[sCi];
+          break;
+        }
+      }
+    }
+  }
+
+  var activeSheetName = String(targetSheet.getName() || 'Sheet1');
+  var spreadsheetTitle = sanitizeSingleLineTextStep7_(ss.getName(), 160) || 'Imported Table';
+  var lastRow = targetSheet.getLastRow();
+  var lastCol = targetSheet.getLastColumn();
+  if (lastRow <= 0 || lastCol <= 0) {
+    return {
+      spreadsheetId: ssId,
+      title: spreadsheetTitle,
+      sheetNames: sheetNames,
+      activeSheetName: activeSheetName,
+      caption: sanitizeSingleLineTextStep7_(spreadsheetTitle + ' — ' + activeSheetName, 240),
+      headers: ['Column 1'],
+      rows: [['']],
+      totalRows: 0,
+      totalCols: 0,
+      truncated: false
+    };
+  }
+
+  var useHeader = req.useFirstRowAsHeader !== false;
+  var maxDataRows = Math.min(40, Math.max(1, Number(req.maxRows || 40) || 40));
+  var maxCols = Math.min(12, Math.max(1, Number(req.maxCols || 12) || 12));
+  var readRows = Math.min(lastRow, useHeader ? maxDataRows + 1 : maxDataRows);
+  var readCols = Math.min(lastCol, maxCols);
+  var displayGrid = targetSheet.getRange(1, 1, readRows, readCols).getDisplayValues() || [];
+
+  var maxUsedCol = 0;
+  var cleanedGrid = [];
+  for (var r = 0; r < displayGrid.length; r++) {
+    var srcRow = Array.isArray(displayGrid[r]) ? displayGrid[r] : [];
+    var rowOut = [];
+    var rowHasNonEmpty = false;
+    for (var c = 0; c < readCols; c++) {
+      var val = sanitizeSingleLineTextStep7_(srcRow[c] !== undefined ? srcRow[c] : '', 300);
+      rowOut.push(val);
+      if (val) {
+        rowHasNonEmpty = true;
+        if (c + 1 > maxUsedCol) maxUsedCol = c + 1;
+      }
+    }
+    if (rowHasNonEmpty || r === 0) {
+      cleanedGrid.push(rowOut);
+    }
+  }
+
+  if (maxUsedCol < 1) maxUsedCol = 1;
+  for (var trimR = 0; trimR < cleanedGrid.length; trimR++) {
+    cleanedGrid[trimR] = cleanedGrid[trimR].slice(0, maxUsedCol);
+  }
+  while (cleanedGrid.length > 1) {
+    var tailRow = cleanedGrid[cleanedGrid.length - 1];
+    var tailHasContent = false;
+    for (var tc = 0; tc < tailRow.length; tc++) {
+      if (tailRow[tc]) {
+        tailHasContent = true;
+        break;
+      }
+    }
+    if (!tailHasContent) cleanedGrid.pop();
+    else break;
+  }
+
+  var headers = [];
+  var rows = [];
+  if (useHeader && cleanedGrid.length >= 2) {
+    var hdrSrc = cleanedGrid[0];
+    for (var hc = 0; hc < hdrSrc.length; hc++) {
+      headers.push(sanitizeSingleLineTextStep7_(hdrSrc[hc], 200));
+    }
+    rows = cleanedGrid.slice(1, maxDataRows + 1);
+  } else {
+    rows = cleanedGrid.slice(0, maxDataRows);
+  }
+  if (rows.length === 0) {
+    rows = [new Array(maxUsedCol + 1).join(',').split(',').map(function () { return ''; })];
+  }
+
+  return {
+    spreadsheetId: ssId,
+    title: spreadsheetTitle,
+    sheetNames: sheetNames,
+    activeSheetName: activeSheetName,
+    caption: sanitizeSingleLineTextStep7_(spreadsheetTitle + (sheetNames.length > 1 ? ' (' + activeSheetName + ')' : ''), 240),
+    headers: headers,
+    rows: rows,
+    totalRows: lastRow,
+    totalCols: lastCol,
+    truncated: lastRow > readRows || lastCol > readCols
   };
 }

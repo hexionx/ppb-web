@@ -15,7 +15,7 @@
       href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/styles.css?v=85af0cef" />
+    <link rel="stylesheet" href="css/styles.css?v=9e12e6fd" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -9144,6 +9144,7 @@
         <div class="form-group">
           <label class="form-label" for="textarea-qbank-stem">Question Stem * <small style="font-weight:500; color:var(--color-text-muted);">(Supports Subscript Ctrl+=, Superscript Ctrl+Shift+=, &amp; Greek letters e.g. β-glycosidic)</small></label>
           <textarea class="form-textarea" id="textarea-qbank-stem" rows="3" placeholder="Enter the biology question stem..." required></textarea>
+          <div id="qbank-stem-rich-media-tray" class="pb-q-media-tray-slot" style="margin-top: 8px;"></div>
         </div>
 
         <!-- Optional Private Drive Question Diagrams (Multiple Images + Live Preview + Delete) & Non-Spoiler Alt Text -->
@@ -11610,6 +11611,186 @@
     </div>
   </div>
 </div>
+
+<!-- Interactive Image / Diagram Lightbox & Zoom Inspector Modal -->
+<div
+  id="modal-pb-image-zoom"
+  class="modal-backdrop pb-modal-backdrop pb-pdf-viewer-backdrop hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="pb-image-zoom-title"
+  aria-hidden="true"
+>
+  <div class="pb-modal-dialog pb-image-zoom-dialog">
+    <div class="pb-modal-header pb-pdf-viewer-header">
+      <div class="pb-pdf-viewer-title-wrap">
+        <span class="badge pb-exam-badge-mock">Diagram Inspector</span>
+        <h2 id="pb-image-zoom-title" class="pb-pdf-viewer-title">Image Preview</h2>
+        <p id="pb-image-zoom-meta" class="pb-pdf-viewer-meta"></p>
+      </div>
+      <div class="pb-pdf-viewer-header-actions pb-image-zoom-controls">
+        <button type="button" class="btn btn-outline btn-sm" id="btn-pb-image-zoom-out" title="Zoom Out">-</button>
+        <span id="pb-image-zoom-pct-label" class="badge badge-ok" style="min-width: 58px; text-align: center;">100%</span>
+        <button type="button" class="btn btn-outline btn-sm" id="btn-pb-image-zoom-in" title="Zoom In">+</button>
+        <button type="button" class="btn btn-outline btn-sm" data-pb-zoom-preset="fit">Fit</button>
+        <button type="button" class="btn btn-outline btn-sm" data-pb-zoom-preset="150">150%</button>
+        <button type="button" class="btn btn-outline btn-sm" data-pb-zoom-preset="200">200%</button>
+        <a
+          id="link-pb-image-zoom-download"
+          class="btn btn-primary btn-sm"
+          href="#"
+          download="diagram.png"
+        >
+          Download
+        </a>
+        <button
+          type="button"
+          class="btn btn-outline btn-sm"
+          id="btn-pb-image-zoom-close"
+          aria-label="Close diagram zoom modal"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+    <div class="pb-modal-body pb-image-zoom-stage" id="pb-image-zoom-stage">
+      <img id="img-pb-image-zoom-target" class="pb-image-zoom-target" alt="Zoomed Question Diagram" />
+    </div>
+  </div>
+</div>
+
+<!-- Question Table Builder & .xlsx / .gsheet / .csv Auto-Converter Modal -->
+<div
+  id="modal-pb-table-editor"
+  class="modal-backdrop pb-modal-backdrop pb-pdf-viewer-backdrop hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="pb-table-editor-title"
+  aria-hidden="true"
+>
+  <div class="pb-modal-dialog pb-table-editor-dialog">
+    <div class="pb-modal-header pb-pdf-viewer-header">
+      <div class="pb-pdf-viewer-title-wrap">
+        <span class="badge badge-ok">Question Table &amp; Spreadsheet Importer</span>
+        <h2 id="pb-table-editor-title" class="pb-pdf-viewer-title">Create or Import Data Table</h2>
+        <p class="pb-pdf-viewer-meta">
+          Upload an Excel (.xlsx), Google Sheet pointer (.gsheet), or CSV/TSV file, paste rows from a spreadsheet, or edit cells directly.
+        </p>
+      </div>
+      <div class="pb-pdf-viewer-header-actions">
+        <button
+          type="button"
+          class="btn btn-outline btn-sm"
+          id="btn-pb-table-editor-close"
+          aria-label="Close table editor"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+
+    <div class="pb-modal-body pb-table-editor-body">
+      <div class="pb-table-import-panel">
+        <div class="pb-table-import-row">
+          <div style="flex: 1 1 260px; min-width: 0;">
+            <label class="form-label" for="input-pb-table-import-file" style="margin-bottom: 4px;">
+              Auto-Convert File (.xlsx, .gsheet, .csv, .tsv)
+            </label>
+            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+              <input
+                type="file"
+                class="form-input"
+                id="input-pb-table-import-file"
+                accept=".xlsx,.gsheet,.csv,.tsv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/tab-separated-values,application/json"
+                style="flex: 1 1 200px;"
+              />
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-pb-table-import-file">
+                Import File
+              </button>
+            </div>
+          </div>
+
+          <div style="flex: 1 1 260px; min-width: 0;">
+            <label class="form-label" for="input-pb-table-gsheet-url" style="margin-bottom: 4px;">
+              Or Import from Google Sheets URL / Spreadsheet ID
+            </label>
+            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+              <input
+                type="text"
+                class="form-input"
+                id="input-pb-table-gsheet-url"
+                placeholder="https://docs.google.com/spreadsheets/d/..."
+                style="flex: 1 1 200px;"
+              />
+              <button type="button" class="btn btn-outline btn-sm" id="btn-pb-table-gsheet-fetch">
+                Fetch Sheet
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
+          <div id="pb-table-sheet-picker-wrap" class="hidden" style="display: flex; align-items: center; gap: 6px;">
+            <label class="form-label" for="select-pb-table-sheet-name" style="margin: 0; font-size: 0.8rem;">Worksheet:</label>
+            <select id="select-pb-table-sheet-name" class="form-input" style="width: auto; font-size: 0.82rem; padding: 4px 8px;"></select>
+          </div>
+
+          <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 600; cursor: pointer;">
+            <input type="checkbox" id="chk-pb-table-first-row-header" checked />
+            Treat first row as table header
+          </label>
+
+          <button type="button" class="btn btn-outline btn-sm" id="btn-pb-table-toggle-paste">
+            Paste Cells from Excel / Sheets
+          </button>
+        </div>
+
+        <div id="pb-table-paste-drawer" class="hidden" style="margin-top: 8px;">
+          <textarea
+            id="textarea-pb-table-paste"
+            class="form-textarea"
+            rows="3"
+            placeholder="Copy cells in Excel or Google Sheets (Ctrl+C) and paste here (Ctrl+V)..."
+          ></textarea>
+          <div style="display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px;">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-pb-table-apply-paste">
+              Convert Pasted Cells to Table
+            </button>
+          </div>
+        </div>
+
+        <div id="pb-table-import-status" class="pb-field-hint" style="margin-top: 6px;"></div>
+      </div>
+
+      <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 12px;">
+        <div class="form-group" style="flex: 1 1 240px; margin-bottom: 0;">
+          <label class="form-label" for="input-pb-table-caption">Table Title / Caption (Optional)</label>
+          <input
+            type="text"
+            class="form-input"
+            id="input-pb-table-caption"
+            maxlength="240"
+            placeholder="e.g., Table 1: Enzyme Reaction Rate across pH 2-10"
+          />
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+          <span id="pb-table-dim-badge" class="badge badge-ok">3 cols × 3 rows</span>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-pb-table-add-row">+ Row</button>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-pb-table-del-row">- Row</button>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-pb-table-add-col">+ Col</button>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-pb-table-del-col">- Col</button>
+        </div>
+      </div>
+
+      <div id="pb-table-grid-editor-host" class="pb-table-grid-scroll" style="margin-top: 10px;"></div>
+    </div>
+
+    <div class="pb-modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; padding-top: 12px; border-top: 1px solid #E2E8F0; margin-top: 12px;">
+      <button type="button" class="btn btn-outline btn-sm" id="btn-pb-table-editor-cancel">Cancel</button>
+      <button type="button" class="btn btn-primary btn-sm" id="btn-pb-table-save">Apply Table to Question</button>
+    </div>
+  </div>
+</div>
     </main>
 
     <!-- Floating Quick-Jump Table of Contents (TOC) Menu for Student, Admin & Public Views -->
@@ -11782,6 +11963,6 @@
     <!-- Backend endpoint config, fetch transport shim, then the original client app -->
     <script src="js/config.js?v=9a51d76b"></script>
     <script src="js/api.js?v=155c4573"></script>
-    <script src="js/app.js?v=c5bf5fb9"></script>
+    <script src="js/app.js?v=944c7252"></script>
   </body>
 </html>

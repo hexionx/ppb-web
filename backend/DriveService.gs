@@ -186,6 +186,14 @@ var PB_FILE_PURPOSE_SPECS_STEP8_ = Object.freeze({
     }),
     requiresCourseId: false,
     requiresAdminUpload: true
+  }),
+  QUESTION_PDF: Object.freeze({
+    purpose: 'QUESTION_PDF',
+    allowedMimes: Object.freeze({
+      'application/pdf': true
+    }),
+    requiresCourseId: false,
+    requiresAdminUpload: true
   })
 });
 
@@ -1375,15 +1383,29 @@ function isFileReferencedWithinCourseStep8_(fileId, courseId) {
   try {
     if (typeof PB_SHEET_SCHEMAS_ === 'object' && PB_SHEET_SCHEMAS_ && PB_SHEET_SCHEMAS_.ExamSets) {
       var examSetsRefTbl = readSheetTable_('ExamSets');
+      var publishedCourseExamIds = {};
       for (var exi = 0; exi < examSetsRefTbl.records.length; exi++) {
         var exRec = examSetsRefTbl.records[exi];
         if (exRec.course_id !== courseId || exRec.status !== 'PUBLISHED') {
           continue;
         }
+        publishedCourseExamIds[exRec.exam_id] = true;
         var instStr = String(exRec.instructions_richtext_json || '');
         var descStr = String(exRec.description_richtext_json || '');
         if (instStr.indexOf(fileId) !== -1 || descStr.indexOf(fileId) !== -1) {
           return true;
+        }
+      }
+      if (PB_SHEET_SCHEMAS_.ExamVersions && Object.keys(publishedCourseExamIds).length > 0) {
+        var examVerRefTbl = readSheetTable_('ExamVersions');
+        for (var evi = 0; evi < examVerRefTbl.records.length; evi++) {
+          var evRec = examVerRefTbl.records[evi];
+          if (!publishedCourseExamIds[evRec.exam_id]) {
+            continue;
+          }
+          if (String(evRec.version_payload_json || '').indexOf(fileId) !== -1) {
+            return true;
+          }
         }
       }
     }
@@ -1623,9 +1645,12 @@ function handleFileGetContentStep8_(payload, context) {
       // Public/homepage CMS visual assets uploaded by an administrator
     } else if (
       purpose === 'QUESTION_IMAGE' ||
-      purpose === 'STIMULUS_IMAGE'
+      purpose === 'STIMULUS_IMAGE' ||
+      purpose === 'OPTION_IMAGE' ||
+      purpose === 'QUESTION_PDF' ||
+      purpose === 'EXPLANATION_ATTACHMENT'
     ) {
-      // Question Bank or Shared Stimulus diagrams delivered in authorized examinations
+      // Question Bank, Option, Explanation or Shared Stimulus diagrams/PDFs delivered in authorized examinations
       if (requestedCourseId) {
         assertStudentHasActiveCourseEnrollmentStep8_(currentUserId, requestedCourseId);
       }
