@@ -945,7 +945,7 @@
 
   // ==================== EXAMS: STRUCTURE, VALIDATION, LIST, DRAFT, PUBLISH, ASSIGN ====================
 
-  function buildExamVersionStructureBundle(exRow, verRow, secRows, itemRows, qbById, qvById, qoByQvId, stimById, includeDetail) {
+  function buildExamVersionStructureBundle(exRow, verRow, secRows, itemRows, qbById, qvById, qoByQvId, stimById, includeDetail, opt_includePrivate) {
     if (!verRow) {
       return {
         examVersionId: '',
@@ -1004,7 +1004,7 @@
           negativePointsDisplay: formatPointsBp(it.negative_points_bp || 0),
           isPoolCandidate: Boolean(it.is_pool_candidate),
           poolGroupTag: it.pool_group_tag || '',
-          questionPreview: qb && qv ? projectQuestionVersionDto(qb, qv, qoByQvId[qv.question_version_id] || [], stim, false) : null
+          questionPreview: qb && qv ? projectQuestionVersionDto(qb, qv, qoByQvId[qv.question_version_id] || [], stim, opt_includePrivate === true) : null
         };
       }).filter(Boolean);
 
@@ -1225,7 +1225,7 @@
       var targetVerId = ex.draft_exam_version_id || ex.active_exam_version_id;
       var verRow = targetVerId ? exvById[targetVerId] : null;
       var actVerRow = ex.active_exam_version_id ? exvById[ex.active_exam_version_id] : null;
-      var verBundle = buildExamVersionStructureBundle(ex, verRow, exsSec, exItems, qbB.qbById, qbB.qvById, qbB.qoByQvId, qbB.stById, true);
+      var verBundle = buildExamVersionStructureBundle(ex, verRow, exsSec, exItems, qbB.qbById, qbB.qvById, qbB.qoByQvId, qbB.stById, true, true);
       var valRep = evaluateExamPublicationReadiness(ex, verRow, exsSec, exItems, qbB.qbById, qbB.qvById, qbB.qoByQvId, fileById);
       var cRec = crsById[ex.course_id];
       var descDoc = asRichDoc(ex.description_richtext_json || '');
@@ -1995,7 +1995,7 @@
         ex, ver, prevSecs, prevItems, ses.userId, true, [], [], prevCrsById, prevQb.qbById, prevQb.qvById, true
       );
       var fullPreviewStruct = buildExamVersionStructureBundle(
-        ex, ver, prevSecs, prevItems, prevQb.qbById, prevQb.qvById, prevQb.qoByQvId, prevQb.stById, true
+        ex, ver, prevSecs, prevItems, prevQb.qbById, prevQb.qvById, prevQb.qoByQvId, prevQb.stById, true, true
       );
       entry.sections = fullPreviewStruct.sections;
       entry.sectionsOverview = fullPreviewStruct.sections;

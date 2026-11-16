@@ -28391,7 +28391,7 @@ var qrcode = (function() {
           examSetId: examSetId,
           adminPreview: isAdminPrev
         },
-        { suppressErrorBanner: isAdminPrev }
+        { suppressErrorBanner: isAdminPrev, forceRefresh: isAdminPrev }
       )
         .then(function (env) {
           if (reqToken !== activeExamInstructionsReqToken) return;
@@ -28953,52 +28953,45 @@ var qrcode = (function() {
         startBtn.textContent = 'Building Interactive Question Preview...';
       }
 
-      var initialQById = {};
-      if (Array.isArray(currentQBankQuestionsPhase2)) {
-        for (var iq = 0; iq < currentQBankQuestionsPhase2.length; iq++) {
-          var iqb = currentQBankQuestionsPhase2[iq];
-          if (iqb && iqb.questionId) initialQById[iqb.questionId] = iqb;
-        }
-      }
-      var hasMissingPreviewQuestions = !Array.isArray(currentQBankQuestionsPhase2) || currentQBankQuestionsPhase2.length === 0;
-      if (!hasMissingPreviewQuestions && examDto && Array.isArray(examDto.sections)) {
-        for (var es = 0; es < examDto.sections.length; es++) {
-          var esItems = Array.isArray(examDto.sections[es].items) ? examDto.sections[es].items : [];
-          for (var ei = 0; ei < esItems.length; ei++) {
-            var eqId = esItems[ei].questionId || esItems[ei].question_id || '';
-            if (eqId && !initialQById[eqId]) {
-              hasMissingPreviewQuestions = true;
-              break;
+      var ensureQuestionsLoaded = rpcCallEnvelope(
+        'admin.questions.list',
+        { page: 1, limit: 200, includePrivate: true },
+        { suppressErrorBanner: true, forceRefresh: true }
+      )
+        .then(function (env) {
+          var d = env.data || {};
+          currentQBankQuestionsPhase2 = Array.isArray(d.questions) ? d.questions : [];
+          return currentQBankQuestionsPhase2;
+        })
+        .catch(function () {
+          return currentQBankQuestionsPhase2 || [];
+        });
+
+      var ensureExamsLoaded = rpcCallEnvelope('admin.exams.list', {}, { suppressErrorBanner: true, forceRefresh: true })
+        .then(function (env) {
+          var d = env.data || {};
+          currentAdminExamsListPhase3 = Array.isArray(d.exams) ? d.exams : [];
+          if (examDto && examDto.examSetId) {
+            for (var fei = 0; fei < currentAdminExamsListPhase3.length; fei++) {
+              var freshEx = currentAdminExamsListPhase3[fei];
+              if (freshEx && freshEx.examSetId === examDto.examSetId) {
+                if (Array.isArray(freshEx.sections) && freshEx.sections.length > 0) {
+                  examDto.sections = freshEx.sections;
+                  if (freshEx.title) examDto.title = freshEx.title;
+                  if (freshEx.description !== undefined) examDto.description = freshEx.description;
+                  if (freshEx.durationMinutes !== undefined) examDto.durationMinutes = freshEx.durationMinutes;
+                  if (freshEx.examVersionId) examDto.examVersionId = freshEx.examVersionId;
+                  if (freshEx.updatedAt) examDto.updatedAt = freshEx.updatedAt;
+                }
+                break;
+              }
             }
           }
-          if (hasMissingPreviewQuestions) break;
-        }
-      }
-
-      var ensureQuestionsLoaded = !hasMissingPreviewQuestions
-        ? Promise.resolve(currentQBankQuestionsPhase2)
-        : rpcCallEnvelope('admin.questions.list', { page: 1, limit: 200, includePrivate: true }, { suppressErrorBanner: true })
-            .then(function (env) {
-              var d = env.data || {};
-              currentQBankQuestionsPhase2 = Array.isArray(d.questions) ? d.questions : [];
-              return currentQBankQuestionsPhase2;
-            })
-            .catch(function () {
-              return currentQBankQuestionsPhase2 || [];
-            });
-
-      var ensureExamsLoaded =
-        Array.isArray(currentAdminExamsListPhase3) && currentAdminExamsListPhase3.length > 0 && !hasMissingPreviewQuestions
-          ? Promise.resolve(currentAdminExamsListPhase3)
-          : rpcCallEnvelope('admin.exams.list', {}, { suppressErrorBanner: true })
-              .then(function (env) {
-                var d = env.data || {};
-                currentAdminExamsListPhase3 = Array.isArray(d.exams) ? d.exams : [];
-                return currentAdminExamsListPhase3;
-              })
-              .catch(function () {
-                return [];
-              });
+          return currentAdminExamsListPhase3;
+        })
+        .catch(function () {
+          return currentAdminExamsListPhase3 || [];
+        });
 
       return Promise.all([ensureQuestionsLoaded, ensureExamsLoaded]).then(function () {
         var adminExam = null;
@@ -29031,8 +29024,31 @@ var qrcode = (function() {
           var sec = secs[s] || {};
           var secItems = Array.isArray(sec.items) ? sec.items : [];
           for (var it = 0; it < secItems.length; it++) {
-            var qId = secItems[it].questionId || secItems[it].question_id || '';
-            var fullQ = qById[qId] || secItems[it].question || secItems[it].questionPreview || {};
+            var itemObj = secItems[it] || {};
+            var qId = itemObj.questionId || itemObj.question_id || '';
+            var targetQvId = itemObj.questionVersionId || itemObj.question_version_id || '';
+            var prevQ = itemObj.question || itemObj.questionPreview || null;
+            var bankQ = qById[qId] || null;
+            var fullQ = {};
+            if (prevQ && prevQ.questionId && (!targetQvId || !prevQ.questionVersionId || prevQ.questionVersionId === targetQvId)) {
+              fullQ = prevQ;
+              if (bankQ && (!targetQvId || bankQ.questionVersionId === targetQvId) && Array.isArray(bankQ.options) && bankQ.options.length > 0 && (!Array.isArray(prevQ.options) || prevQ.options.length === 0)) {
+                fullQ = bankQ;
+              }
+            } else if (bankQ && (!targetQvId || bankQ.questionVersionId === targetQvId)) {
+              fullQ = bankQ;
+            } else {
+              fullQ = prevQ || bankQ || {};
+            }
+            if (fullQ && fullQ.privateGradingData) {
+              var fullQPriv = fullQ.privateGradingData;
+              if (!fullQ.explanationRichText && fullQPriv.explanationRichText) {
+                fullQ = Object.assign({}, fullQ, { explanationRichText: fullQPriv.explanationRichText });
+              }
+              if (!fullQ.gradingSpec && fullQPriv.gradingSpec) {
+                fullQ = Object.assign({}, fullQ, { gradingSpec: fullQPriv.gradingSpec });
+              }
+            }
             var rawOpts = Array.isArray(fullQ.options) ? fullQ.options : [];
             var mappedOpts = [];
             for (var o = 0; o < rawOpts.length; o++) {
@@ -29558,7 +29574,8 @@ var qrcode = (function() {
           if (!anyCorrect && opts.length > 0) opts[0].isCorrect = true;
         }
       }
-      var gSpec = qDto.gradingSpec || {};
+      var privGrading = qDto.privateGradingData || {};
+      var gSpec = qDto.gradingSpec || privGrading.gradingSpec || {};
       var fallbackPts = qType === 'COMPLEX_MULTIPLE_CHOICE' ? PB_ALEVEL_66_BIO_BLUEPRINT.complexMcDefaultPoints : PB_ALEVEL_66_BIO_BLUEPRINT.singleChoiceDefaultPoints;
       var pts =
         opt_pointsDisplay !== undefined
@@ -29715,7 +29732,7 @@ var qrcode = (function() {
           secSel.addEventListener('change', function () {
             card.blueprintSection = secSel.value;
             card.topicTags = getBlueprintSectionById(secSel.value).title;
-            card.isDirty = true;
+            markFormsCardDirty(card);
             updateFormsBuilderSummaryBadge();
           });
           leftHdr.appendChild(secSel);
@@ -29746,7 +29763,7 @@ var qrcode = (function() {
           ptsInp.value = card.points;
           ptsInp.addEventListener('input', function () {
             card.points = ptsInp.value || '2.4';
-            card.isDirty = true;
+            markFormsCardDirty(card);
             updateFormsBuilderSummaryBadge();
           });
           rightHdr.appendChild(ptsInp);
@@ -29763,6 +29780,7 @@ var qrcode = (function() {
             var tmp = formsBuilderQuestionCards[cardIndex - 1];
             formsBuilderQuestionCards[cardIndex - 1] = formsBuilderQuestionCards[cardIndex];
             formsBuilderQuestionCards[cardIndex] = tmp;
+            markFormsBuilderDirty();
             renderFormsBuilderQuestionCards();
           });
           rightHdr.appendChild(upBtn);
@@ -29779,6 +29797,7 @@ var qrcode = (function() {
             var tmp = formsBuilderQuestionCards[cardIndex + 1];
             formsBuilderQuestionCards[cardIndex + 1] = formsBuilderQuestionCards[cardIndex];
             formsBuilderQuestionCards[cardIndex] = tmp;
+            markFormsBuilderDirty();
             renderFormsBuilderQuestionCards();
           });
           rightHdr.appendChild(dnBtn);
@@ -29819,6 +29838,7 @@ var qrcode = (function() {
               isDirty: true
             });
             formsBuilderQuestionCards.splice(cardIndex + 1, 0, cloned);
+            markFormsBuilderDirty();
             renderFormsBuilderQuestionCards();
           });
           rightHdr.appendChild(dupBtn);
@@ -29834,6 +29854,7 @@ var qrcode = (function() {
               return;
             }
             formsBuilderQuestionCards.splice(cardIndex, 1);
+            markFormsBuilderDirty();
             renderFormsBuilderQuestionCards();
           });
           rightHdr.appendChild(delBtn);
@@ -29854,7 +29875,7 @@ var qrcode = (function() {
             onChange: function (doc, plainTxt) {
               card.stemDoc = doc;
               card.stem = plainTxt;
-              card.isDirty = true;
+              markFormsCardDirty(card);
             }
           });
           stemRow.appendChild(stemEd.element);
@@ -29879,7 +29900,7 @@ var qrcode = (function() {
           }
           typeSel.addEventListener('change', function () {
             card.questionType = typeSel.value;
-            card.isDirty = true;
+            markFormsCardDirty(card);
             if (card.questionType === 'TRUE_FALSE') {
               card.options = [
                 { text: 'True', doc: plainTextToRichTextDocSafe('True'), isCorrect: true, pinPosition: 'FIXED' },
@@ -30373,7 +30394,7 @@ var qrcode = (function() {
                 });
                 card.stemDoc = stemEd.getValueDoc();
                 card.stem = extractPlainTextFromRichTextDoc(card.stemDoc);
-                card.isDirty = true;
+                markFormsCardDirty(card);
                 syncCardRichMediaTray();
                 fileInp.value = '';
                 PBNotify.toast('success', 'Diagram Embedded', 'Added resizable image ' + res.fileId + ' to Question ' + (cardIndex + 1) + '.');
@@ -30409,7 +30430,7 @@ var qrcode = (function() {
                 stemEd.setMediaBlocks(updatedBlocks);
                 card.stemDoc = stemEd.getValueDoc();
                 card.stem = extractPlainTextFromRichTextDoc(card.stemDoc);
-                card.isDirty = true;
+                markFormsCardDirty(card);
                 syncCardRichMediaTray();
               }
             }
@@ -30435,7 +30456,7 @@ var qrcode = (function() {
                 });
                 card.stemDoc = stemEd.getValueDoc();
                 card.stem = extractPlainTextFromRichTextDoc(card.stemDoc);
-                card.isDirty = true;
+                markFormsCardDirty(card);
                 syncCardRichMediaTray();
                 pdfFileInp.value = '';
                 PBNotify.toast(
@@ -30459,7 +30480,7 @@ var qrcode = (function() {
               stemEd.addMediaBlock(tblBlock);
               card.stemDoc = stemEd.getValueDoc();
               card.stem = extractPlainTextFromRichTextDoc(card.stemDoc);
-              card.isDirty = true;
+              markFormsCardDirty(card);
               syncCardRichMediaTray();
               PBNotify.toast('success', 'Table Added', 'Embedded data table into Question ' + (cardIndex + 1) + '.');
             });
@@ -30497,7 +30518,7 @@ var qrcode = (function() {
           });
           difSel.addEventListener('change', function () {
             card.difficulty = difSel.value;
-            card.isDirty = true;
+            markFormsCardDirty(card);
           });
           advGrid.appendChild(difSel);
 
@@ -30572,6 +30593,210 @@ var qrcode = (function() {
       }
     }
 
+    var FORMS_AUTOSAVE_INTERVAL_MS = 60000;
+    var formsBuilderAutoSaveIntervalId = null;
+    var formsBuilderSaveInFlightPromise = null;
+    var formsBuilderDirtySeq = 0;
+    var formsBuilderLastSavedSeq = 0;
+    var formsBuilderLastSavedSignature = '';
+    var formsBuilderAutoSaveListenersBound = false;
+
+    function isFormsBuilderWorkspaceVisible() {
+      var ws = document.getElementById('pb-forms-builder-workspace');
+      if (!ws || ws.classList.contains('hidden')) return false;
+      var adminPortal = document.getElementById('view-admin');
+      if (adminPortal && adminPortal.classList.contains('hidden')) return false;
+      var creationPanel = document.getElementById('admin-panel-exam-creation');
+      if (creationPanel && creationPanel.classList.contains('hidden')) return false;
+      return true;
+    }
+
+    function setFormsAutoSaveStatusBadge(text, tone) {
+      var el = document.getElementById('pb-forms-autosave-status');
+      if (!el) return;
+      el.textContent = text;
+      if (tone === 'saving') {
+        el.style.background = '#E0F2FE';
+        el.style.color = '#0369A1';
+      } else if (tone === 'saved') {
+        el.style.background = '#DCFCE7';
+        el.style.color = '#166534';
+      } else if (tone === 'dirty') {
+        el.style.background = '#FEF3C7';
+        el.style.color = '#92400E';
+      } else if (tone === 'warn') {
+        el.style.background = '#FFEDD5';
+        el.style.color = '#9A3412';
+      } else {
+        el.style.background = '#F1F5F9';
+        el.style.color = '#475569';
+      }
+    }
+
+    function formatFormsAutoSaveTimeHHMMSS() {
+      try {
+        return (
+          new Intl.DateTimeFormat('en-GB', {
+            timeZone: 'Asia/Bangkok',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+          }).format(new Date()) + ' ICT'
+        );
+      } catch (_e) {
+        return new Date().toTimeString().slice(0, 8);
+      }
+    }
+
+    function serializeFormsCardSnapshot(card) {
+      if (!card) return '';
+      try {
+        return JSON.stringify({
+          qId: card.questionId || '',
+          qType: card.questionType || '',
+          sec: card.blueprintSection || '',
+          pts: String(card.points || ''),
+          neg: String(card.negativePoints || ''),
+          dif: card.difficulty || '',
+          top: card.topicTags || '',
+          stem: card.stem || '',
+          stemDoc: card.stemDoc || null,
+          opts: card.options || [],
+          nt: card.numericTarget,
+          to: card.numericTolerance,
+          nu: card.numericUnit,
+          sm: card.shortAnswerMode,
+          aa: card.acceptedAnswers,
+          sa: card.sampleModelAnswer,
+          exp: card.explanation || '',
+          expDoc: card.explanationDoc || null,
+          imgs: card.imageFileIds || [],
+          alt: card.imageAltText || ''
+        });
+      } catch (_e) {
+        return String(card.stem || '') + ':' + String(card.points || '');
+      }
+    }
+
+    function computeFormsBuilderStateSignature() {
+      var readVal = function (id) {
+        var el = document.getElementById(id);
+        return el ? String(el.value || '') : '';
+      };
+      var headerSig = [
+        readVal('input-forms-exam-id'),
+        readVal('input-forms-exam-code'),
+        readVal('input-forms-exam-title'),
+        readVal('select-forms-exam-course'),
+        readVal('textarea-forms-exam-description'),
+        readVal('select-forms-exam-mode'),
+        readVal('input-forms-exam-duration'),
+        readVal('input-forms-exam-pass-pct'),
+        readVal('input-forms-exam-attempts'),
+        readVal('select-forms-exam-attempt-policy'),
+        readVal('select-forms-score-policy'),
+        readVal('select-forms-explanation-policy'),
+        readVal('input-forms-open-at'),
+        readVal('input-forms-close-at'),
+        readVal('input-forms-sec-title'),
+        readVal('select-forms-sec-mode')
+      ].join('|');
+      var cardSigs = Array.isArray(formsBuilderQuestionCards)
+        ? formsBuilderQuestionCards.map(serializeFormsCardSnapshot).join('||')
+        : '';
+      return headerSig + '###' + cardSigs;
+    }
+
+    function markFormsBuilderDirty() {
+      formsBuilderDirtySeq += 1;
+      setFormsAutoSaveStatusBadge('Unsaved edits • Auto-saves every 1 min', 'dirty');
+    }
+
+    function markFormsCardDirty(card) {
+      if (card) {
+        card.isDirty = true;
+        card._editSeq = (card._editSeq || 0) + 1;
+      }
+      markFormsBuilderDirty();
+    }
+
+    function saveFormsBuilderLocalBackup(reasonLabel) {
+      try {
+        if (typeof localStorage === 'undefined') return;
+        var uid = (currentSessionMeta && currentSessionMeta.user && currentSessionMeta.user.userId) || 'admin';
+        var examId = ((document.getElementById('input-forms-exam-id') || {}).value || '').trim() || 'new';
+        var key = 'pb_forms_autosave_backup_v1_' + uid + '_' + examId;
+        localStorage.setItem(
+          key,
+          JSON.stringify({
+            savedAtIso: new Date().toISOString(),
+            reason: String(reasonLabel || 'incomplete'),
+            signature: computeFormsBuilderStateSignature(),
+            examTitle: (document.getElementById('input-forms-exam-title') || {}).value || '',
+            examCode: (document.getElementById('input-forms-exam-code') || {}).value || '',
+            courseId: (document.getElementById('select-forms-exam-course') || {}).value || '',
+            questionCount: Array.isArray(formsBuilderQuestionCards) ? formsBuilderQuestionCards.length : 0
+          })
+        );
+      } catch (_e) {}
+    }
+
+    function bindFormsBuilderAutoSaveListenersOnce() {
+      if (formsBuilderAutoSaveListenersBound) return;
+      var ws = document.getElementById('pb-forms-builder-workspace');
+      if (!ws) return;
+      formsBuilderAutoSaveListenersBound = true;
+      var handleWsMutation = function (ev) {
+        var target = ev && ev.target;
+        if (target && target.closest) {
+          var cardEl = target.closest('[data-forms-card-id]');
+          if (cardEl && Array.isArray(formsBuilderQuestionCards)) {
+            var cid = cardEl.getAttribute('data-forms-card-id');
+            for (var ci = 0; ci < formsBuilderQuestionCards.length; ci++) {
+              if (formsBuilderQuestionCards[ci] && formsBuilderQuestionCards[ci].localId === cid) {
+                formsBuilderQuestionCards[ci].isDirty = true;
+                formsBuilderQuestionCards[ci]._editSeq = (formsBuilderQuestionCards[ci]._editSeq || 0) + 1;
+                break;
+              }
+            }
+          }
+        }
+        markFormsBuilderDirty();
+      };
+      ws.addEventListener('input', handleWsMutation);
+      ws.addEventListener('change', handleWsMutation);
+    }
+
+    function stopFormsBuilderAutoSaveTimer() {
+      if (formsBuilderAutoSaveIntervalId !== null) {
+        clearInterval(formsBuilderAutoSaveIntervalId);
+        formsBuilderAutoSaveIntervalId = null;
+      }
+    }
+
+    function startFormsBuilderAutoSaveTimer() {
+      stopFormsBuilderAutoSaveTimer();
+      bindFormsBuilderAutoSaveListenersOnce();
+      formsBuilderLastSavedSignature = computeFormsBuilderStateSignature();
+      formsBuilderLastSavedSeq = formsBuilderDirtySeq;
+      setFormsAutoSaveStatusBadge('Auto-save: Every 1 min', 'idle');
+      formsBuilderAutoSaveIntervalId = setInterval(function () {
+        if (!isFormsBuilderWorkspaceVisible()) {
+          stopFormsBuilderAutoSaveTimer();
+          return;
+        }
+        var role = currentSessionMeta && currentSessionMeta.user && currentSessionMeta.user.role;
+        if (role !== 'ADMIN') {
+          stopFormsBuilderAutoSaveTimer();
+          return;
+        }
+        if (typeof handleFormsAutoSaveTick === 'function') {
+          return handleFormsAutoSaveTick();
+        }
+      }, FORMS_AUTOSAVE_INTERVAL_MS);
+    }
+
     function openFormsExamBuilderForNewExam() {
       restoreFormsPreviewButtonsState();
       populateAdminExamBuilderCourseAndStudentDropdownsPhase3();
@@ -30633,6 +30858,9 @@ var qrcode = (function() {
       ensureFormsWordToolbarMounted();
       formsBuilderQuestionCards = [createBlankFormsQuestionCardState()];
       renderFormsBuilderQuestionCards();
+      formsBuilderDirtySeq = 0;
+      formsBuilderLastSavedSeq = 0;
+      startFormsBuilderAutoSaveTimer();
       if (titleEl) titleEl.focus();
     }
 
@@ -30753,7 +30981,14 @@ var qrcode = (function() {
           var items = Array.isArray(sec.items) ? sec.items : [];
           for (var k = 0; k < items.length; k++) {
             var it = items[k];
-            var fullQ = qbankById[it.questionId] || it.questionPreview || null;
+            var prevQ = it.questionPreview || null;
+            var bankQ = qbankById[it.questionId] || null;
+            var fullQ = null;
+            if (prevQ && (!bankQ || (it.questionVersionId && prevQ.questionVersionId === it.questionVersionId && bankQ.questionVersionId !== it.questionVersionId))) {
+              fullQ = prevQ;
+            } else {
+              fullQ = bankQ || prevQ || null;
+            }
             loadedCards.push(
               mapQuestionDtoToFormsCardState(fullQ, it.pointsDisplay, it.negativePointsDisplay, sec.title)
             );
@@ -30786,11 +31021,18 @@ var qrcode = (function() {
             }
           }
           renderFormsBuilderQuestionCards();
+          formsBuilderDirtySeq = 0;
+          formsBuilderLastSavedSeq = 0;
+          startFormsBuilderAutoSaveTimer();
         });
       }
+      formsBuilderDirtySeq = 0;
+      formsBuilderLastSavedSeq = 0;
+      startFormsBuilderAutoSaveTimer();
     }
 
     function closeFormsExamBuilderToCatalog(opt_opts) {
+      stopFormsBuilderAutoSaveTimer();
       var opts = opt_opts && typeof opt_opts === 'object' ? opt_opts : {};
       restoreFormsPreviewButtonsState();
       if (typeof PBEnhancedSelect === 'object' && PBEnhancedSelect) {
@@ -30901,17 +31143,24 @@ var qrcode = (function() {
       banner.classList.remove('hidden');
     }
 
-    function saveAllFormsQuestionsAndBuildExamPayload() {
+    function saveAllFormsQuestionsAndBuildExamPayload(opt_opts) {
+      var buildOpts = opt_opts && typeof opt_opts === 'object' ? opt_opts : {};
+      var isSilentAutoSave = Boolean(buildOpts.isSilentAutoSave);
+      var rejectFormsValidation = function (msg) {
+        var vErr = new Error(msg);
+        if (isSilentAutoSave) vErr.isAutoSaveIncomplete = true;
+        return Promise.reject(vErr);
+      };
       var examTitle = ((document.getElementById('input-forms-exam-title') || {}).value || '').trim();
       if (!examTitle || examTitle.length < 3) {
-        return Promise.reject(new Error('Please enter an Exam or Quiz Title (at least 3 characters) at the top of the form.'));
+        return rejectFormsValidation('Please enter an Exam or Quiz Title (at least 3 characters) at the top of the form.');
       }
       var courseId = ((document.getElementById('select-forms-exam-course') || {}).value || '').trim();
       if (!courseId) {
-        return Promise.reject(new Error('Please select an Assigned Course for this exam.'));
+        return rejectFormsValidation('Please select an Assigned Course for this exam.');
       }
       if (formsBuilderQuestionCards.length === 0) {
-        return Promise.reject(new Error('Please add at least one question card to the exam.'));
+        return rejectFormsValidation('Please add at least one question card to the exam.');
       }
 
       var rawCode = ((document.getElementById('input-forms-exam-code') || {}).value || '').trim().toUpperCase();
@@ -30934,7 +31183,7 @@ var qrcode = (function() {
         var stemCleanTxt = extractCleanTextFromRichTextDoc(c.stemDoc || c.stem).trim();
         var stemChkTxt = extractPlainTextFromRichTextDoc(c.stemDoc || c.stem).trim();
         if (!stemChkTxt) {
-          return Promise.reject(new Error('Question ' + qNum + ' is missing its question prompt text.'));
+          return rejectFormsValidation('Question ' + qNum + ' is missing its question prompt text.');
         }
         c.stem = stemCleanTxt || stemChkTxt;
         if (c.questionType === 'COMPLEX_MULTIPLE_CHOICE') {
@@ -30942,18 +31191,18 @@ var qrcode = (function() {
             return extractPlainTextFromRichTextDoc(o.doc || o.text).trim().length > 0;
           });
           if (nonEmptyStmts.length < 3 || nonEmptyStmts.length > 5) {
-            return Promise.reject(new Error('Question ' + qNum + ' (Complex MC) requires 3 to 5 non-empty sub-statements.'));
+            return rejectFormsValidation('Question ' + qNum + ' (Complex MC) requires 3 to 5 non-empty sub-statements.');
           }
         } else if (c.questionType === 'SINGLE_CHOICE' || c.questionType === 'MULTIPLE_SELECT' || c.questionType === 'TRUE_FALSE') {
           var nonEmptyOpts = c.options.filter(function (o) {
             return extractPlainTextFromRichTextDoc(o.doc || o.text).trim().length > 0;
           });
           if (nonEmptyOpts.length < 2) {
-            return Promise.reject(new Error('Question ' + qNum + ' must have at least 2 non-empty answer choices.'));
+            return rejectFormsValidation('Question ' + qNum + ' must have at least 2 non-empty answer choices.');
           }
           var correctCnt = nonEmptyOpts.filter(function (o) { return Boolean(o.isCorrect); }).length;
           if (correctCnt < 1) {
-            return Promise.reject(new Error('Question ' + qNum + ' must have a correct answer selected.'));
+            return rejectFormsValidation('Question ' + qNum + ' must have a correct answer selected.');
           }
         }
       }
@@ -31067,35 +31316,59 @@ var qrcode = (function() {
           adminNotes: ''
         };
 
+        var cardSnapshotAtStart = serializeFormsCardSnapshot(card);
         return rpcCallEnvelope('admin.questions.save', qPayload, {
-          dedupeKey: 'admin.questions.save:' + (card.questionId || ('new_' + cardIdx + '_' + qCode))
+          dedupeKey: 'admin.questions.save:' + (card.questionId || ('new_' + cardIdx + '_' + qCode)),
+          suppressErrorBanner: isSilentAutoSave
         }).then(function (env) {
           var savedQ = env.data && env.data.question;
           if (savedQ && savedQ.questionId) {
             card.questionId = savedQ.questionId;
+            card.questionVersionId = savedQ.questionVersionId || card.questionVersionId || '';
             card.expectedVersion = savedQ.version || 1;
             card.questionCode = savedQ.questionCode || qCode;
             card.title = savedQ.title || qTitle;
-            card.isDirty = false;
+            if (serializeFormsCardSnapshot(card) === cardSnapshotAtStart) {
+              card.isDirty = false;
+            }
+            if (Array.isArray(currentQBankQuestionsPhase2)) {
+              var replacedInBank = false;
+              for (var qi = 0; qi < currentQBankQuestionsPhase2.length; qi++) {
+                if (currentQBankQuestionsPhase2[qi] && currentQBankQuestionsPhase2[qi].questionId === savedQ.questionId) {
+                  currentQBankQuestionsPhase2[qi] = savedQ;
+                  replacedInBank = true;
+                  break;
+                }
+              }
+              if (!replacedInBank) currentQBankQuestionsPhase2.unshift(savedQ);
+            }
           }
           completedDirty++;
           if (totalDirty > 0) {
-            setFormsBuilderProgressBanner(
-              'info',
-              'Saving Questions (' + completedDirty + ' of ' + totalDirty + ')...',
-              'Saved Q' + (cardIdx + 1) + ': ' + String(card.stem || qTitle).slice(0, 65)
-            );
+            if (isSilentAutoSave) {
+              setFormsAutoSaveStatusBadge('Auto-saving (' + completedDirty + '/' + totalDirty + ')...', 'saving');
+            } else {
+              setFormsBuilderProgressBanner(
+                'info',
+                'Saving Questions (' + completedDirty + ' of ' + totalDirty + ')...',
+                'Saved Q' + (cardIdx + 1) + ': ' + String(card.stem || qTitle).slice(0, 65)
+              );
+            }
           }
         });
       }
 
       var savePromise = Promise.resolve();
       if (totalDirty > 0) {
-        setFormsBuilderProgressBanner(
-          'info',
-          'Saving ' + totalDirty + ' Updated Question(s) in Parallel...',
-          'Using concurrent request workers for faster Mock Test saving...'
-        );
+        if (isSilentAutoSave) {
+          setFormsAutoSaveStatusBadge('Auto-saving ' + totalDirty + ' question(s)...', 'saving');
+        } else {
+          setFormsBuilderProgressBanner(
+            'info',
+            'Saving ' + totalDirty + ' Updated Question(s) in Parallel...',
+            'Using concurrent request workers for faster Mock Test saving...'
+          );
+        }
         var nextCursor = 0;
         var workerCount = Math.min(3, totalDirty);
         var workers = [];
@@ -31206,12 +31479,43 @@ var qrcode = (function() {
       return msg;
     }
 
-    function handleFormsSaveExamDraft(triggerBtn) {
-      return runButtonWithLoadingState(triggerBtn, 'Saving Exam...', function () {
-        return saveAllFormsQuestionsAndBuildExamPayload()
+    function handleFormsAutoSaveTick() {
+      if (!isFormsBuilderWorkspaceVisible()) {
+        stopFormsBuilderAutoSaveTimer();
+        return Promise.resolve(null);
+      }
+      var role = currentSessionMeta && currentSessionMeta.user && currentSessionMeta.user.role;
+      if (role !== 'ADMIN') {
+        stopFormsBuilderAutoSaveTimer();
+        return Promise.resolve(null);
+      }
+      if (formsBuilderSaveInFlightPromise) {
+        return formsBuilderSaveInFlightPromise;
+      }
+      var curSig = computeFormsBuilderStateSignature();
+      if (curSig === formsBuilderLastSavedSignature && formsBuilderDirtySeq === formsBuilderLastSavedSeq) {
+        return Promise.resolve(null);
+      }
+      return runFormsSaveDraftCore({ isAutoSave: true });
+    }
+
+    function runFormsSaveDraftCore(opts) {
+      opts = opts && typeof opts === 'object' ? opts : {};
+      var isAutoSave = Boolean(opts.isAutoSave);
+      var triggerBtn = opts.triggerBtn || null;
+      var sigAtStart = computeFormsBuilderStateSignature();
+      var dirtySeqAtStart = formsBuilderDirtySeq;
+
+      var executeSave = function () {
+        if (isAutoSave) {
+          setFormsAutoSaveStatusBadge('Auto-saving draft...', 'saving');
+        }
+        return saveAllFormsQuestionsAndBuildExamPayload({ isSilentAutoSave: isAutoSave })
           .then(function (examPayload) {
-            setFormsBuilderProgressBanner('info', 'Saving Exam Set...', 'Linking all questions into ' + examPayload.examCode + '...');
-            return rpcCallEnvelope('admin.exams.saveDraft', examPayload);
+            if (!isAutoSave) {
+              setFormsBuilderProgressBanner('info', 'Saving Exam Set...', 'Linking all questions into ' + examPayload.examCode + '...');
+            }
+            return rpcCallEnvelope('admin.exams.saveDraft', examPayload, { suppressErrorBanner: isAutoSave });
           })
           .then(function (env) {
             renderAdminExamsTablePhase3(env.data);
@@ -31223,25 +31527,88 @@ var qrcode = (function() {
               if (verEl) verEl.value = String(saved.version || 1);
               setText('pb-forms-status-badge', 'SAVED DRAFT: ' + (saved.examCode || ''));
             }
+            var timeLabel = formatFormsAutoSaveTimeHHMMSS();
+            if (isAutoSave) {
+              var anyDirtyLeft = Array.isArray(formsBuilderQuestionCards) && formsBuilderQuestionCards.some(function (c) {
+                return c && (!c.questionId || c.isDirty);
+              });
+              if (formsBuilderDirtySeq === dirtySeqAtStart && !anyDirtyLeft) {
+                formsBuilderLastSavedSeq = formsBuilderDirtySeq;
+                formsBuilderLastSavedSignature = computeFormsBuilderStateSignature();
+                setFormsAutoSaveStatusBadge('Auto-saved at ' + timeLabel, 'saved');
+              } else {
+                formsBuilderLastSavedSeq = dirtySeqAtStart;
+                formsBuilderLastSavedSignature = sigAtStart;
+                setFormsAutoSaveStatusBadge('Auto-saved earlier • New edits pending', 'dirty');
+              }
+              return saved || null;
+            }
             renderFormsBuilderQuestionCards();
+            formsBuilderLastSavedSeq = formsBuilderDirtySeq;
+            formsBuilderLastSavedSignature = computeFormsBuilderStateSignature();
+            setFormsAutoSaveStatusBadge('Saved at ' + timeLabel, 'saved');
             setFormsBuilderProgressBanner(
               'success',
               'Exam Draft Saved!',
               'All questions and exam settings have been saved. Click "Publish Exam" when ready for students.'
             );
             PBNotify.toast('success', 'Exam Draft Saved', 'Saved ' + ((saved && saved.title) || 'exam') + ' with ' + formsBuilderQuestionCards.length + ' question(s).');
+            return saved || null;
           })
           .catch(function (err) {
+            if (isAutoSave) {
+              var shortMsg = (err && err.message) ? String(err.message) : 'Pending fields';
+              saveFormsBuilderLocalBackup(shortMsg);
+              if (err && err.isAutoSaveIncomplete) {
+                setFormsAutoSaveStatusBadge('Auto-save waiting: complete required fields', 'warn');
+              } else {
+                setFormsAutoSaveStatusBadge('Auto-save retry in 1 min (local backup kept)', 'warn');
+              }
+              return null;
+            }
             var msg = formatFormsSaveErrorFriendly(err);
             setFormsBuilderProgressBanner('danger', 'Could Not Save Exam', msg);
             PBNotify.toast('danger', 'Save Error', msg);
           });
+      };
+
+      var priorInFlight = formsBuilderSaveInFlightPromise
+        ? formsBuilderSaveInFlightPromise.catch(function () {})
+        : Promise.resolve();
+
+      var trackedPromise = !isAutoSave && triggerBtn
+        ? runButtonWithLoadingState(triggerBtn, 'Saving Exam...', function () {
+            return priorInFlight.then(executeSave);
+          })
+        : executeSave();
+
+      var clearInFlight = function (val) {
+        if (formsBuilderSaveInFlightPromise === wrapped) {
+          formsBuilderSaveInFlightPromise = null;
+        }
+        return val;
+      };
+      var wrapped = trackedPromise.then(clearInFlight, function (err) {
+        clearInFlight(null);
+        throw err;
       });
+      formsBuilderSaveInFlightPromise = wrapped;
+      return wrapped;
+    }
+
+    function handleFormsSaveExamDraft(triggerBtn) {
+      return runFormsSaveDraftCore({ isAutoSave: false, triggerBtn: triggerBtn });
     }
 
     function handleFormsPublishExamNow(triggerBtn) {
-      return runButtonWithLoadingState(triggerBtn, 'Publishing Exam...', function () {
-        return saveAllFormsQuestionsAndBuildExamPayload()
+      var priorInFlight = formsBuilderSaveInFlightPromise
+        ? formsBuilderSaveInFlightPromise.catch(function () {})
+        : Promise.resolve();
+      var pubPromise = runButtonWithLoadingState(triggerBtn, 'Publishing Exam...', function () {
+        return priorInFlight
+          .then(function () {
+            return saveAllFormsQuestionsAndBuildExamPayload();
+          })
           .then(function (examPayload) {
             setFormsBuilderProgressBanner('info', 'Validating & Publishing...', 'Saving exam structure and publishing live version...');
             return rpcCallEnvelope('admin.exams.saveDraft', examPayload);
@@ -31264,6 +31631,9 @@ var qrcode = (function() {
               setText('pb-forms-status-badge', 'PUBLISHED LIVE: ' + (pubExam.examCode || ''));
             }
             renderFormsBuilderQuestionCards();
+            formsBuilderLastSavedSeq = formsBuilderDirtySeq;
+            formsBuilderLastSavedSignature = computeFormsBuilderStateSignature();
+            setFormsAutoSaveStatusBadge('Published at ' + formatFormsAutoSaveTimeHHMMSS(), 'saved');
             setFormsBuilderProgressBanner(
               'success',
               'Exam Published Live!',
@@ -31277,6 +31647,16 @@ var qrcode = (function() {
             PBNotify.toast('danger', 'Publication Blocked', msg);
           });
       });
+      formsBuilderSaveInFlightPromise = pubPromise;
+      pubPromise.then(
+        function () {
+          if (formsBuilderSaveInFlightPromise === pubPromise) formsBuilderSaveInFlightPromise = null;
+        },
+        function () {
+          if (formsBuilderSaveInFlightPromise === pubPromise) formsBuilderSaveInFlightPromise = null;
+        }
+      );
+      return pubPromise;
     }
 
     function initGoogleFormsExamStudioBindings() {
@@ -31306,6 +31686,7 @@ var qrcode = (function() {
             'wrap-forms-exam-attempt-pair',
             1
           );
+          markFormsBuilderDirty();
           renderFormsBuilderQuestionCards();
           PBNotify.toast('success', 'A-Level 66 Bio Defaults Loaded', '90 minutes • 5-Option MC (2.4 pts) • Complex MC (3.2 pts) across 5 official topics.');
         });
@@ -31322,6 +31703,7 @@ var qrcode = (function() {
               blueprintSection: activeFormsBlueprintSectionId
             })
           );
+          markFormsBuilderDirty();
           renderFormsBuilderQuestionCards();
           var container = document.getElementById('pb-forms-questions-container');
           if (container && container.lastElementChild) {
@@ -31386,6 +31768,7 @@ var qrcode = (function() {
           if (btn.dataset) btn.dataset.boundAddQ = '1';
           btn.addEventListener('click', function () {
             formsBuilderQuestionCards.push(createBlankFormsQuestionCardState());
+            markFormsBuilderDirty();
             renderFormsBuilderQuestionCards();
             var container = document.getElementById('pb-forms-questions-container');
             if (container && container.lastElementChild) {
@@ -31483,8 +31866,14 @@ var qrcode = (function() {
           if (!btn || (btn.dataset && btn.dataset.boundPrevForms)) return;
           if (btn.dataset) btn.dataset.boundPrevForms = '1';
           btn.addEventListener('click', function () {
-            runButtonWithLoadingState(btn, 'Opening Preview...', function () {
-              return saveAllFormsQuestionsAndBuildExamPayload()
+            var priorInFlight = formsBuilderSaveInFlightPromise
+              ? formsBuilderSaveInFlightPromise.catch(function () {})
+              : Promise.resolve();
+            var prevPromise = runButtonWithLoadingState(btn, 'Opening Preview...', function () {
+              return priorInFlight
+                .then(function () {
+                  return saveAllFormsQuestionsAndBuildExamPayload();
+                })
                 .then(function (examPayload) {
                   setFormsBuilderProgressBanner('info', 'Preparing Exam Preview...', 'Saving draft to launch interactive preview...');
                   return rpcCallEnvelope('admin.exams.saveDraft', examPayload);
@@ -31497,6 +31886,10 @@ var qrcode = (function() {
                     var verEl = document.getElementById('input-forms-exam-version');
                     if (idEl) idEl.value = saved.examSetId;
                     if (verEl) verEl.value = String(saved.version || 1);
+                    setText('pb-forms-status-badge', 'SAVED DRAFT: ' + (saved.examCode || ''));
+                    formsBuilderLastSavedSeq = formsBuilderDirtySeq;
+                    formsBuilderLastSavedSignature = computeFormsBuilderStateSignature();
+                    setFormsAutoSaveStatusBadge('Saved at ' + formatFormsAutoSaveTimeHHMMSS(), 'saved');
                     setFormsBuilderProgressBanner('hidden');
                     return openStudentExamInstructionsModalPhase3(saved.examSetId, true);
                   }
@@ -31504,6 +31897,13 @@ var qrcode = (function() {
                 .catch(function (err) {
                   var existingId = ((document.getElementById('input-forms-exam-id') || {}).value || '').trim();
                   if (existingId) {
+                    var warnMsg = formatFormsSaveErrorFriendly(err);
+                    setFormsBuilderProgressBanner(
+                      'warning',
+                      'Unsaved Edits Could Not Be Saved Yet',
+                      warnMsg + ' Showing last saved preview version.'
+                    );
+                    PBNotify.toast('warning', 'Previewing Last Saved Version', warnMsg);
                     return openStudentExamInstructionsModalPhase3(existingId, true);
                   }
                   var msg = (err && err.message) || 'Please select an Assigned Course and enter an Exam Title before previewing.';
@@ -31511,6 +31911,15 @@ var qrcode = (function() {
                   PBNotify.toast('warning', 'Cannot Preview Yet', msg);
                 });
             });
+            formsBuilderSaveInFlightPromise = prevPromise;
+            prevPromise.then(
+              function () {
+                if (formsBuilderSaveInFlightPromise === prevPromise) formsBuilderSaveInFlightPromise = null;
+              },
+              function () {
+                if (formsBuilderSaveInFlightPromise === prevPromise) formsBuilderSaveInFlightPromise = null;
+              }
+            );
           });
         })(prevFormsBtns[pf]);
       }
@@ -31554,24 +31963,27 @@ var qrcode = (function() {
       if (previewExamBuilderBtn) {
         previewExamBuilderBtn.addEventListener('click', function () {
           var existingId = ((document.getElementById('input-exam-editor-id') || {}).value || '').trim();
-          if (existingId) {
-            runButtonWithLoadingState(previewExamBuilderBtn, 'Loading Preview...', function () {
-              return openStudentExamInstructionsModalPhase3(existingId, true);
-            });
-          } else {
-            var payload = collectExamEditorFormPayloadPhase3();
-            runButtonWithLoadingState(previewExamBuilderBtn, 'Saving & Previewing...', function () {
-              setText('exam-editor-status-text', 'Saving draft to open live exam preview...');
-              return rpcCallEnvelope('admin.exams.saveDraft', payload).then(function (env) {
+          var payload = collectExamEditorFormPayloadPhase3();
+          runButtonWithLoadingState(previewExamBuilderBtn, 'Saving & Previewing...', function () {
+            setText('exam-editor-status-text', 'Saving latest draft to open live exam preview...');
+            return rpcCallEnvelope('admin.exams.saveDraft', payload)
+              .then(function (env) {
                 renderAdminExamsTablePhase3(env.data);
                 var savedExam = env.data && env.data.exam;
                 if (savedExam && savedExam.examSetId) {
                   populateAdminExamEditorForEditPhase3(savedExam);
                   return openStudentExamInstructionsModalPhase3(savedExam.examSetId, true);
                 }
+                if (existingId) return openStudentExamInstructionsModalPhase3(existingId, true);
+              })
+              .catch(function (err) {
+                if (existingId) {
+                  PBNotify.toast('warning', 'Previewing Last Saved Version', (err && err.message) || 'Could not save modal edits before previewing.');
+                  return openStudentExamInstructionsModalPhase3(existingId, true);
+                }
+                throw err;
               });
-            });
-          }
+          });
         });
       }
 
