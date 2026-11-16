@@ -1303,13 +1303,15 @@
       sb.from('cards').select('*').eq('course_id', courseId).eq('status', 'PUBLISHED').order('sort_order', { ascending: true }),
       sb.from('assessments').select('*'),
       sb.from('files').select('*').eq('status', 'ACTIVE'),
-      sb.from('assessment_scores').select('*').eq('student_user_id', ses.userId).eq('course_id', courseId).eq('status', 'PUBLISHED').order('updated_at_utc', { ascending: false })
+      sb.from('assessment_scores').select('*').eq('student_user_id', ses.userId).eq('course_id', courseId).eq('status', 'PUBLISHED').order('updated_at_utc', { ascending: false }),
+      sb.from('exam_sets').select('exam_set_id,status').eq('course_id', courseId).in('status', ['PUBLISHED', 'CLOSED'])
     ]);
     var secs = throwIfPgErr(all[0]) || [];
     var cards = throwIfPgErr(all[1]) || [];
     var asms = throwIfPgErr(all[2]) || [];
     var files = throwIfPgErr(all[3]) || [];
     var scoreRows = throwIfPgErr(all[4]) || [];
+    var pubExamRows = (all[5] && !all[5].error && Array.isArray(all[5].data)) ? all[5].data : [];
     var asmMap = {}, filesMap = {}, cardsBySec = {};
     asms.forEach(function (a) { asmMap[a.assessment_id] = a; });
     files.forEach(function (f) { filesMap[f.file_id] = f; });
@@ -1319,15 +1321,20 @@
     });
     var crsMapSingle = {};
     crsMapSingle[cRow.course_id] = cRow;
+    var courseDto = mapCourseRowToDto(cRow, secs.length, cards.length, 0);
+    courseDto.publishedExamCount = pubExamRows.length;
 
     return {
-      course: mapCourseRowToDto(cRow, secs.length, cards.length, 0),
+      course: courseDto,
+      publishedExamCount: pubExamRows.length,
       sections: secs.map(function (s) {
         return {
           sectionId: s.section_id,
           sectionType: s.section_type,
           title: s.title,
           sortOrder: Number(s.sort_order || 0),
+          updatedAtUtc: s.updated_at_utc || '',
+          updatedAtBangkok: s.updated_at_utc ? formatBangkokTimestamp(s.updated_at_utc) : '',
           cards: cardsBySec[s.section_id] || []
         };
       }),
@@ -2309,28 +2316,45 @@
         var uAll = await Promise.all([
           sbUsers.rpc('pb_admin_list_users', {
             p_session_token: token,
-            p_search: payload.searchQuery || '',
-            p_role: payload.roleFilter || 'ALL',
-            p_status: payload.statusFilter || 'ALL',
-            p_limit: Number(payload.limit || 50)
+            p_search: '',
+            p_role: 'ALL',
+            p_status: 'ALL',
+            p_limit: 500
           }),
           sbUsers.from('courses').select('course_id,course_code,title,status,sort_order,created_at_utc,updated_at_utc,version').order('sort_order', { ascending: true }),
-          sbUsers.from('users').select('user_id,role,status'),
           sbUsers.from('enrollments').select('user_id,course_id,status').eq('status', 'ACTIVE')
         ]);
         var uRes = unwrapRpcResult(uAll[0]) || {};
         var crsListRows = throwIfPgErr(uAll[1]) || [];
-        var allUserStatusRows = throwIfPgErr(uAll[2]) || [];
-        var activeEnrRows = throwIfPgErr(uAll[3]) || [];
+        var activeEnrRows = throwIfPgErr(uAll[2]) || [];
         var crsByIdMap = {};
         crsListRows.forEach(function (c) { crsByIdMap[c.course_id] = c; });
 
-        var usableAdminsCnt = allUserStatusRows.filter(function (x) { return x.role === 'ADMIN' && x.status === 'ACTIVE'; }).length;
-        var activeStudentsCnt = allUserStatusRows.filter(function (x) { return x.role === 'STUDENT' && x.status === 'ACTIVE'; }).length;
-        var inactiveStudentsCnt = allUserStatusRows.filter(function (x) { return x.role === 'STUDENT' && x.status !== 'ACTIVE'; }).length;
+        var allUsers = Array.isArray(uRes.users) ? uRes.users : [];
+        var usableAdminsCnt = allUsers.filter(function (x) { return x.role === 'ADMIN' && x.status === 'ACTIVE'; }).length;
+        var activeStudentsCnt = allUsers.filter(function (x) { return x.role === 'STUDENT' && x.status === 'ACTIVE'; }).length;
+        var inactiveStudentsCnt = allUsers.filter(function (x) { return x.role === 'STUDENT' && x.status !== 'ACTIVE'; }).length;
 
-        var rawUsers = Array.isArray(uRes.users) ? uRes.users : [];
-        var mappedUsers = rawUsers.map(function (u) {
+        var qKw = String(payload.searchQuery || '').trim().toLowerCase();
+        var qRole = String(payload.roleFilter || 'ALL').trim().toUpperCase();
+        var qStatus = String(payload.statusFilter || 'ALL').trim().toUpperCase();
+        var pageOffset = Math.max(0, parseInt(payload.cursor || '0', 10) || 0);
+        var pageLimit = Math.max(1, Math.min(500, parseInt(payload.limit || '50', 10) || 50));
+
+        var matchedUsers = allUsers.filter(function (u) {
+          if (qRole !== 'ALL' && String(u.role || '').toUpperCase() !== qRole) return false;
+          if (qStatus !== 'ALL' && String(u.status || '').toUpperCase() !== qStatus) return false;
+          if (qKw) {
+            var hay = (String(u.username || '') + ' ' + String(u.fullName || '') + ' ' + String(u.email || '')).toLowerCase();
+            if (hay.indexOf(qKw) === -1) return false;
+          }
+          return true;
+        });
+
+        var pageSlice = matchedUsers.slice(pageOffset, pageOffset + pageLimit);
+        var nextCursorVal = (pageOffset + pageSlice.length) < matchedUsers.length ? String(pageOffset + pageSlice.length) : null;
+
+        var mappedUsers = pageSlice.map(function (u) {
           var enrIds = Array.isArray(u.enrolledCourseIds) ? u.enrolledCourseIds : [];
           var enrDtos = enrIds.map(function (cid) {
             var c = crsByIdMap[cid];
@@ -2353,8 +2377,8 @@
         data = Object.assign({}, uRes, {
           items: mappedUsers,
           users: mappedUsers,
-          totalMatched: Number(uRes.total !== undefined ? uRes.total : mappedUsers.length),
-          nextCursor: null,
+          totalMatched: matchedUsers.length,
+          nextCursor: nextCursorVal,
           availableCourses: crsListRows.map(function (c) { return mapCourseRowToDto(c, 0, 0, 0); }),
           summaryCounts: {
             usableAdmins: usableAdminsCnt,
@@ -2403,7 +2427,7 @@
             ? sbProf.from('cards').select('card_id,course_id').in('course_id', pCourseIds).eq('status', 'PUBLISHED')
             : Promise.resolve({ data: [] }),
           pCourseIds.length > 0
-            ? sbProf.from('exams').select('exam_id,course_id').in('course_id', pCourseIds).eq('status', 'PUBLISHED')
+            ? sbProf.from('exam_sets').select('exam_set_id,course_id').in('course_id', pCourseIds).in('status', ['PUBLISHED', 'CLOSED'])
             : Promise.resolve({ data: [] }),
           profileUid
             ? sbProf.from('assessment_scores').select('*').eq('student_user_id', profileUid).eq('status', 'PUBLISHED').order('updated_at_utc', { ascending: false })

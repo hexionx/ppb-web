@@ -1901,7 +1901,7 @@
   async function handleStudentListExams(payload, token) {
     var ses = await B().requireSession(token, ['STUDENT', 'ADMIN']);
     var req = payload || {};
-    var fCrs = clean(req.courseId, 64), fMode = String(req.examMode || 'ALL').toUpperCase(), fAvail = String(req.availabilityState || 'ALL').toUpperCase(), fComp = String(req.completionState || 'ALL').toUpperCase();
+    var fCrs = clean(req.courseId, 64), fMode = String(req.examMode || req.modeFilter || 'ALL').toUpperCase(), fAvail = String(req.availabilityState || req.availabilityFilter || 'ALL').toUpperCase(), fComp = String(req.completionState || req.completionFilter || 'ALL').toUpperCase();
     var searchQ = String(req.search || '').trim().toLowerCase();
 
     var all = await Promise.all([

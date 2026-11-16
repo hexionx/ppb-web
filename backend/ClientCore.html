@@ -12897,6 +12897,7 @@
       var currentChildCount = containerEl.childNodes ? containerEl.childNodes.length : (containerEl.children ? containerEl.children.length : 0);
       if (!renderedAnyContent && currentChildCount <= 1) {
         var placeholder = document.createElement('p');
+        placeholder.className = 'pb-rt-empty';
         placeholder.style.color = 'var(--color-text-muted)';
         placeholder.style.fontStyle = 'italic';
         placeholder.textContent = 'No content recorded yet.';
@@ -16718,14 +16719,33 @@
         for (var nIdx = 0; nIdx < sections.length; nIdx++) {
           var sItem = sections[nIdx];
           var cardCnt = Array.isArray(sItem.cards) ? sItem.cards.length : 0;
+          var nativeExamCntForCourse =
+            d.nativeExamCatalog && Array.isArray(d.nativeExamCatalog.exams)
+              ? d.nativeExamCatalog.exams.length
+              : course.courseId === currentStudentCourseId &&
+                Array.isArray(currentStudentCourseExamsCatalogPhase3) &&
+                currentStudentCourseExamsCatalogPhase3.length > 0
+              ? currentStudentCourseExamsCatalogPhase3.length
+              : Number(course.publishedExamCount || d.publishedExamCount || 0);
+          var displayItemCnt =
+            sItem.sectionType === 'ASSESSMENT' ? cardCnt + nativeExamCntForCourse : cardCnt;
+          var sectionUpdLabel =
+            sItem.updatedAtBangkok ||
+            (sItem.sectionType === 'ASSESSMENT'
+              ? course.assessmentUpdatedAtBangkok
+              : sItem.sectionType === 'READING'
+              ? course.readingUpdatedAtBangkok
+              : '') ||
+            course.updatedAtBangkok ||
+            '-';
           navHost.appendChild(
             createSectionSelectorCard(
               sItem.sectionId,
               sItem.sectionType,
               (nIdx + 1) + '. ' + sItem.title,
-              String(cardCnt) +
+              String(displayItemCnt) +
                 ' item(s) | Updated: ' +
-                (sItem.updatedAtBangkok || sItem.updatedAtUtc || '-'),
+                sectionUpdLabel,
               sItem.sectionType || 'CUSTOM'
             )
           );
@@ -16794,21 +16814,12 @@
         courseScoresCard.classList.toggle('hidden', !showScoresCard);
       }
 
-      /* Toggle Course Assessment Overview Card visibility based on active section filter */
+      /* Show Syllabus Objectives & Learning Outcomes card on 'ALL' only when content exists */
       var asmOverviewCard = document.getElementById('student-course-assessment-overview');
       if (asmOverviewCard) {
-        var showOverview = activeStudentSectionFilter === 'ALL';
-        if (!showOverview) {
-          for (var k = 0; k < sections.length; k++) {
-            if (
-              sections[k].sectionId === activeStudentSectionFilter &&
-              sections[k].sectionType === 'ASSESSMENT'
-            ) {
-              showOverview = true;
-              break;
-            }
-          }
-        }
+        var hasNonEmptyOverview =
+          asmOverviewCard.getAttribute('data-pb-empty-objectives') !== '1';
+        var showOverview = activeStudentSectionFilter === 'ALL' && hasNonEmptyOverview;
         asmOverviewCard.classList.toggle('hidden', !showOverview);
       }
 
@@ -16910,6 +16921,9 @@
         }
 
         var cards = Array.isArray(sec.cards) ? sec.cards : [];
+        if (sec.sectionType === 'ASSESSMENT' && cards.length === 0) {
+          continue;
+        }
         if (cards.length === 0) {
           var emptyNote = document.createElement('p');
           emptyNote.style.margin = '0';
@@ -23197,6 +23211,10 @@ var qrcode = (function() {
 
       var objEmpty = isEffectivelyEmptyBox(objBox);
       var outEmpty = isEffectivelyEmptyBox(outBox);
+      var overviewCard = document.getElementById('student-course-assessment-overview');
+      if (overviewCard) {
+        overviewCard.setAttribute('data-pb-empty-objectives', objEmpty && outEmpty ? '1' : '0');
+      }
       if (objEmpty && outEmpty) {
         grid.classList.add('hidden');
         if (emptyNote) emptyNote.classList.remove('hidden');
@@ -27568,6 +27586,24 @@ var qrcode = (function() {
 
       var emptyBox = document.getElementById('student-course-exams-empty');
       var gridEl = document.getElementById('student-course-exams-grid');
+      var quickTabsEl = document.getElementById('student-exam-mode-quick-tabs');
+      var filterFormEl = document.getElementById('form-student-exam-catalog-filter');
+      var sInpEl = document.getElementById('input-student-exam-search');
+      var mSelEl = document.getElementById('select-student-exam-mode-filter');
+      var aSelEl = document.getElementById('select-student-exam-availability-filter');
+      var cSelEl = document.getElementById('select-student-exam-completion-filter');
+      var hasActiveCatalogFilter = Boolean(
+        (sInpEl && sInpEl.value.trim()) ||
+          (mSelEl && mSelEl.value !== 'ALL') ||
+          (aSelEl && aSelEl.value !== 'ALL') ||
+          (cSelEl && cSelEl.value !== 'ALL')
+      );
+      if (quickTabsEl) {
+        quickTabsEl.classList.toggle('hidden', exams.length === 0 && !hasActiveCatalogFilter);
+      }
+      if (filterFormEl) {
+        filterFormEl.classList.toggle('hidden', exams.length === 0 && !hasActiveCatalogFilter);
+      }
       if (!gridEl) return;
 
       while (gridEl.firstChild) gridEl.removeChild(gridEl.firstChild);
@@ -36201,7 +36237,7 @@ var qrcode = (function() {
         var fileObj = fileInp && fileInp.files && fileInp.files[0];
         var progHost = document.getElementById('admin-instructor-portrait-upload-progress');
         PBUploadProgress.render(progHost, 'STAGE_1_READING', 'Stage 1/2: Reading portrait file...');
-        return readBrowserFileAsBase64Step8(fileObj, 'input-admin-instructor-portrait-file')
+        return readBrowserFileAsBase64Step8(fileObj)
           .then(function (fileData) {
             PBUploadProgress.render(
               progHost,
@@ -36217,7 +36253,6 @@ var qrcode = (function() {
             });
           })
           .then(function (env) {
-            PBUploadProgress.completeAndHide('input-admin-instructor-portrait-file');
             var d = env.data || {};
             var uploaded = d.file || {};
             PBUploadProgress.render(
@@ -36236,7 +36271,6 @@ var qrcode = (function() {
             return loadAdminSettingsStep6();
           })
           .catch(function (err) {
-            PBUploadProgress.completeAndHide('input-admin-instructor-portrait-file');
             PBUploadProgress.render(
               progHost,
               'ERROR',
@@ -36334,7 +36368,7 @@ var qrcode = (function() {
           'STAGE_1_READING',
           'Stage 1/2: Reading Card ' + slotNum + ' image/GIF locally...'
         );
-        return readBrowserFileAsBase64Step8(fileObj, 'input-admin-hero-card-file')
+        return readBrowserFileAsBase64Step8(fileObj)
           .then(function (fileData) {
             PBUploadProgress.render(
               progHost,
@@ -36351,7 +36385,6 @@ var qrcode = (function() {
             });
           })
           .then(function (env) {
-            PBUploadProgress.completeAndHide('input-admin-hero-card-file');
             var d = env.data || {};
             var uploaded = d.file || {};
             PBUploadProgress.render(
@@ -36370,7 +36403,6 @@ var qrcode = (function() {
             return loadAdminSettingsStep6();
           })
           .catch(function (err) {
-            PBUploadProgress.completeAndHide('input-admin-hero-card-file');
             PBUploadProgress.render(
               progHost,
               'ERROR',
