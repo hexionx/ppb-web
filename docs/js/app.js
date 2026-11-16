@@ -2413,25 +2413,48 @@
      * Phase 3: Applies the optional instructor portrait image or falls back cleanly
      * to the academic crest silhouette if no portrait is configured or if loading fails.
      */
+    function resolvePublicDriveImgSrcPhase3(dto) {
+      if (!dto || dto.available !== true) return '';
+      if (typeof dto.dataUri === 'string' && /^data:image\/(png|jpeg|webp|gif);base64,/i.test(dto.dataUri)) {
+        return dto.dataUri;
+      }
+      if (typeof dto.imageUrl === 'string' && /^https:\/\/[^\s]+$/i.test(dto.imageUrl)) {
+        return dto.imageUrl;
+      }
+      if (dto.driveFileId && typeof window.getGoogleDriveImageUrl === 'function') {
+        return window.getGoogleDriveImageUrl(dto.driveFileId);
+      }
+      return '';
+    }
+
     function applyInstructorPortraitPhase3(portraitDto) {
       var imgEl = document.getElementById('landing-instructor-portrait-img');
       var fallbackEl = document.getElementById('landing-instructor-portrait-fallback');
       if (!imgEl || !fallbackEl) return;
 
-      var validDataUri =
-        portraitDto &&
-        portraitDto.available === true &&
-        typeof portraitDto.dataUri === 'string' &&
-        /^data:image\/(png|jpeg|webp|gif);base64,/i.test(portraitDto.dataUri);
-
-      if (!validDataUri) {
+      var resolvedSrc = resolvePublicDriveImgSrcPhase3(portraitDto);
+      if (!resolvedSrc) {
         imgEl.removeAttribute('src');
         imgEl.classList.add('hidden');
         fallbackEl.classList.remove('hidden');
         return;
       }
 
+      var fallbackTried = false;
       imgEl.onerror = function () {
+        if (!fallbackTried && portraitDto && portraitDto.driveFileId && window.PB_DRIVE && window.PB_DRIVE.isConfigured()) {
+          fallbackTried = true;
+          window.PB_DRIVE.downloadDriveFileBlobAuthorized(portraitDto.driveFileId)
+            .then(function (dl) {
+              imgEl.src = URL.createObjectURL(dl.blob);
+            })
+            .catch(function () {
+              imgEl.removeAttribute('src');
+              imgEl.classList.add('hidden');
+              fallbackEl.classList.remove('hidden');
+            });
+          return;
+        }
         imgEl.removeAttribute('src');
         imgEl.classList.add('hidden');
         fallbackEl.classList.remove('hidden');
@@ -2440,8 +2463,9 @@
         imgEl.classList.remove('hidden');
         fallbackEl.classList.add('hidden');
       };
-      imgEl.alt = portraitDto.altText || 'Pattanabhumi Biology Instructor portrait';
-      imgEl.src = portraitDto.dataUri;
+      imgEl.referrerPolicy = 'no-referrer';
+      imgEl.alt = (portraitDto && portraitDto.altText) || 'Pattanabhumi Biology Instructor portrait';
+      imgEl.src = resolvedSrc;
       imgEl.classList.remove('hidden');
       fallbackEl.classList.add('hidden');
     }
@@ -2453,13 +2477,8 @@
       var svgEl = document.getElementById('hero-shuffle-card-svg-' + String(idx0));
       if (!imgEl) return;
 
-      var validDataUri =
-        cardDto &&
-        cardDto.available === true &&
-        typeof cardDto.dataUri === 'string' &&
-        /^data:image\/(png|jpeg|webp|gif);base64,/i.test(cardDto.dataUri);
-
-      if (!validDataUri) {
+      var resolvedSrc = resolvePublicDriveImgSrcPhase3(cardDto);
+      if (!resolvedSrc) {
         imgEl.removeAttribute('src');
         imgEl.classList.add('hidden');
         imgEl.classList.remove('is-sharp');
@@ -2467,8 +2486,23 @@
         return;
       }
 
+      var fallbackTried = false;
       imgEl.classList.remove('is-sharp');
+      imgEl.referrerPolicy = 'no-referrer';
       imgEl.onerror = function () {
+        if (!fallbackTried && cardDto && cardDto.driveFileId && window.PB_DRIVE && window.PB_DRIVE.isConfigured()) {
+          fallbackTried = true;
+          window.PB_DRIVE.downloadDriveFileBlobAuthorized(cardDto.driveFileId)
+            .then(function (dl) {
+              imgEl.src = URL.createObjectURL(dl.blob);
+            })
+            .catch(function () {
+              imgEl.removeAttribute('src');
+              imgEl.classList.add('hidden');
+              if (svgEl) svgEl.classList.remove('hidden');
+            });
+          return;
+        }
         imgEl.removeAttribute('src');
         imgEl.classList.add('hidden');
         if (svgEl) svgEl.classList.remove('hidden');
@@ -2478,7 +2512,7 @@
         imgEl.classList.add('is-sharp');
         if (svgEl) svgEl.classList.add('hidden');
       };
-      imgEl.src = cardDto.dataUri;
+      imgEl.src = resolvedSrc;
       imgEl.classList.remove('hidden');
       if (svgEl) svgEl.classList.add('hidden');
       if (imgEl.complete) {
@@ -2826,6 +2860,16 @@
             dataUrl: resolvedDataUrl,
             altText: altText
           });
+        } else if (typeof logoPayload.imageUrl === 'string' && /^https:\/\/[^\s]+$/i.test(logoPayload.imageUrl)) {
+          resolvedDataUrl = logoPayload.imageUrl;
+          writeCachedLogoState({
+            cacheKey: logoPayload.cacheKey || 'logo_active',
+            mimeType: (logoPayload.mimeType || 'image/png').toLowerCase(),
+            dataUrl: resolvedDataUrl,
+            altText: altText
+          });
+        } else if (logoPayload.driveFileId && typeof window.getGoogleDriveImageUrl === 'function') {
+          resolvedDataUrl = window.getGoogleDriveImageUrl(logoPayload.driveFileId);
         }
       } else if (
         (!logoPayload || logoPayload.sourceType !== 'ADMIN_OVERRIDE') &&
@@ -2846,6 +2890,10 @@
             return;
           }
           imgEl.setAttribute('alt', altText);
+          imgEl.referrerPolicy = 'no-referrer';
+          if (imgEl.dataset) {
+            delete imgEl.dataset.pbDriveFallbackTried;
+          }
 
           if (!resolvedDataUrl) {
             imgEl.classList.add('hidden');
@@ -2859,6 +2907,30 @@
             badgeEl.classList.add('hidden');
           };
           imgEl.onerror = function () {
+            if (
+              logoPayload &&
+              logoPayload.driveFileId &&
+              imgEl.dataset &&
+              imgEl.dataset.pbDriveFallbackTried !== '1' &&
+              window.PB_DRIVE &&
+              typeof window.PB_DRIVE.downloadDriveFileBlobAuthorized === 'function'
+            ) {
+              imgEl.dataset.pbDriveFallbackTried = '1';
+              window.PB_DRIVE.downloadDriveFileBlobAuthorized(logoPayload.driveFileId)
+                .then(function (dl) {
+                  if (dl && dl.blob && dl.blob.size > 0) {
+                    imgEl.src = URL.createObjectURL(dl.blob);
+                    return;
+                  }
+                  imgEl.classList.add('hidden');
+                  badgeEl.classList.remove('hidden');
+                })
+                .catch(function () {
+                  imgEl.classList.add('hidden');
+                  badgeEl.classList.remove('hidden');
+                });
+              return;
+            }
             imgEl.classList.add('hidden');
             badgeEl.classList.remove('hidden');
           };
@@ -4618,10 +4690,14 @@
             var coverImg = document.createElement('img');
             coverImg.className = 'student-course-cover-img pb-blur-up-img hidden';
             coverImg.alt = (c.title || c.courseCode || 'Course') + ' cover';
+            coverImg.referrerPolicy = 'no-referrer';
             coverDiv.appendChild(coverImg);
 
             PBObjectUrlManager.fetchAndCreateObjectUrl(c.coverFileId, c.courseId)
               .then(function (entry) {
+                if (typeof PBObjectUrlManager.attachDriveImageFallback === 'function') {
+                  PBObjectUrlManager.attachDriveImageFallback(coverImg, entry);
+                }
                 coverImg.onload = function () {
                   setTimeout(function () {
                     coverImg.classList.add('is-sharp');
@@ -5238,6 +5314,7 @@
 
     function clearRpcReadCache() {
       RPC_SHORT_READ_CACHE_ = {};
+      studentCourseDetailCacheById = {};
     }
 
     function isShortCacheableReadAction(actionName) {
@@ -5756,6 +5833,115 @@
     var startupWatchdogTimer = null;
 
     var BOOTSTRAP_SESSION_CACHE_KEY = 'pb_lms_bootstrap_cache_v1';
+    var BOOTSTRAP_CACHE_MAX_AGE_MS_ = 300000;
+    var pbLastVersionCheckAtMs_ = 0;
+
+    function getDeclaredBuildVersion() {
+      try {
+        var meta = document.querySelector('meta[name="pb-build-version"]');
+        return meta ? String(meta.getAttribute('content') || '').trim() : '';
+      } catch (ignoreMetaErr) {
+        return '';
+      }
+    }
+
+    function clearStaleSiteCachesForNewVersion() {
+      try {
+        if (typeof sessionStorage !== 'undefined' && sessionStorage) {
+          sessionStorage.removeItem(BOOTSTRAP_SESSION_CACHE_KEY);
+        }
+      } catch (e1) {}
+      try {
+        if (typeof localStorage !== 'undefined' && localStorage) {
+          localStorage.removeItem(BOOTSTRAP_SESSION_CACHE_KEY);
+          if (typeof SESSION_STORAGE_KEY_LOGO_CACHE === 'string') {
+            localStorage.removeItem(SESSION_STORAGE_KEY_LOGO_CACHE);
+          }
+        }
+      } catch (e2) {}
+      if (typeof clearRpcReadCache === 'function') clearRpcReadCache();
+    }
+
+    function pbCheckDeploymentFreshness() {
+      try {
+        if (typeof window === 'undefined' || !window.location || !/^https?:$/i.test(String(window.location.protocol || ''))) {
+          return;
+        }
+        if (/script\.google(usercontent)?\.com$/i.test(String(window.location.hostname || ''))) {
+          return;
+        }
+        var declared = getDeclaredBuildVersion();
+        if (!declared || declared === 'dev') return;
+        var now = Date.now();
+        if (pbLastVersionCheckAtMs_ && now - pbLastVersionCheckAtMs_ < 60000) return;
+        pbLastVersionCheckAtMs_ = now;
+        if (typeof window.fetch !== 'function') return;
+
+        window
+          .fetch('version.json?_=' + String(now), { cache: 'no-store' })
+          .then(function (res) {
+            return res && res.ok ? res.json() : null;
+          })
+          .then(function (manifest) {
+            var liveVer = manifest && manifest.version ? String(manifest.version).trim() : '';
+            if (!liveVer || liveVer === declared) return;
+            clearStaleSiteCachesForNewVersion();
+
+            var activeExamView = document.getElementById('view-exam-workspace');
+            var inExam = activeExamView && !activeExamView.classList.contains('hidden');
+            var hasOpenEditorModal = Boolean(
+              document.querySelector('.pb-modal-overlay.is-open, .modal-backdrop.is-open, dialog[open]')
+            );
+            if (inExam || hasOpenEditorModal) {
+              if (typeof PBNotify === 'object' && PBNotify && typeof PBNotify.toast === 'function') {
+                PBNotify.toast(
+                  'info',
+                  'New Version Published',
+                  'A newer build of Pattanabhumi Biology is available. Save your work and refresh when ready.',
+                  { durationMs: 8000 }
+                );
+              }
+              return;
+            }
+            var reloadedFor = '';
+            try {
+              reloadedFor = sessionStorage.getItem('pb_auto_reloaded_ver') || '';
+              if (reloadedFor === liveVer) return;
+              sessionStorage.setItem('pb_auto_reloaded_ver', liveVer);
+            } catch (eStore) {
+              return;
+            }
+            var pageUrl = String(window.location.href || '').split('#')[0];
+            window
+              .fetch(pageUrl, { cache: 'reload' })
+              .catch(function () {})
+              .then(function () {
+                window.location.reload();
+              });
+          })
+          .catch(function () {});
+      } catch (ignoreFreshErr) {}
+    }
+
+    if (typeof document !== 'undefined' && document.addEventListener) {
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+          pbCheckDeploymentFreshness();
+        }
+      });
+    }
+
+    function isBootstrapCacheEntryFresh(parsed) {
+      if (!parsed || typeof parsed !== 'object') return false;
+      var declared = getDeclaredBuildVersion();
+      if (declared && declared !== 'dev' && parsed.buildVersion !== declared) {
+        return false;
+      }
+      if (parsed.cachedAt && Date.now() - Number(parsed.cachedAt) > BOOTSTRAP_CACHE_MAX_AGE_MS_) {
+        return false;
+      }
+      return true;
+    }
 
     function readCachedBootstrapData() {
       try {
@@ -5763,9 +5949,10 @@
           var raw = sessionStorage.getItem(BOOTSTRAP_SESSION_CACHE_KEY);
           if (raw) {
             var parsed = JSON.parse(raw);
-            if (parsed && typeof parsed === 'object') {
+            if (isBootstrapCacheEntryFresh(parsed)) {
               return parsed;
             }
+            sessionStorage.removeItem(BOOTSTRAP_SESSION_CACHE_KEY);
           }
         }
       } catch (ignoreReadBootErr) {}
@@ -5774,9 +5961,10 @@
           var rawLocal = localStorage.getItem(BOOTSTRAP_SESSION_CACHE_KEY);
           if (rawLocal) {
             var parsedLocal = JSON.parse(rawLocal);
-            if (parsedLocal && typeof parsedLocal === 'object') {
+            if (isBootstrapCacheEntryFresh(parsedLocal)) {
               return parsedLocal;
             }
+            localStorage.removeItem(BOOTSTRAP_SESSION_CACHE_KEY);
           }
         }
       } catch (ignoreReadLocalBootErr) {}
@@ -5787,6 +5975,8 @@
       try {
         if (bootstrapData && typeof bootstrapData === 'object') {
           var slim = {
+            buildVersion: getDeclaredBuildVersion() || 'dev',
+            cachedAt: Date.now(),
             schoolName: bootstrapData.schoolName || 'Pattanabhumi Biology',
             logoText: bootstrapData.logoText || 'PB',
             contact: bootstrapData.contact || {},
@@ -5807,6 +5997,7 @@
 
     function initializeShell() {
       hideUiErrorBanner();
+      pbCheckDeploymentFreshness();
 
       if (startupWatchdogTimer) {
         clearTimeout(startupWatchdogTimer);
@@ -7169,11 +7360,45 @@
         portFileId ? portFileId : 'None (Default Academic Crest)'
       );
       var portObj = cmsData.instructorPortrait || {};
+      var portSrc = resolvePublicDriveImgSrcPhase3(portObj);
       var thumbImg = document.getElementById('admin-instructor-portrait-thumb-img');
       var thumbFb = document.getElementById('admin-instructor-portrait-thumb-fallback');
       var portStatusBadge = document.getElementById('admin-instructor-portrait-status-badge');
-      if (portObj.available && portObj.dataUri && thumbImg && thumbFb) {
-        thumbImg.setAttribute('src', portObj.dataUri);
+      if (portSrc && thumbImg && thumbFb) {
+        thumbImg.referrerPolicy = 'no-referrer';
+        var portAdminFallbackTried = false;
+        thumbImg.onerror = function () {
+          if (
+            !portAdminFallbackTried &&
+            portObj &&
+            portObj.driveFileId &&
+            window.PB_DRIVE &&
+            typeof window.PB_DRIVE.downloadDriveFileBlobAuthorized === 'function'
+          ) {
+            portAdminFallbackTried = true;
+            window.PB_DRIVE.downloadDriveFileBlobAuthorized(portObj.driveFileId)
+              .then(function (dl) {
+                if (dl && dl.blob && dl.blob.size > 0) {
+                  thumbImg.src = URL.createObjectURL(dl.blob);
+                  return;
+                }
+                thumbImg.classList.add('hidden');
+                thumbFb.classList.remove('hidden');
+              })
+              .catch(function () {
+                thumbImg.classList.add('hidden');
+                thumbFb.classList.remove('hidden');
+              });
+            return;
+          }
+          thumbImg.classList.add('hidden');
+          thumbFb.classList.remove('hidden');
+        };
+        thumbImg.onload = function () {
+          thumbImg.classList.remove('hidden');
+          thumbFb.classList.add('hidden');
+        };
+        thumbImg.setAttribute('src', portSrc);
         thumbImg.classList.remove('hidden');
         thumbFb.classList.add('hidden');
         if (portStatusBadge) {
@@ -7225,9 +7450,45 @@
         );
         var hcImg = document.getElementById('admin-hero-card-thumb-img-' + String(hcSlot));
         var hcFb = document.getElementById('admin-hero-card-thumb-fallback-' + String(hcSlot));
-        if (cardItem && cardItem.available && cardItem.dataUri && hcImg && hcFb) {
+        var hcSrc = resolvePublicDriveImgSrcPhase3(cardItem);
+        if (hcSrc && hcImg && hcFb) {
           customHeroCount++;
-          hcImg.setAttribute('src', cardItem.dataUri);
+          hcImg.referrerPolicy = 'no-referrer';
+          (function (slotIdx, itemRef, imgNode, fbNode) {
+            var hcTried = false;
+            imgNode.onerror = function () {
+              if (
+                !hcTried &&
+                itemRef &&
+                itemRef.driveFileId &&
+                window.PB_DRIVE &&
+                typeof window.PB_DRIVE.downloadDriveFileBlobAuthorized === 'function'
+              ) {
+                hcTried = true;
+                window.PB_DRIVE.downloadDriveFileBlobAuthorized(itemRef.driveFileId)
+                  .then(function (dl) {
+                    if (dl && dl.blob && dl.blob.size > 0) {
+                      imgNode.src = URL.createObjectURL(dl.blob);
+                      return;
+                    }
+                    imgNode.classList.add('hidden');
+                    fbNode.classList.remove('hidden');
+                  })
+                  .catch(function () {
+                    imgNode.classList.add('hidden');
+                    fbNode.classList.remove('hidden');
+                  });
+                return;
+              }
+              imgNode.classList.add('hidden');
+              fbNode.classList.remove('hidden');
+            };
+            imgNode.onload = function () {
+              imgNode.classList.remove('hidden');
+              fbNode.classList.add('hidden');
+            };
+          })(hcSlot, cardItem, hcImg, hcFb);
+          hcImg.setAttribute('src', hcSrc);
           hcImg.classList.remove('hidden');
           hcFb.classList.add('hidden');
         } else {
@@ -9556,6 +9817,9 @@
 
       function decodeBase64ToUint8Array(base64Str) {
         var cleaned = String(base64Str || '').trim();
+        if (!cleaned || cleaned.indexOf('__PB_DIRECT_BLOB__:') === 0) {
+          return new Uint8Array(0);
+        }
         var commaIdx = cleaned.indexOf(',');
         if (cleaned.slice(0, 5).toLowerCase() === 'data:' && commaIdx !== -1) {
           cleaned = cleaned.slice(commaIdx + 1).trim();
@@ -9581,6 +9845,8 @@
           entry &&
           entry.objectUrl &&
           !entry.isFallbackDataUri &&
+          !entry.isDirectDriveUrl &&
+          /^blob:/i.test(String(entry.objectUrl)) &&
           window.URL &&
           typeof window.URL.revokeObjectURL === 'function'
         ) {
@@ -9740,6 +10006,47 @@
               { suppressErrorBanner: true }
             ).then(function (envelope) {
               var d = envelope.data || {};
+              if (!d.dataBase64 && d.driveFileId) {
+                var mimeStr = String(d.mimeType || 'application/octet-stream').trim();
+                var directImgUrl =
+                  d.directImageUrl ||
+                  (typeof window.getGoogleDriveImageUrl === 'function'
+                    ? window.getGoogleDriveImageUrl(d.driveFileId)
+                    : '');
+                if (/^image\//i.test(mimeStr) && directImgUrl) {
+                  totalCreatedCount++;
+                  managedEntries[cacheKey] = {
+                    cacheKey: cacheKey,
+                    objectUrl: directImgUrl,
+                    directImageUrl: directImgUrl,
+                    driveFileId: d.driveFileId,
+                    mimeType: mimeStr,
+                    sizeBytes: Number(d.sizeBytes || 0),
+                    originalFilename: d.originalFilename || 'image.png',
+                    isFallbackDataUri: false,
+                    isDirectDriveUrl: true,
+                    idbKey: idbKey,
+                    mechanism: 'DRIVE_DIRECT_IMAGE_URL'
+                  };
+                  return managedEntries[cacheKey];
+                }
+                if (window.PB_DRIVE && typeof window.PB_DRIVE.downloadDriveFileBlobAuthorized === 'function') {
+                  return window.PB_DRIVE.downloadDriveFileBlobAuthorized(d.driveFileId).then(function (dl) {
+                    var effMime = mimeStr || dl.mimeType || 'application/octet-stream';
+                    var effName = d.originalFilename || 'attachment';
+                    var blobEntry = createFromBlob(
+                      dl.blob,
+                      effMime,
+                      cacheKey,
+                      effName,
+                      dl.sizeBytes || d.sizeBytes || 0
+                    );
+                    blobEntry.driveFileId = d.driveFileId;
+                    idbPutCachedBlob(idbKey, dl.blob, effMime, effName, dl.sizeBytes || (dl.blob && dl.blob.size) || 0);
+                    return blobEntry;
+                  });
+                }
+              }
               var created = createFromBase64(
                 d.dataBase64,
                 d.mimeType,
@@ -9821,9 +10128,9 @@
        * Seeds in-memory + IndexedDB blob caches immediately after an upload so
        * subsequent preview/open clicks resolve without a duplicate file.getContent RPC.
        */
-      function seedCacheFromBase64(fileId, dataBase64, mimeType, originalFilename, opt_courseId) {
+      function seedCacheFromBase64(fileId, dataBase64, mimeType, originalFilename, opt_courseId, opt_blob) {
         var cleanFileId = String(fileId || '').trim();
-        if (!/^fil_[a-z0-9_-]{4,64}$/i.test(cleanFileId) || !dataBase64) {
+        if (!/^fil_[a-z0-9_-]{4,64}$/i.test(cleanFileId) || (!dataBase64 && !opt_blob)) {
           return null;
         }
         var courseId = String(opt_courseId || '').trim();
@@ -9831,6 +10138,22 @@
         var idbKey = getCurrentUserCacheScope() + '|' + cacheKey;
         var safeMime = String(mimeType || 'application/pdf').trim();
         var safeName = String(originalFilename || 'document.pdf').trim();
+        if (opt_blob && typeof window.Blob === 'function' && opt_blob instanceof window.Blob) {
+          var argCreated = createFromBlob(opt_blob, safeMime, cacheKey, safeName, opt_blob.size);
+          idbPutCachedBlob(idbKey, opt_blob, safeMime, safeName, opt_blob.size);
+          return argCreated;
+        }
+        if (window.PB_DRIVE && typeof window.PB_DRIVE.peekPendingBlob === 'function') {
+          var directBlob = window.PB_DRIVE.peekPendingBlob(dataBase64);
+          if (directBlob) {
+            var directCreated = createFromBlob(directBlob, safeMime, cacheKey, safeName, directBlob.size);
+            idbPutCachedBlob(idbKey, directBlob, safeMime, safeName, directBlob.size);
+            return directCreated;
+          }
+        }
+        if (String(dataBase64 || '').trim().indexOf('__PB_DIRECT_BLOB__:') === 0) {
+          return null;
+        }
         var created = createFromBase64(dataBase64, safeMime, cacheKey, safeName);
         if (!created.isFallbackDataUri && typeof window.Blob === 'function') {
           try {
@@ -9842,8 +10165,73 @@
         return created;
       }
 
+      function attachDriveImageFallback(imgEl, entry, opt_onErrorFinal) {
+        if (!imgEl) return;
+        imgEl.referrerPolicy = 'no-referrer';
+        var triedAuthorized = false;
+        imgEl.onerror = function () {
+          if (
+            !triedAuthorized &&
+            entry &&
+            entry.isDirectDriveUrl &&
+            entry.driveFileId &&
+            window.PB_DRIVE &&
+            typeof window.PB_DRIVE.downloadDriveFileBlobAuthorized === 'function'
+          ) {
+            triedAuthorized = true;
+            window.PB_DRIVE.downloadDriveFileBlobAuthorized(entry.driveFileId)
+              .then(function (dl) {
+                var recovered = createFromBlob(
+                  dl.blob,
+                  entry.mimeType || dl.mimeType || 'image/png',
+                  entry.cacheKey,
+                  entry.originalFilename,
+                  dl.sizeBytes || (dl.blob && dl.blob.size) || 0
+                );
+                if (entry.idbKey) {
+                  idbPutCachedBlob(entry.idbKey, dl.blob, recovered.mimeType, recovered.originalFilename, recovered.sizeBytes);
+                }
+                imgEl.src = recovered.objectUrl;
+              })
+              .catch(function (dlErr) {
+                if (typeof opt_onErrorFinal === 'function') opt_onErrorFinal(dlErr);
+              });
+            return;
+          }
+          if (typeof opt_onErrorFinal === 'function') opt_onErrorFinal();
+        };
+      }
+
       function triggerAuthorizedDownload(fileId, opt_courseId, opt_openInNewTab) {
         return fetchAndCreateObjectUrl(fileId, opt_courseId, { skipRevokeCheck: true }).then(function (entry) {
+          if (
+            !opt_openInNewTab &&
+            entry.isDirectDriveUrl &&
+            entry.driveFileId &&
+            window.PB_DRIVE &&
+            typeof window.PB_DRIVE.downloadDriveFileBlobAuthorized === 'function'
+          ) {
+            return window.PB_DRIVE.downloadDriveFileBlobAuthorized(entry.driveFileId).then(function (dl) {
+              var blobEntry = createFromBlob(
+                dl.blob,
+                entry.mimeType || dl.mimeType,
+                entry.cacheKey,
+                entry.originalFilename,
+                dl.sizeBytes
+              );
+              var dlA = document.createElement('a');
+              dlA.href = blobEntry.objectUrl;
+              dlA.rel = 'noopener noreferrer';
+              dlA.download = blobEntry.originalFilename || 'attachment';
+              dlA.style.display = 'none';
+              document.body.appendChild(dlA);
+              dlA.click();
+              setTimeout(function () {
+                if (dlA.parentNode) dlA.parentNode.removeChild(dlA);
+              }, 250);
+              return blobEntry;
+            });
+          }
           if (opt_openInNewTab) {
             var openedWin = null;
             try {
@@ -9885,7 +10273,9 @@
 
       return Object.freeze({
         createFromBase64: createFromBase64,
+        createFromBlob: createFromBlob,
         seedCacheFromBase64: seedCacheFromBase64,
+        attachDriveImageFallback: attachDriveImageFallback,
         fetchAndCreateObjectUrl: fetchAndCreateObjectUrl,
         triggerAuthorizedDownload: triggerAuthorizedDownload,
         prefetchFiles: prefetchFiles,
@@ -10010,6 +10400,45 @@
             });
         }
 
+        if (
+          window.PB_API &&
+          window.PB_API.mode === 'SUPABASE_DIRECT_DRIVE' &&
+          window.PB_DRIVE &&
+          typeof window.PB_DRIVE.compressImageWithCanvas === 'function'
+        ) {
+          window.PB_DRIVE.compressImageWithCanvas(fileObj, { maxWidth: 1280, quality: 0.8 })
+            .then(function (prep) {
+              if (opt_anchorIdOrEl) {
+                PBUploadProgress.updateStage1Determinate(opt_anchorIdOrEl, 100, prep.originalFilename);
+                PBUploadProgress.updateStage2Indeterminate(
+                  opt_anchorIdOrEl,
+                  'Stage 2/2: Uploading "' + (prep.originalFilename || 'file') + '" directly to Google Drive...'
+                );
+              }
+              var previewUrl = '';
+              if (typeof window.URL !== 'undefined' && typeof window.URL.createObjectURL === 'function' && prep.blob) {
+                try { previewUrl = window.URL.createObjectURL(prep.blob); } catch (ignorePreviewErr) {}
+              }
+              resolve({
+                originalFilename: prep.originalFilename || fileObj.name || 'upload.bin',
+                mimeType: prep.mimeType || fileObj.type || 'application/octet-stream',
+                sizeBytes: prep.sizeBytes || (prep.blob && prep.blob.size) || fileObj.size,
+                dataBase64: window.PB_DRIVE.registerPendingBlob(prep.blob),
+                _directFileBlob: prep.blob,
+                _alreadyCompressed: true,
+                localPreviewUrl: previewUrl
+              });
+            })
+            .catch(function (prepErr) {
+              if (opt_anchorIdOrEl) PBUploadProgress.completeAndHide(opt_anchorIdOrEl);
+              reject({
+                code: 'ERR_FILE_INVALID',
+                message: (prepErr && prepErr.message) || 'Failed to prepare/compress file in browser.'
+              });
+            });
+          return;
+        }
+
         maybeOptimizeUploadImage(fileObj).then(function (effectiveBlob) {
           var effectiveMime =
             String(fileObj.type || effectiveBlob.type || '').trim() ||
@@ -10124,12 +10553,14 @@
           var img = document.createElement('img');
           img.className = 'pb-blur-up-img';
           img.alt = captionText || 'Authorized Image';
+          img.referrerPolicy = 'no-referrer';
           img.onload = function () {
             stage.classList.remove('is-uploading');
             setTimeout(function () {
               img.classList.add('is-sharp');
             }, 30);
           };
+          PBObjectUrlManager.attachDriveImageFallback(img, entry);
           img.src = entry.objectUrl;
           setTimeout(function () {
             stage.classList.remove('is-uploading');
@@ -10395,6 +10826,8 @@
             ' • Use +/- or presets to inspect details';
         }
         if (zoomImg) {
+          zoomImg.referrerPolicy = 'no-referrer';
+          PBObjectUrlManager.attachDriveImageFallback(zoomImg, entry);
           zoomImg.src = entry.objectUrl;
           zoomImg.alt = safeTitle;
         }
@@ -11441,12 +11874,17 @@
                 fData.dataBase64,
                 fData.mimeType,
                 fData.originalFilename,
-                courseId || ''
+                courseId || '',
+                fData._directFileBlob || null
               );
             }
             if (!isPdf) {
-              currentQBankLocalImagePreviewDataUrlByIdPhase2[fid] =
-                'data:' + fData.mimeType + ';base64,' + fData.dataBase64;
+              if (fData.localPreviewUrl) {
+                currentQBankLocalImagePreviewDataUrlByIdPhase2[fid] = fData.localPreviewUrl;
+              } else if (String(fData.dataBase64 || '').indexOf('__PB_DIRECT_BLOB__:') !== 0) {
+                currentQBankLocalImagePreviewDataUrlByIdPhase2[fid] =
+                  'data:' + fData.mimeType + ';base64,' + fData.dataBase64;
+              }
             }
             return {
               fileId: fid,
@@ -11878,10 +12316,12 @@
           setText(cfg.statusElId, 'Uploading "' + (fileObj.name || 'document.pdf') + '"...');
           runButtonWithLoadingState(uploadBtn, 'Uploading...', function () {
             var uploadedBase64 = '';
+            var uploadedBlob = null;
             var uploadedName = fileObj.name || cfg.defaultName || 'document.pdf';
             return readBrowserFileAsBase64Step8(fileObj, cfg.fileInputId)
               .then(function (fData) {
                 uploadedBase64 = (fData && fData.dataBase64) || '';
+                uploadedBlob = (fData && fData._directFileBlob) || null;
                 uploadedName = (fData && fData.originalFilename) || uploadedName;
                 return rpcCallEnvelope('admin.uploadFile', {
                   purpose: 'PDF_ATTACHMENT',
@@ -11896,7 +12336,7 @@
                 var finalName = uploaded.originalFilename || uploadedName || cfg.defaultName;
                 if (
                   uploaded.fileId &&
-                  uploadedBase64 &&
+                  (uploadedBase64 || uploadedBlob) &&
                   typeof PBObjectUrlManager === 'object' &&
                   PBObjectUrlManager &&
                   typeof PBObjectUrlManager.seedCacheFromBase64 === 'function'
@@ -11906,7 +12346,8 @@
                     uploadedBase64,
                     'application/pdf',
                     finalName,
-                    ''
+                    '',
+                    uploadedBlob
                   );
                 }
                 var policySel = cfg.policySelectId ? document.getElementById(cfg.policySelectId) : null;
@@ -12156,6 +12597,7 @@
             var imgEl = document.createElement('img');
             imgEl.className = 'pb-rt-attachment-img is-zoomable hidden';
             imgEl.alt = imgBlock.altText || imgBlock.caption || 'Question illustration';
+            imgEl.referrerPolicy = 'no-referrer';
             if (fig.classList.contains('has-custom-width')) {
               imgEl.style.width = '100%';
             }
@@ -12189,6 +12631,12 @@
             PBObjectUrlManager.fetchAndCreateObjectUrl(imgBlock.fileId, effectiveCourseId)
               .then(function (entry) {
                 fetchedEntryRef = entry;
+                PBObjectUrlManager.attachDriveImageFallback(imgEl, entry, function () {
+                  if (badge) {
+                    badge.className = 'badge badge-incomplete';
+                    badge.textContent = 'Image Unavailable (Check Drive permissions or config)';
+                  }
+                });
                 imgEl.src = entry.objectUrl;
                 imgEl.classList.remove('hidden');
                 if (badge && badge.parentNode) {
@@ -25914,7 +26362,10 @@ var qrcode = (function() {
                   var fid = env.data && env.data.file && env.data.file.fileId;
                   if (fid) {
                     uploadedIds.push(fid);
-                    var localUrl = 'data:' + fData.mimeType + ';base64,' + fData.dataBase64;
+                    var localUrl = fData.localPreviewUrl || '';
+                    if (!localUrl && String(fData.dataBase64 || '').indexOf('__PB_DIRECT_BLOB__:') !== 0) {
+                      localUrl = 'data:' + fData.mimeType + ';base64,' + fData.dataBase64;
+                    }
                     appendQBankEditorImageIdPhase2(fid, localUrl);
                   }
                 });
@@ -25922,14 +26373,22 @@ var qrcode = (function() {
             });
           })(filesList[fIdx]);
         }
-        return chain.then(function () {
-          if (fileInp) fileInp.value = '';
-          PBNotify.toast(
-            'success',
-            'Question Diagram(s) Uploaded',
-            'Added ' + uploadedIds.length + ' image(s): ' + uploadedIds.join(', ')
-          );
-        });
+        return chain
+          .then(function () {
+            if (fileInp) fileInp.value = '';
+            PBNotify.toast(
+              'success',
+              'Question Diagram(s) Uploaded',
+              'Added ' + uploadedIds.length + ' image(s): ' + uploadedIds.join(', ')
+            );
+          })
+          .catch(function (err) {
+            PBNotify.toast(
+              'error',
+              'Image Upload Failed',
+              (err && err.message) || 'Failed to upload question diagram.'
+            );
+          });
       });
 
       var qEditorForm = document.getElementById('form-admin-question-editor');
@@ -28523,7 +28982,13 @@ var qrcode = (function() {
           }
         }
 
-        var secs = (adminExam && Array.isArray(adminExam.sections) && adminExam.sections) || examDto.sections || [];
+        var secs =
+          (examDto && examDto._isAdminPreview && Array.isArray(examDto.sections) && examDto.sections.length > 0
+            ? examDto.sections
+            : null) ||
+          (adminExam && Array.isArray(adminExam.sections) && adminExam.sections) ||
+          examDto.sections ||
+          [];
         var previewItems = [];
         var dispNum = 1;
         for (var s = 0; s < secs.length; s++) {
@@ -28546,15 +29011,36 @@ var qrcode = (function() {
                 isCorrect: Boolean(rawOpts[o].isCorrect)
               });
             }
-            var pts = Number(secItems[it].points || fullQ.defaultPoints || 2.4);
+            var resolvedPts =
+              secItems[it].points !== undefined && secItems[it].points !== null && secItems[it].points !== ''
+                ? Number(secItems[it].points)
+                : secItems[it].pointsBp !== undefined && secItems[it].pointsBp !== null
+                ? Number(secItems[it].pointsBp) / 100
+                : fullQ.defaultPoints !== undefined && fullQ.defaultPoints !== null && fullQ.defaultPoints !== ''
+                ? Number(fullQ.defaultPoints)
+                : fullQ.defaultPointsBp !== undefined && fullQ.defaultPointsBp !== null
+                ? Number(fullQ.defaultPointsBp) / 100
+                : 2.4;
+            var pts = isFinite(resolvedPts) && resolvedPts >= 0 ? Math.round(resolvedPts * 100) / 100 : 2.4;
+            var resolvedNegPts =
+              secItems[it].negativePoints !== undefined && secItems[it].negativePoints !== null && secItems[it].negativePoints !== ''
+                ? Number(secItems[it].negativePoints)
+                : secItems[it].negativePointsBp !== undefined && secItems[it].negativePointsBp !== null
+                ? Number(secItems[it].negativePointsBp) / 100
+                : fullQ.negativePoints !== undefined && fullQ.negativePoints !== null && fullQ.negativePoints !== ''
+                ? Number(fullQ.negativePoints)
+                : fullQ.negativePointsBp !== undefined && fullQ.negativePointsBp !== null
+                ? Number(fullQ.negativePointsBp) / 100
+                : 0;
+            var negPts = isFinite(resolvedNegPts) && resolvedNegPts > 0 ? Math.round(resolvedNegPts * 100) / 100 : 0;
             previewItems.push({
               attemptItemId: 'prev_item_' + dispNum,
               displayNumber: dispNum,
               sectionTitle: sec.title || 'Part I',
               pointsBp: Math.round(pts * 100),
               pointsDisplay: pts + (pts === 1 ? ' pt' : ' pts'),
-              negativePointsBp: 0,
-              negativePointsDisplay: '0 pts',
+              negativePointsBp: Math.round(negPts * 100),
+              negativePointsDisplay: negPts + (negPts === 1 ? ' pt' : ' pts'),
               isFlagged: false,
               question: {
                 questionId: qId || 'q_prev_' + dispNum,
@@ -32465,7 +32951,7 @@ var qrcode = (function() {
             scoreNote +
               (corrLabels.length > 0 ? 'Correct Key: ' + corrLabels.join(', ') + '  •  ' : '') +
               'Max Score: ' +
-              (activeItem.pointsDisplay || '2.4 pts')
+              (activeItem.pointsDisplay || '1 pt')
           );
           renderRichTextDocumentToDom(
             document.getElementById('exam-ws-practice-feedback-richtext'),
@@ -35715,7 +36201,7 @@ var qrcode = (function() {
         var fileObj = fileInp && fileInp.files && fileInp.files[0];
         var progHost = document.getElementById('admin-instructor-portrait-upload-progress');
         PBUploadProgress.render(progHost, 'STAGE_1_READING', 'Stage 1/2: Reading portrait file...');
-        return readBrowserFileAsBase64Step8(fileObj)
+        return readBrowserFileAsBase64Step8(fileObj, 'input-admin-instructor-portrait-file')
           .then(function (fileData) {
             PBUploadProgress.render(
               progHost,
@@ -35731,6 +36217,7 @@ var qrcode = (function() {
             });
           })
           .then(function (env) {
+            PBUploadProgress.completeAndHide('input-admin-instructor-portrait-file');
             var d = env.data || {};
             var uploaded = d.file || {};
             PBUploadProgress.render(
@@ -35749,6 +36236,7 @@ var qrcode = (function() {
             return loadAdminSettingsStep6();
           })
           .catch(function (err) {
+            PBUploadProgress.completeAndHide('input-admin-instructor-portrait-file');
             PBUploadProgress.render(
               progHost,
               'ERROR',
@@ -35863,6 +36351,7 @@ var qrcode = (function() {
             });
           })
           .then(function (env) {
+            PBUploadProgress.completeAndHide('input-admin-hero-card-file');
             var d = env.data || {};
             var uploaded = d.file || {};
             PBUploadProgress.render(
@@ -35881,6 +36370,7 @@ var qrcode = (function() {
             return loadAdminSettingsStep6();
           })
           .catch(function (err) {
+            PBUploadProgress.completeAndHide('input-admin-hero-card-file');
             PBUploadProgress.render(
               progHost,
               'ERROR',
@@ -36061,8 +36551,9 @@ var qrcode = (function() {
               'admin-logo-upload-status',
               'Uploaded & linked school logo: ' + (uploaded.fileId || '')
             );
-            if (d.updatedLogo && d.updatedLogo.publicLogo) {
-              applySchoolLogoBranding(d.updatedLogo.publicLogo, 'PB');
+            var logoDto = d.updatedLogo && (d.updatedLogo.publicLogo || d.updatedLogo);
+            if (logoDto) {
+              applySchoolLogoBranding(logoDto, 'PB');
             }
             renderDiagnosticResult('PASS: School logo uploaded via admin.uploadFile', d);
             return loadAdminSettingsStep6();
@@ -36091,8 +36582,9 @@ var qrcode = (function() {
                 (d.removedFileId || 'none') +
                 '); reverted to default school logo.'
             );
-            if (d.updatedLogo && d.updatedLogo.publicLogo) {
-              applySchoolLogoBranding(d.updatedLogo.publicLogo, 'PB');
+            var removedLogoDto = d.updatedLogo && (d.updatedLogo.publicLogo || d.updatedLogo);
+            if (removedLogoDto) {
+              applySchoolLogoBranding(removedLogoDto, 'PB');
             }
             return loadAdminSettingsStep6();
           })
@@ -38690,11 +39182,21 @@ var qrcode = (function() {
         updateFactoryResetSummaryBanner();
       }
 
+      var factoryResetRequiresEmailOtp = true;
       function loadFactoryResetPreviewCounts() {
         renderFactoryResetScopeUi();
         return rpcCallEnvelope('admin.getFactoryResetPreview', {})
           .then(function (env) {
             var d = env && env.data ? env.data : {};
+            if (d.requiresEmailOtp === false) {
+              factoryResetRequiresEmailOtp = false;
+              var otpInpPre = document.getElementById('input-admin-factory-reset-otp');
+              if (otpInpPre && !otpInpPre.value.trim()) otpInpPre.value = '000000';
+              setText(
+                'admin-factory-reset-otp-status',
+                'Supabase direct verification active — email OTP not required. Enter admin password and phrase FACTORY RESET.'
+              );
+            }
             if (Array.isArray(d.categories) && d.categories.length > 0) {
               factoryResetCategoriesCache = d.categories;
             }
@@ -38758,6 +39260,19 @@ var qrcode = (function() {
         })
           .then(function (env) {
             var d = env.data || {};
+            if (d.requiresEmailOtp === false) {
+              factoryResetRequiresEmailOtp = false;
+              var otpInp = document.getElementById('input-admin-factory-reset-otp');
+              if (otpInp && !otpInp.value.trim()) otpInp.value = '000000';
+              setText('admin-factory-reset-otp-status', 'Supabase direct verification active — email OTP not required.');
+              var badge = document.getElementById('admin-factory-reset-status-badge');
+              if (badge) {
+                badge.className = 'badge badge-ok';
+                badge.textContent = 'Ready — Enter Admin Password & Confirmation Phrase';
+              }
+              PBNotify.toast('info', 'Email OTP Not Required', 'Enter your admin password and type FACTORY RESET to confirm.');
+              return;
+            }
             var statusMsg =
               'OTP sent to ' +
               (d.recipientEmail || 'designated email') +
@@ -38820,7 +39335,7 @@ var qrcode = (function() {
             );
             return;
           }
-          if (!/^[0-9]{6}$/.test(otpCode)) {
+          if (factoryResetRequiresEmailOtp && !/^[0-9]{6}$/.test(otpCode)) {
             PBNotify.setFieldError(
               'input-admin-factory-reset-otp',
               'Enter the 6-digit OTP code sent to your email.'

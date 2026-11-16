@@ -1,136 +1,98 @@
 /**
- * api.js — fetch() transport shim for running the Pattanabhumi Biology client
- * outside Google Apps Script HtmlService (e.g. on GitHub Pages).
+ * api.js — Supabase + Direct Google Drive RPC Shim for Pattanabhumi Biology LMS
  *
- * The original client (js/app.js, generated from ClientCore.html) talks to the
- * backend exclusively through:
- *
- *   google.script.run
- *     .withSuccessHandler(fn)
- *     .withFailureHandler(fn)
- *     .rpcDispatch(envelope);
- *
- * This file provides a drop-in `google.script.run` object with the same chaining
- * semantics, but delivers the envelope to the Apps Script Web App's `doPost`
- * (backend/Api.gs) via fetch(). Queueing, de-duplication, retries and error
- * mapping all remain in app.js, unchanged.
- *
- * Transport details:
- * - Content-Type is text/plain so the request is a CORS "simple request"
- *   (no OPTIONS preflight, which Apps Script cannot answer).
- * - Apps Script answers with a 302 to script.googleusercontent.com, which fetch
- *   follows automatically; that response carries Access-Control-Allow-Origin: *.
- * - No cookies are sent (credentials: 'omit'); auth uses the session token that
- *   app.js already places inside the envelope.
+ * Keeps the drop-in `google.script.run.withSuccessHandler(...).withFailureHandler(...).rpcDispatch(envelope)`
+ * contract so `js/app.js` UI/forms/queueing remain 100% unchanged, while routing every RPC action directly to
+ * `window.PBSupabaseBackend.dispatch(envelope)` instead of Google Apps Script Sheets `doPost`.
  */
 (function () {
   'use strict';
-
-  var PLACEHOLDER_PREFIX = 'PASTE_';
-  var DEFAULT_TIMEOUT_MS = 6.5 * 60 * 1000; // Apps Script max execution is 6 minutes.
 
   function getConfig() {
     return window.PB_CONFIG && typeof window.PB_CONFIG === 'object' ? window.PB_CONFIG : {};
   }
 
-  function getApiUrl() {
-    var url = String(getConfig().API_URL || '').trim();
-    if (!url || url.indexOf(PLACEHOLDER_PREFIX) === 0) return '';
-    return url;
+  function isValueConfigured(val) {
+    var s = String(val || '').trim();
+    return Boolean(s && s.indexOf('PASTE_') !== 0 && s.indexOf('REPLACE_') !== 0);
   }
 
-  function asyncCall(fn, arg) {
+  function isSupabaseConfigured() {
+    var cfg = getConfig();
+    return isValueConfigured(cfg.SUPABASE_URL) && isValueConfigured(cfg.SUPABASE_ANON_KEY);
+  }
+
+  function isDriveConfigured() {
+    var cfg = getConfig();
+    return (
+      isValueConfigured(cfg.GAS_TOKEN_WEBAPP_URL) &&
+      isValueConfigured(cfg.GAS_SECRET_KEY) &&
+      isValueConfigured(cfg.GOOGLE_DRIVE_FOLDER_ID)
+    );
+  }
+
+  function getApiUrl() {
+    var cfg = getConfig();
+    return isValueConfigured(cfg.SUPABASE_URL) ? String(cfg.SUPABASE_URL).trim() : '';
+  }
+
+  function asyncCall(fn, arg, userObj) {
     if (typeof fn !== 'function') return;
     setTimeout(function () {
-      fn(arg);
+      if (userObj !== undefined) {
+        fn(arg, userObj);
+      } else {
+        fn(arg);
+      }
     }, 0);
   }
 
-  function invokeRpc(envelope, onSuccess, onFailure) {
-    var url = getApiUrl();
-    if (!url) {
+  function invokeRpc(envelope, onSuccess, onFailure, userObj) {
+    if (!window.PBSupabaseBackend || typeof window.PBSupabaseBackend.dispatch !== 'function') {
       asyncCall(
         onFailure,
-        new Error(
-          'Backend API URL is not configured. Set PB_CONFIG.API_URL in js/config.js to your Apps Script Web App /exec URL.'
-        )
+        new Error('Supabase backend layer (js/supabase-backend.js) is not loaded.'),
+        userObj
       );
       return;
     }
 
-    var body;
     try {
-      body = JSON.stringify(envelope === undefined ? null : envelope);
-    } catch (serializeErr) {
-      asyncCall(onFailure, new Error('Could not serialize request: ' + serializeErr.message));
-      return;
-    }
-
-    var timeoutMs = Number(getConfig().REQUEST_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS;
-    var controller = typeof AbortController === 'function' ? new AbortController() : null;
-    var timer = controller
-      ? setTimeout(function () {
-          controller.abort();
-        }, timeoutMs)
-      : null;
-
-    fetch(url, {
-      method: 'POST',
-      mode: 'cors',
-      credentials: 'omit',
-      cache: 'no-store',
-      redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: body,
-      signal: controller ? controller.signal : undefined
-    })
-      .then(function (res) {
-        if (!res.ok) {
-          throw new Error('Backend responded with HTTP ' + res.status + '.');
-        }
-        return res.text();
-      })
-      .then(function (text) {
-        try {
-          return JSON.parse(text);
-        } catch (parseErr) {
-          throw new Error(
-            'Backend returned a non-JSON response. Check that the Apps Script deployment is a Web App with access "Anyone" and that API_URL ends in /exec.'
-          );
-        }
-      })
-      .then(
-        function (data) {
-          if (timer) clearTimeout(timer);
-          asyncCall(onSuccess, data);
+      Promise.resolve(window.PBSupabaseBackend.dispatch(envelope)).then(
+        function (res) {
+          asyncCall(onSuccess, res, userObj);
         },
         function (err) {
-          if (timer) clearTimeout(timer);
-          var msg =
-            err && err.name === 'AbortError'
-              ? 'Request timed out after ' + Math.round(timeoutMs / 1000) + ' seconds.'
-              : err && err.message
-              ? err.message
-              : String(err || 'Network error');
-          asyncCall(onFailure, new Error(msg));
+          asyncCall(
+            onFailure,
+            err instanceof Error ? err : new Error(String((err && err.message) || err || 'Request failed')),
+            userObj
+          );
         }
       );
+    } catch (syncErr) {
+      asyncCall(
+        onFailure,
+        syncErr instanceof Error ? syncErr : new Error(String(syncErr || 'Dispatch error')),
+        userObj
+      );
+    }
   }
 
   /** Immutable runner mirroring google.script.run chaining semantics. */
-  function createRunner(onSuccess, onFailure) {
+  function createRunner(onSuccess, onFailure, userObj) {
     return {
       withSuccessHandler: function (fn) {
-        return createRunner(fn, onFailure);
+        return createRunner(fn, onFailure, userObj);
       },
       withFailureHandler: function (fn) {
-        return createRunner(onSuccess, fn);
+        return createRunner(onSuccess, fn, userObj);
       },
-      withUserObject: function () {
-        return createRunner(onSuccess, onFailure);
+      withUserObject: function (obj) {
+        return createRunner(onSuccess, onFailure, obj);
       },
       rpcDispatch: function (envelope) {
-        invokeRpc(envelope, onSuccess, onFailure);
+        invokeRpc(envelope, onSuccess, onFailure, userObj);
       }
     };
   }
@@ -145,17 +107,22 @@
   if (!isRealAppsScriptBridge) {
     window.google = window.google || {};
     window.google.script = window.google.script || {};
-    window.google.script.run = createRunner(null, null);
+    window.google.script.run = createRunner(null, null, undefined);
   }
 
   window.PB_API = {
+    mode: 'SUPABASE_DIRECT_DRIVE',
     getApiUrl: getApiUrl,
-    isConfigured: function () {
-      return Boolean(getApiUrl());
+    isConfigured: isSupabaseConfigured,
+    isDriveConfigured: isDriveConfigured,
+    dispatchDirect: function (envelope) {
+      return window.PBSupabaseBackend.dispatch(envelope);
     }
   };
 
-  if (!getApiUrl() && window.console && console.warn) {
-    console.warn('[PB] PB_CONFIG.API_URL is not set in js/config.js; backend calls will fail.');
+  if (!isSupabaseConfigured() && window.console && console.warn) {
+    console.warn(
+      '[PB] PB_CONFIG.SUPABASE_URL or PB_CONFIG.SUPABASE_ANON_KEY is still a placeholder in js/config.js. Follow MIGRATION_GUIDE.md.'
+    );
   }
 })();

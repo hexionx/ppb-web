@@ -99,10 +99,13 @@ function Get-ShortAssetHash([string]$AssetPath) {
   }
 }
 
-$stylesHash = Get-ShortAssetHash (Join-Path $docs 'css\styles.css')
-$configHash = Get-ShortAssetHash (Join-Path $docs 'js\config.js')
-$apiHash    = Get-ShortAssetHash (Join-Path $docs 'js\api.js')
-$appHash    = Get-ShortAssetHash (Join-Path $docs 'js\app.js')
+$stylesHash    = Get-ShortAssetHash (Join-Path $docs 'css\styles.css')
+$configHash    = Get-ShortAssetHash (Join-Path $docs 'js\config.js')
+$driveHash     = Get-ShortAssetHash (Join-Path $docs 'js\drive-storage.js')
+$sbBackendHash = Get-ShortAssetHash (Join-Path $docs 'js\supabase-backend.js')
+$sbExamsHash   = Get-ShortAssetHash (Join-Path $docs 'js\supabase-exams.js')
+$apiHash       = Get-ShortAssetHash (Join-Path $docs 'js\api.js')
+$appHash       = Get-ShortAssetHash (Join-Path $docs 'js\app.js')
 
 $tagStyles = "<?!= includePartial_('Styles'); ?>"
 $tagStatus = "<?!= includePartial_('StatusView'); ?>"
@@ -113,8 +116,12 @@ foreach ($t in @($tagStyles, $tagStatus, $tagCore)) {
 $index = $index.Replace($tagStyles, "<link rel=`"stylesheet`" href=`"css/styles.css?v=$stylesHash`" />")
 $index = $index.Replace($tagStatus, $statusView)
 $index = $index.Replace($tagCore, (@(
-  '<!-- Backend endpoint config, fetch transport shim, then the original client app -->',
+  '<!-- Supabase client CDN, backend config, Google Drive helper, Supabase modules, RPC shim, then client app -->',
+  '    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>',
   "    <script src=`"js/config.js?v=$configHash`"></script>",
+  "    <script src=`"js/drive-storage.js?v=$driveHash`"></script>",
+  "    <script src=`"js/supabase-backend.js?v=$sbBackendHash`"></script>",
+  "    <script src=`"js/supabase-exams.js?v=$sbExamsHash`"></script>",
   "    <script src=`"js/api.js?v=$apiHash`"></script>",
   "    <script src=`"js/app.js?v=$appHash`"></script>"
 ) -join "`r`n"))
@@ -142,4 +149,29 @@ $leftover = Select-String -Path (Join-Path $docs 'js\app.js'), (Join-Path $docs 
 if ($leftover) { throw "Unresolved template markers remain: $($leftover | Out-String)" }
 
 Write-Host ('Logo  : {0:N0} bytes -> docs/assets/logo.webp' -f $logoBytes.Length)
+
+# Compute combined site build hash across generated assets + index.html and emit version.json
+$verSourceFiles = @(
+  'css\styles.css',
+  'js\config.js',
+  'js\drive-storage.js',
+  'js\supabase-backend.js',
+  'js\supabase-exams.js',
+  'js\api.js',
+  'js\app.js',
+  'index.html'
+)
+$combinedHashes = ($verSourceFiles | ForEach-Object { Get-ShortAssetHash (Join-Path $docs $_) }) -join ':'
+$verSha = [System.Security.Cryptography.SHA256]::Create()
+$verBytes = $verSha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($combinedHashes))
+$siteBuildVersion = ([BitConverter]::ToString($verBytes) -replace '-', '').ToLowerInvariant().Substring(0, 8)
+$indexOutPath = Join-Path $docs 'index.html'
+$stampedIndexHtml = [System.IO.File]::ReadAllText($indexOutPath, $utf8NoBom) -replace '<meta\s+name="pb-build-version"\s+content="[^"]*"\s*/?>', "<meta name=`"pb-build-version`" content=`"$siteBuildVersion`" />"
+[System.IO.File]::WriteAllText($indexOutPath, $stampedIndexHtml, $utf8NoBom)
+$versionManifestJson = (@{
+  version = $siteBuildVersion
+  builtAtUtc = (Get-Date).ToUniversalTime().ToString('o')
+} | ConvertTo-Json -Compress)
+[System.IO.File]::WriteAllText((Join-Path $docs 'version.json'), $versionManifestJson, $utf8NoBom)
+Write-Host ("Build : version $siteBuildVersion -> docs/version.json")
 Write-Host 'Done.'
