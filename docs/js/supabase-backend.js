@@ -2441,15 +2441,23 @@
         }));
       } else if (action === 'admin.requestEmailChangeOtp') {
         await requireSession(token, ['ADMIN']);
-        var cfg = getConfig();
-        var fnUrl = String(cfg.SUPABASE_URL || '').replace(/\/+$/, '') + '/functions/v1/send-admin-email-otp';
+        var cfg = getCfg();
+        var supabaseBaseUrl = String(cfg.SUPABASE_URL || '')
+          .trim()
+          .replace(/\/rest\/v1\/?$/i, '')
+          .replace(/\/+$/, '');
+        var anonKey = String(cfg.SUPABASE_ANON_KEY || '').trim();
+        if (!isConfiguredStr(supabaseBaseUrl) || !isConfiguredStr(anonKey)) {
+          throw pbError('ERR_CONFIG_MISSING', 'Supabase URL / Anon Key are not configured in docs/js/config.js.');
+        }
+        var fnUrl = supabaseBaseUrl + '/functions/v1/send-admin-email-otp';
         var otpResp;
         try {
           otpResp = await fetch(fnUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'apikey': cfg.SUPABASE_ANON_KEY || ''
+              'apikey': anonKey
             },
             body: JSON.stringify({
               sessionToken: token,
