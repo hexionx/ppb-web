@@ -51,13 +51,18 @@ Deno.serve(async (req: Request) => {
       }, 500);
     }
 
+    const gasWebappUrl = (Deno.env.get("GAS_EMAIL_WEBAPP_URL") || Deno.env.get("GAS_TOKEN_WEBAPP_URL") || "").trim();
+    const gasSecret = (Deno.env.get("GAS_EMAIL_SECRET") || Deno.env.get("GAS_SECRET_KEY") || "").trim();
+    const gasFromEmail = (Deno.env.get("GAS_FROM_EMAIL") || "pattanabhumi.biology@gmail.com").trim();
+    const useGasMailer = Boolean(gasWebappUrl && gasSecret);
+
     const resendApiKey = (Deno.env.get("RESEND_API_KEY") || "").trim();
-    if (!resendApiKey) {
+    if (!useGasMailer && !resendApiKey) {
       return jsonResponse({
         ok: false,
         error: {
-          code: "ERR_RESEND_NOT_CONFIGURED",
-          message: "Resend API key is not configured yet. Add RESEND_API_KEY (and optional RESEND_FROM_EMAIL) in Supabase Dashboard -> Edge Functions -> Secrets.",
+          code: "ERR_MAILER_NOT_CONFIGURED",
+          message: "No email delivery provider is configured. Set GAS_EMAIL_WEBAPP_URL and GAS_EMAIL_SECRET (recommended for Gmail) or RESEND_API_KEY in Supabase Dashboard -> Edge Functions -> Secrets.",
         },
       }, 400);
     }
@@ -142,48 +147,104 @@ Deno.serve(async (req: Request) => {
       }, 500);
     }
 
-    const fromEmail = (Deno.env.get("RESEND_FROM_EMAIL") || "Pattanabhumi Biology <onboarding@resend.dev>").trim();
-    const resendResp = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: [newEmail],
-        subject: `Pattanabhumi Biology — Email Verification Code (${otpCode})`,
-        html: `
-          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px; border: 1px solid #d1fae5; border-radius: 16px; background: #ffffff;">
-            <p style="margin: 0 0 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #059669;">Pattanabhumi Biology Portal</p>
-            <h2 style="margin: 0 0 12px; font-size: 20px; color: #064e3b;">Verify New Administrator Email</h2>
-            <p style="margin: 0 0 18px; font-size: 14px; line-height: 1.55; color: #374151;">
-              Administrator <strong>${escapeHtml(actorUsername)}</strong> requested to verify <strong>${escapeHtml(newEmail)}</strong>. Enter this 6-digit verification code in the portal within 10 minutes:
-            </p>
-            <div style="margin: 0 0 20px; padding: 16px; border-radius: 12px; background: #ecfdf5; border: 1px solid #a7f3d0; text-align: center;">
-              <span style="font-size: 32px; font-weight: 800; letter-spacing: 0.25em; color: #065f46;">${otpCode}</span>
-            </div>
-            <p style="margin: 0; font-size: 12px; color: #6b7280;">If you did not request this email change, you can safely ignore this message.</p>
-          </div>
-        `,
-      }),
-    });
+    const emailSubject = `Pattanabhumi Biology — Email Verification Code (${otpCode})`;
+    const emailText = `Pattanabhumi Biology Portal\n\nAdministrator ${actorUsername} requested to verify ${newEmail}.\n\nYour 6-digit verification code is: ${otpCode}\n\nThis code expires in 10 minutes. If you did not request this email change, you can safely ignore this message.`;
+    const emailHtml = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px; border: 1px solid #d1fae5; border-radius: 16px; background: #ffffff;">
+        <p style="margin: 0 0 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #059669;">Pattanabhumi Biology Portal</p>
+        <h2 style="margin: 0 0 12px; font-size: 20px; color: #064e3b;">Verify New Administrator Email</h2>
+        <p style="margin: 0 0 18px; font-size: 14px; line-height: 1.55; color: #374151;">
+          Administrator <strong>${escapeHtml(actorUsername)}</strong> requested to verify <strong>${escapeHtml(newEmail)}</strong>. Enter this 6-digit verification code in the portal within 10 minutes:
+        </p>
+        <div style="margin: 0 0 20px; padding: 16px; border-radius: 12px; background: #ecfdf5; border: 1px solid #a7f3d0; text-align: center;">
+          <span style="font-size: 32px; font-weight: 800; letter-spacing: 0.25em; color: #065f46;">${otpCode}</span>
+        </div>
+        <p style="margin: 0; font-size: 12px; color: #6b7280;">If you did not request this email change, you can safely ignore this message.</p>
+      </div>
+    `;
 
-    if (!resendResp.ok) {
-      const resendErr = await resendResp.json().catch(() => ({}));
-      return jsonResponse({
-        ok: false,
-        error: {
-          code: "ERR_EMAIL_SEND_FAILED",
-          message: `Resend failed to send verification email: ${resendErr?.message || resendResp.statusText}`,
+    let sentFrom = "";
+    let providerUsed = "";
+
+    if (useGasMailer) {
+      const gasResp = await fetch(gasWebappUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        redirect: "follow",
+        body: JSON.stringify({
+          secret: gasSecret,
+          action: "sendOtpEmail",
+          toEmail: newEmail,
+          subject: emailSubject,
+          htmlBody: emailHtml,
+          textBody: emailText,
+          fromEmail: gasFromEmail,
+          senderName: "Pattanabhumi Biology",
+        }),
+      });
+
+      const gasRaw = await gasResp.text();
+      let gasJson: Record<string, unknown> | null = null;
+      try {
+        gasJson = JSON.parse(gasRaw);
+      } catch (_) {
+        gasJson = null;
+      }
+
+      if (!gasResp.ok || !gasJson || gasJson.ok !== true) {
+        const gasErrMsg =
+          (gasJson && typeof gasJson.error === "string" && gasJson.error) ||
+          (gasRaw && gasRaw.trim().startsWith("<")
+            ? "Google Apps Script returned an HTML login or authorization page instead of JSON. Confirm the Apps Script Web App has latest code deployed, Execute as: Me, and Who has access: Anyone."
+            : `Apps Script Gmail relay failed (HTTP ${gasResp.status}).`);
+        return jsonResponse({
+          ok: false,
+          error: {
+            code: (gasJson && typeof gasJson.code === "string" && gasJson.code) || "ERR_EMAIL_SEND_FAILED",
+            message: gasErrMsg,
+          },
+        }, 502);
+      }
+
+      sentFrom = typeof gasJson.sentFrom === "string" ? gasJson.sentFrom : gasFromEmail;
+      providerUsed = "gmail_apps_script";
+    } else {
+      const fromEmail = (Deno.env.get("RESEND_FROM_EMAIL") || "Pattanabhumi Biology <onboarding@resend.dev>").trim();
+      const resendResp = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
         },
-      }, 502);
+        body: JSON.stringify({
+          from: fromEmail,
+          to: [newEmail],
+          subject: emailSubject,
+          html: emailHtml,
+        }),
+      });
+
+      if (!resendResp.ok) {
+        const resendErr = await resendResp.json().catch(() => ({}));
+        return jsonResponse({
+          ok: false,
+          error: {
+            code: "ERR_EMAIL_SEND_FAILED",
+            message: `Resend failed to send verification email: ${resendErr?.message || resendResp.statusText}`,
+          },
+        }, 502);
+      }
+
+      sentFrom = fromEmail;
+      providerUsed = "resend";
     }
 
     return jsonResponse({
       ok: true,
       data: {
         sentTo: newEmail,
+        sentFrom,
+        provider: providerUsed,
         expiresAtUtc,
         expiresInMinutes: 10,
       },
