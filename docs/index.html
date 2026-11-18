@@ -8,7 +8,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <meta name="pb-build-version" content="9f203108" />
+    <meta name="pb-build-version" content="9985caa5" />
     <base target="_self" />
     <title>Pattanabhumi Biology — Learning Portal</title>
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
@@ -19,7 +19,7 @@
       href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/styles.css?v=dd8f702d" />
+    <link rel="stylesheet" href="css/styles.css?v=be0e2843" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -158,6 +158,18 @@
           >
             <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
             <span>Log in</span>
+          </button>
+
+          <!-- Authenticated Announcements & Unread Inbox Pill -->
+          <button
+            type="button"
+            class="nav-link pb-header-ann-btn hidden"
+            id="btn-header-announcements"
+            title="View Announcements"
+          >
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+            <span>Notices</span>
+            <span id="header-announcements-badge" class="pb-header-unread-pill hidden">0</span>
           </button>
 
           <!-- Authenticated Logout Button -->
@@ -307,6 +319,13 @@
           </button>
           <button
             type="button"
+            class="mobile-nav-link hidden"
+            id="nav-mobile-announcements"
+          >
+            Announcements
+          </button>
+          <button
+            type="button"
             class="mobile-nav-link"
             id="nav-mobile-contact"
             data-nav-view="contact"
@@ -396,6 +415,33 @@
      and clear fallbacks when not configured
   10. Inclusion of LoginView partial (#modal-login and #modal-privacy-gate)
 -->
+
+<!-- 0. Mobile Device Experience Advisory Banner (Displayed only on small mobile handsets) -->
+<div
+  id="pb-mobile-device-tip"
+  class="pb-mobile-device-banner hidden"
+  role="region"
+  aria-label="Recommended device advisory"
+>
+  <div class="pb-mobile-device-banner-inner">
+    <div class="pb-mobile-device-icon" aria-hidden="true">
+      <svg class="pb-icon pb-icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+    </div>
+    <div class="pb-mobile-device-copy">
+      <strong class="pb-mobile-device-title">Better Experience on Tablet or Computer</strong>
+      <p class="pb-mobile-device-desc">
+        You are viewing on a mobile phone. For comfortable reading, timed examinations, and full tables, we recommend an <strong>iPad, tablet, laptop, or desktop computer</strong>.
+      </p>
+    </div>
+    <button
+      type="button"
+      class="btn btn-outline btn-sm pb-mobile-device-dismiss-btn"
+      id="btn-mobile-device-tip-dismiss"
+    >
+      Continue on Phone
+    </button>
+  </div>
+</div>
 
 <!-- 1. Dismissible UI Server Error Alert Banner -->
 <div
@@ -1425,6 +1471,10 @@
         </div>
       </div>
       <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+        <button type="button" class="btn btn-outline btn-sm" id="btn-profile-open-release-notes">
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          <span>What&apos;s New</span>
+        </button>
         <button type="button" class="btn btn-primary btn-sm hidden" id="btn-profile-open-admin-dashboard" data-nav-view="admin">
           Open Admin Dashboard
         </button>
@@ -1603,7 +1653,40 @@
           </button>
         </div>
       </div>
+      <div class="pb-admin-profile-tile">
+        <div class="pb-admin-profile-tile-top">
+          <span class="pb-admin-profile-tile-kicker">9. Communication &amp; Broadcasts</span>
+          <strong class="pb-admin-profile-tile-title">Student Announcements &amp; Email</strong>
+          <p class="pb-admin-profile-tile-desc">Post grade alerts, course updates, study links, or billing notices to multiple students at once.</p>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-profile-admin-jump-announcements">
+          Send Announcements
+        </button>
+      </div>
     </div>
+  </div>
+
+  <!-- Student & User School Announcements Inbox (#profile-announcements-card) -->
+  <div class="card hidden" id="profile-announcements-card">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span class="badge badge-ok" id="profile-announcements-unread-badge">0 Unread Notices</span>
+        </div>
+        <h2 style="margin: 8px 0 2px 0; font-size: 1.22rem; color: var(--color-brand-deep);">
+          School Announcements &amp; Personal Updates
+        </h2>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-outline btn-sm" id="btn-student-mark-all-ann-read">
+          Mark All Read
+        </button>
+      </div>
+    </div>
+    <p style="margin: 0 0 12px 0; font-size: 0.9rem; color: var(--color-text-secondary);">
+      Announcements about newly posted grades, biology courses, study links, or tuition updates sent to you appear here.
+    </p>
+    <div id="profile-announcements-list" class="pb-announcements-feed-list"></div>
   </div>
 
   <!-- Assigned Course Enrollments Card (Connected to Step 7 Course Content View) -->
@@ -5078,6 +5161,17 @@
       </button>
       <button
         type="button"
+        class="admin-subnav-btn"
+        id="btn-admin-tab-announcements"
+        role="tab"
+        aria-selected="false"
+        aria-controls="admin-panel-announcements"
+        data-admin-tab="announcements"
+      >
+        Announcements &amp; Email
+      </button>
+      <button
+        type="button"
         class="admin-subnav-btn hidden"
         id="btn-admin-tab-assessments"
         role="tab"
@@ -5166,6 +5260,30 @@
         <div class="status-value" id="admin-summary-privacy-version">-</div>
       </div>
     </div>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--color-brand-border);">
+      <span style="font-size: 0.84rem; color: var(--color-text-secondary);">
+        Portal Build: <strong id="admin-overview-build-version">-</strong>
+      </span>
+      <button type="button" class="btn btn-outline btn-sm" id="btn-admin-open-release-notes">
+        <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        <span>View Release Notes &amp; Tradeoffs</span>
+      </button>
+    </div>
+
+    <!-- Prompt shown whenever Sections A, B, or E in School Settings are incomplete -->
+    <div id="admin-overview-config-prompt" class="banner banner-warning hidden" role="status" style="margin-top: 12px; margin-bottom: 0;">
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+        <div style="flex: 1 1 320px;">
+          <p class="banner-title" id="admin-overview-config-prompt-title">Finish School Settings &amp; Website Configuration</p>
+          <p class="banner-text" id="admin-overview-config-prompt-message"></p>
+          <div id="admin-overview-config-prompt-actions" class="pb-config-jump-pills" style="margin-top: 10px;"></div>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm" id="btn-admin-config-prompt-dismiss">
+          Remind Me Later
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Dedicated Exams & Quizzes Studio Header Card (Visible when opened via Top-Level "Exams & Quizzes" Tab) -->
@@ -5248,9 +5366,29 @@
         <p class="banner-text" id="admin-settings-alert-message"></p>
       </div>
 
+      <!-- Guided Completeness Banner for Sections A, B, and E -->
+      <div
+        id="admin-settings-completeness-banner"
+        class="pb-settings-completeness-card hidden"
+        role="region"
+        aria-label="Configuration setup checklist"
+      >
+        <div class="pb-settings-completeness-header">
+          <div>
+            <span class="badge badge-incomplete" id="admin-settings-completeness-badge">Setup Attention Needed</span>
+            <h3 style="margin: 6px 0 2px 0; font-size: 1.04rem; color: var(--color-brand-deep);">
+              Complete School Settings &amp; Website Configuration
+            </h3>
+            <p id="admin-settings-completeness-summary" style="margin: 0; font-size: 0.86rem; color: var(--color-text-secondary);"></p>
+          </div>
+        </div>
+        <div id="admin-settings-completeness-grid" class="pb-settings-completeness-grid"></div>
+      </div>
+
       <form id="form-admin-settings" novalidate>
         <!-- Part A: Public Settings -->
         <div
+          id="admin-settings-section-a"
           style="padding: 16px; background: var(--color-bg-subtle); border: 1px solid var(--color-brand-border); border-radius: var(--radius-md); margin-bottom: 18px;"
         >
           <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
@@ -5318,6 +5456,7 @@
 
         <!-- Part B: Private Operational & Financial Settings -->
         <div
+          id="admin-settings-section-b"
           style="padding: 16px; background: #FFFFFF; border: 1px solid var(--color-brand-border); border-radius: var(--radius-md); margin-bottom: 18px;"
         >
           <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
@@ -7534,6 +7673,174 @@
         </p>
 
         <div id="admin-course-enrolled-students-list" class="status-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       ADMIN TAB PANEL 3B: STUDENT ANNOUNCEMENTS & MULTI-RECIPIENT EMAIL
+       ====================================================================== -->
+  <div
+    id="admin-panel-announcements"
+    class="hidden"
+    role="tabpanel"
+    aria-labelledby="btn-admin-tab-announcements"
+  >
+    <div class="card">
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
+        <div>
+          <span class="badge badge-ok">Multi-Recipient Broadcasts &amp; Gmail Dispatch</span>
+          <h2 style="margin: 8px 0 4px 0; font-size: 1.3rem; color: var(--color-brand-deep);">
+            Student Announcements &amp; Email Updates
+          </h2>
+          <p style="margin: 0; font-size: 0.92rem; color: var(--color-text-secondary);">
+            Send portal announcements about posted grades, new courses, study resource links, or billing updates to multiple students at once — with optional Gmail delivery.
+          </p>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-admin-ann-refresh">
+          Refresh Recipients &amp; History
+        </button>
+      </div>
+
+      <div id="admin-ann-status-banner" class="banner banner-info hidden" role="status" aria-live="polite">
+        <p class="banner-title" id="admin-ann-status-title">Announcement Status</p>
+        <p class="banner-text" id="admin-ann-status-message"></p>
+      </div>
+
+      <form id="form-admin-announcement" novalidate>
+        <div class="form-grid-2col">
+          <div class="form-group">
+            <label class="form-label" for="select-ann-category">Announcement Category *</label>
+            <select id="select-ann-category" class="form-input">
+              <option value="GRADES">Posted Grades &amp; Exam Scores</option>
+              <option value="NEW_COURSE">New Course or Lesson Content</option>
+              <option value="STUDY_LINK">Study Resource / Link Share</option>
+              <option value="BILLING">Tuition &amp; Financial Update</option>
+              <option value="GENERAL" selected>General School Announcement</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="select-ann-course">Related Course (Optional)</label>
+            <select id="select-ann-course" class="form-input">
+              <option value="">All / General School Notice</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="input-ann-title">Announcement Title / Subject *</label>
+          <input
+            type="text"
+            id="input-ann-title"
+            class="form-input"
+            maxlength="160"
+            placeholder="e.g., Unit 2 Exam Scores Published — Check Your Course Assessment Tab"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="textarea-ann-body">Message Details *</label>
+          <textarea
+            id="textarea-ann-body"
+            class="form-textarea"
+            rows="4"
+            maxlength="4000"
+            placeholder="Write a clear message for the selected students..."
+            required
+          ></textarea>
+        </div>
+
+        <div class="form-grid-2col">
+          <div class="form-group">
+            <label class="form-label" for="input-ann-link-url">Optional Study / Action Link (https:// or #/...)</label>
+            <input
+              type="text"
+              id="input-ann-link-url"
+              class="form-input"
+              maxlength="500"
+              placeholder="e.g., https://... or #/payments"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="input-ann-link-label">Optional Link Button Label</label>
+            <input
+              type="text"
+              id="input-ann-link-label"
+              class="form-input"
+              maxlength="80"
+              placeholder="e.g., Open Study Sheet or View Payments"
+            />
+          </div>
+        </div>
+
+        <!-- Multi-Recipient Picker -->
+        <div class="pb-ann-recipients-panel" id="ann-recipients-box">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+            <div>
+              <h3 style="margin: 0; font-size: 1.02rem; color: var(--color-brand-deep);">
+                Select Recipients (Multi-Select) *
+              </h3>
+              <p style="margin: 2px 0 0 0; font-size: 0.84rem; color: var(--color-text-secondary);">
+                Search or filter by enrolled course, then select one, many, or all students.
+              </p>
+            </div>
+            <span class="badge badge-incomplete" id="ann-rec-selected-badge">0 Selected &bull; 0 With Email</span>
+          </div>
+
+          <div class="pb-ann-rec-toolbar">
+            <input
+              type="search"
+              id="input-ann-rec-search"
+              class="form-input"
+              placeholder="Search student name, username, or email..."
+              style="flex: 1 1 220px;"
+            />
+            <select id="select-ann-rec-course-filter" class="form-input" style="flex: 1 1 200px;">
+              <option value="ALL">All Students &amp; Users</option>
+            </select>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-ann-rec-all-students">All Active Students</button>
+              <button type="button" class="btn btn-outline btn-sm" id="btn-ann-rec-select-all">Select Visible</button>
+              <button type="button" class="btn btn-outline btn-sm" id="btn-ann-rec-clear">Clear</button>
+            </div>
+          </div>
+
+          <div id="ann-recipients-checklist" class="pb-ann-rec-checklist" role="group" aria-label="Announcement recipients">
+            <p class="pb-field-hint" style="margin: 8px 0;">Loading student directory...</p>
+          </div>
+        </div>
+
+        <div class="checkbox-card" style="margin-top: 14px; margin-bottom: 14px;">
+          <label class="checkbox-label" for="chk-ann-send-email">
+            <input type="checkbox" id="chk-ann-send-email" />
+            <span>
+              <strong>Also send by email</strong> via Gmail (<code>pattanabhumi.biology@gmail.com</code>) to selected recipients who have a valid email address
+            </span>
+          </label>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <button type="submit" class="btn btn-primary" id="btn-admin-ann-send">
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            <span>Publish Announcement</span>
+          </button>
+          <span id="admin-ann-inline-hint" style="font-size: 0.86rem; font-weight: 600; color: var(--color-text-secondary);"></span>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+        <div>
+          <span class="badge badge-ok" id="admin-ann-history-badge">0 Sent Announcements</span>
+          <h3 style="margin: 6px 0 0 0; font-size: 1.15rem; color: var(--color-brand-deep);">
+            Published Announcements &amp; Email Delivery Log
+          </h3>
+        </div>
+      </div>
+      <div id="admin-ann-history-list" class="pb-announcements-feed-list">
+        <p class="pb-field-hint">No announcements published yet.</p>
       </div>
     </div>
   </div>
@@ -11947,6 +12254,42 @@
   </div>
 </div>
 
+<!-- Role-Tailored Once-Per-Update Release Notes Modal (#modal-release-notes) -->
+<div
+  id="modal-release-notes"
+  class="modal-backdrop hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="release-notes-modal-title"
+  aria-hidden="true"
+>
+  <div class="modal-dialog modal-dialog-lg pb-release-modal-dialog" role="document">
+    <div class="modal-header" style="align-items: flex-start;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
+          <span class="badge badge-ok" id="release-notes-version-badge">Version Build</span>
+          <span class="badge badge-incomplete" id="release-notes-role-badge">Portal Update</span>
+          <span style="font-size: 0.78rem; color: var(--color-text-muted);" id="release-notes-built-at"></span>
+        </div>
+        <h2 id="release-notes-modal-title" style="margin: 0; font-size: 1.28rem; color: var(--color-brand-deep);">
+          What&apos;s New in Pattanabhumi Biology
+        </h2>
+      </div>
+      <button type="button" class="modal-close-btn" id="btn-release-notes-close" aria-label="Close release notes">
+        &times;
+      </button>
+    </div>
+
+    <div id="release-notes-modal-body" class="pb-release-modal-body"></div>
+
+    <div class="pb-confirm-modal-footer">
+      <button type="button" class="btn btn-primary" id="btn-release-notes-ack">
+        Got it — Continue
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Styled Confirmation Modal Card (replaces native browser confirm dialogs) -->
 <div
   id="modal-admin-confirm-action"
@@ -12111,6 +12454,12 @@
                   <span>Contact School</span>
                 </button>
               </li>
+              <li id="footer-release-notes-item" class="hidden">
+                <button type="button" class="pb-footer-nav-btn" id="btn-footer-release-notes">
+                  <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  <span>Release Notes &amp; What&apos;s New</span>
+                </button>
+              </li>
             </ul>
           </div>
 
@@ -12164,9 +12513,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/config.js?v=233d62d3"></script>
     <script src="js/drive-storage.js?v=e69064d1"></script>
-    <script src="js/supabase-backend.js?v=3867a4c2"></script>
+    <script src="js/supabase-backend.js?v=d9675b37"></script>
     <script src="js/supabase-exams.js?v=b296f731"></script>
     <script src="js/api.js?v=afd08d1a"></script>
-    <script src="js/app.js?v=9915d78d"></script>
+    <script src="js/app.js?v=6304f19e"></script>
   </body>
 </html>

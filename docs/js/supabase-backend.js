@@ -2266,6 +2266,40 @@
     };
   }
 
+  async function invokePortalEdgeFunction(slug, bodyPayload, fallbackCode, notDeployedMsg) {
+    var cfg = getCfg();
+    var sbBase = String(cfg.SUPABASE_URL || '')
+      .trim()
+      .replace(/\/rest\/v1\/?$/i, '')
+      .replace(/\/+$/, '');
+    var anonKey = String(cfg.SUPABASE_ANON_KEY || '').trim();
+    if (!isConfiguredStr(sbBase) || !isConfiguredStr(anonKey)) {
+      throw pbError('ERR_CONFIG_MISSING', 'Supabase URL / Anon Key are not configured in docs/js/config.js.');
+    }
+    var resp;
+    try {
+      resp = await fetch(sbBase + '/functions/v1/' + slug, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': anonKey
+        },
+        body: JSON.stringify(bodyPayload || {})
+      });
+    } catch (netErr) {
+      throw pbError('ERR_NETWORK', 'Could not reach Edge Function ' + slug + ': ' + (netErr && netErr.message ? netErr.message : 'Network error'));
+    }
+    if (resp.status === 404) {
+      throw pbError('ERR_FUNCTION_NOT_DEPLOYED', notDeployedMsg || ('Edge Function "' + slug + '" is not deployed on Supabase.'));
+    }
+    var json = await resp.json().catch(function () { return null; });
+    if (!json || !json.ok) {
+      var errObj = (json && json.error) || {};
+      throw pbError(errObj.code || fallbackCode || 'ERR_INTERNAL', errObj.message || ('Edge Function failed (HTTP ' + resp.status + ').'));
+    }
+    return json.data || {};
+  }
+
   // ==================== DISPATCH ROUTER ====================
 
   async function dispatch(envelope) {
@@ -2441,42 +2475,104 @@
         }));
       } else if (action === 'admin.requestEmailChangeOtp') {
         await requireSession(token, ['ADMIN']);
-        var cfg = getCfg();
-        var supabaseBaseUrl = String(cfg.SUPABASE_URL || '')
-          .trim()
-          .replace(/\/rest\/v1\/?$/i, '')
-          .replace(/\/+$/, '');
-        var anonKey = String(cfg.SUPABASE_ANON_KEY || '').trim();
-        if (!isConfiguredStr(supabaseBaseUrl) || !isConfiguredStr(anonKey)) {
-          throw pbError('ERR_CONFIG_MISSING', 'Supabase URL / Anon Key are not configured in docs/js/config.js.');
+        data = await invokePortalEdgeFunction('send-admin-email-otp', {
+          sessionToken: token,
+          newEmail: cleanSingleLine(payload && payload.newEmail, 160),
+          targetUserId: cleanSingleLine(payload && payload.targetUserId, 64)
+        }, 'ERR_EMAIL_OTP_FAILED', 'SendGrid / Apps Script mailer is not deployed on Supabase yet.');
+      } else if (action === 'portal.getReleaseAckStatus') {
+        await requireSession(token, ['STUDENT', 'ADMIN']);
+        var relVerCheck = cleanSingleLine(payload && payload.releaseVersion, 64);
+        var ackCheckRes = await getSupabase().rpc('pb_portal_get_release_ack_status', {
+          p_session_token: token,
+          p_release_version: relVerCheck
+        });
+        if (ackCheckRes && ackCheckRes.error && (ackCheckRes.error.code === 'PGRST202' || String(ackCheckRes.error.message || '').indexOf('pb_portal_get_release_ack_status') !== -1)) {
+          data = { releaseVersion: relVerCheck, acknowledged: false, fallback: true };
+        } else {
+          data = unwrapRpcResult(ackCheckRes) || { releaseVersion: relVerCheck, acknowledged: false };
         }
-        var fnUrl = supabaseBaseUrl + '/functions/v1/send-admin-email-otp';
-        var otpResp;
-        try {
-          otpResp = await fetch(fnUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': anonKey
-            },
-            body: JSON.stringify({
+      } else if (action === 'portal.acknowledgeReleaseNotes') {
+        var ackSes = await requireSession(token, ['STUDENT', 'ADMIN']);
+        var relVerAck = cleanSingleLine(payload && payload.releaseVersion, 64);
+        var ackSaveRes = await getSupabase().rpc('pb_portal_ack_release_notes', {
+          p_session_token: token,
+          p_release_version: relVerAck
+        });
+        if (ackSaveRes && ackSaveRes.error && (ackSaveRes.error.code === 'PGRST202' || String(ackSaveRes.error.message || '').indexOf('pb_portal_ack_release_notes') !== -1)) {
+          await writeAuditEvent(ackSes.userId, ackSes.role, 'PORTAL_RELEASE_NOTES_ACK', 'ReleaseVersion', relVerAck, { releaseVersion: relVerAck });
+          data = { releaseVersion: relVerAck, acknowledged: true, fallback: true };
+        } else {
+          data = unwrapRpcResult(ackSaveRes) || { releaseVersion: relVerAck, acknowledged: true };
+        }
+      } else if (action === 'portal.listAnnouncements') {
+        await requireSession(token, ['STUDENT', 'ADMIN']);
+        var listAnnRes = await getSupabase().rpc('pb_list_portal_announcements', {
+          p_session_token: token,
+          p_limit: Number(payload && payload.limit) || 40
+        });
+        if (listAnnRes && listAnnRes.error && (listAnnRes.error.code === 'PGRST202' || String(listAnnRes.error.message || '').indexOf('pb_list_portal_announcements') !== -1)) {
+          throw pbError('ERR_RPC_NOT_DEPLOYED', 'Announcements database migration is pending deployment in Supabase SQL Editor.');
+        }
+        data = unwrapRpcResult(listAnnRes) || { announcements: [], unreadCount: 0 };
+      } else if (action === 'portal.markAnnouncementRead') {
+        await requireSession(token, ['STUDENT', 'ADMIN']);
+        var markAnnRes = await getSupabase().rpc('pb_mark_announcement_read', {
+          p_session_token: token,
+          p_announcement_id: payload && payload.announcementId ? cleanSingleLine(payload.announcementId, 64) : null
+        });
+        data = unwrapRpcResult(markAnnRes) || { unreadCount: 0 };
+      } else if (action === 'admin.createAnnouncement') {
+        await requireSession(token, ['ADMIN']);
+        var annPayload = payload && typeof payload === 'object' ? payload : {};
+        var createAnnRes = await getSupabase().rpc('pb_admin_create_announcement', {
+          p_session_token: token,
+          p_payload: annPayload
+        });
+        if (createAnnRes && createAnnRes.error && (createAnnRes.error.code === 'PGRST202' || String(createAnnRes.error.message || '').indexOf('pb_admin_create_announcement') !== -1)) {
+          throw pbError('ERR_RPC_NOT_DEPLOYED', 'Announcements SQL migration is pending deployment in Supabase SQL Editor.');
+        }
+        var createdAnnData = unwrapRpcResult(createAnnRes) || {};
+        if (annPayload.sendEmail && createdAnnData.announcement && createdAnnData.announcement.announcementId) {
+          var schoolNm = 'Pattanabhumi Biology';
+          try {
+            var schRow = await getSupabase().from('settings').select('setting_value').eq('setting_key', 'SCHOOL_NAME').maybeSingle();
+            if (schRow && schRow.data && schRow.data.setting_value) {
+              schoolNm = cleanSingleLine(schRow.data.setting_value, 100) || schoolNm;
+            }
+          } catch (_ignoreSchoolNm) {}
+          var emailSummary;
+          try {
+            emailSummary = await invokePortalEdgeFunction('send-portal-announcement', {
               sessionToken: token,
-              newEmail: cleanSingleLine(payload && payload.newEmail, 160),
-              targetUserId: cleanSingleLine(payload && payload.targetUserId, 64)
-            })
-          });
-        } catch (netErr) {
-          throw pbError('ERR_NETWORK', 'Could not reach the Email OTP verification service: ' + (netErr && netErr.message ? netErr.message : 'Network error'));
+              announcementId: createdAnnData.announcement.announcementId,
+              recipientUserIds: createdAnnData.announcement.recipientUserIds || [],
+              title: createdAnnData.announcement.title || '',
+              category: createdAnnData.announcement.category || 'GENERAL',
+              bodyText: createdAnnData.announcement.bodyText || '',
+              linkUrl: createdAnnData.announcement.linkUrl || '',
+              linkLabel: createdAnnData.announcement.linkLabel || '',
+              schoolName: schoolNm
+            }, 'ERR_ANNOUNCEMENT_EMAIL_FAILED', 'Edge Function send-portal-announcement unavailable.');
+          } catch (mailEdgeErr) {
+            emailSummary = {
+              status: 'FAILED',
+              sentCount: 0,
+              failedCount: createdAnnData.announcement.recipientCount || 0,
+              errorMessage: (mailEdgeErr && mailEdgeErr.message) || 'Email dispatch failed'
+            };
+          }
+          createdAnnData.announcement.emailDeliverySummary = emailSummary;
+          createdAnnData.emailDeliverySummary = emailSummary;
         }
-        if (otpResp.status === 404) {
-          throw pbError('ERR_FUNCTION_NOT_DEPLOYED', 'Edge Function "send-admin-email-otp" is not deployed on Supabase yet. Deploy supabase/functions/send-admin-email-otp/index.ts and set RESEND_API_KEY in Supabase Edge Function Secrets.');
-        }
-        var otpJson = await otpResp.json().catch(function () { return null; });
-        if (!otpJson || !otpJson.ok) {
-          var errObj = (otpJson && otpJson.error) || {};
-          throw pbError(errObj.code || 'ERR_EMAIL_OTP_FAILED', errObj.message || ('Failed to send verification OTP (HTTP ' + otpResp.status + ').'));
-        }
-        data = otpJson.data || {};
+        data = createdAnnData;
+      } else if (action === 'admin.deleteAnnouncement') {
+        await requireSession(token, ['ADMIN']);
+        var delAnnRes = await getSupabase().rpc('pb_admin_delete_announcement', {
+          p_session_token: token,
+          p_announcement_id: cleanSingleLine(payload && payload.announcementId, 64)
+        });
+        data = unwrapRpcResult(delAnnRes) || { deleted: true };
       } else if (action === 'admin.deleteOrArchiveUser') {
         var delRpcRes = await getSupabase().rpc('pb_admin_delete_user', {
           p_session_token: token,

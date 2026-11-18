@@ -3223,7 +3223,8 @@
         'modal-student-exam-result',
         'modal-recording-detail',
         'modal-privacy-gate',
-        'modal-report-unavailability'
+        'modal-report-unavailability',
+        'modal-release-notes'
       ];
       for (var m = 0; m < modalIdsToClose.length; m++) {
         if (typeof closeModalDialog === 'function') {
@@ -3959,6 +3960,7 @@
             { label: 'Settings & Website', adminTab: 'settings', targetId: 'admin-panel-settings' },
             { label: 'Users & Enrollments', adminTab: 'users', targetId: 'admin-panel-users' },
             { label: 'Courses & Lessons', adminTab: 'courses', targetId: 'admin-panel-courses' },
+            { label: 'Announcements & Email', adminTab: 'announcements', targetId: 'admin-panel-announcements' },
             { label: 'Billing & Payments', adminTab: 'invoices', targetId: 'admin-panel-invoices' },
             { label: 'Portal Overview', adminTab: 'overview', targetId: 'admin-panel-overview' },
             { label: 'Absence Requests', adminTab: 'unavailability', targetId: 'admin-panel-unavailability' }
@@ -4012,6 +4014,10 @@
         ],
         overview: [
           { label: 'Private File Storage & Orphan Cleanup', targetId: 'admin-step8-file-storage-card' }
+        ],
+        announcements: [
+          { label: 'Compose & Select Recipients', targetId: 'form-admin-announcement' },
+          { label: 'Published Announcements Log', targetId: 'admin-ann-history-list' }
         ],
         unavailability: [
           { label: 'Absence Filter & Search', targetId: 'form-admin-unavail-filter' },
@@ -5406,6 +5412,12 @@
             d.publishedScores || [],
             true
           );
+          if (typeof PBPortalEnhancements === 'object' && PBPortalEnhancements && typeof PBPortalEnhancements.onAuthStateUpdated === 'function') {
+            PBPortalEnhancements.onAuthStateUpdated((d && d.user) || (currentSessionMeta && currentSessionMeta.user) || null, 'PROFILE_REFRESH');
+          }
+          if (typeof PBAnnouncementsManager === 'object' && PBAnnouncementsManager && typeof PBAnnouncementsManager.loadStudentFeed === 'function') {
+            PBAnnouncementsManager.loadStudentFeed();
+          }
           return d;
         })
         .catch(function () {});
@@ -5858,7 +5870,7 @@
     function isReadOnlyCoalesceableRpcAction(actionName) {
       var act = String(actionName || '').trim();
       if (act === 'system.ping') return false;
-      return /^(public\.getBootstrap|auth\.get|file\.getContent|student\.(get|list)|admin\.(get|list)|admin\.(exams|questions|attempts|integrity|results|grading)\.(list|get|inspect|preview|analytics)|exams\.(list|get)|payment\.get|calendar\.(get|list)|unavailability\.list)/i.test(
+      return /^(public\.getBootstrap|auth\.get|file\.getContent|student\.(get|list)|admin\.(get|list)|admin\.(exams|questions|attempts|integrity|results|grading)\.(list|get|inspect|preview|analytics)|exams\.(list|get)|payment\.get|calendar\.(get|list)|unavailability\.list|portal\.(listAnnouncements|getReleaseAckStatus))/i.test(
         act
       );
     }
@@ -6394,15 +6406,21 @@
           })
           .then(function (manifest) {
             var liveVer = manifest && manifest.version ? String(manifest.version).trim() : '';
+            if (typeof PBReleaseNotesManager === 'object' && PBReleaseNotesManager && typeof PBReleaseNotesManager.setManifestMeta === 'function') {
+              PBReleaseNotesManager.setManifestMeta(manifest || null);
+            }
             if (!liveVer || liveVer === declared) return;
             clearStaleSiteCachesForNewVersion();
 
             var activeExamView = document.getElementById('view-exam-workspace');
             var inExam = activeExamView && !activeExamView.classList.contains('hidden');
+            var fbWorkspaceEl = document.getElementById('pb-forms-builder-workspace');
+            var inFormBuilder = fbWorkspaceEl && !fbWorkspaceEl.classList.contains('hidden') && !document.getElementById('view-admin')?.classList.contains('hidden');
             var hasOpenEditorModal = Boolean(
               document.querySelector('.pb-modal-overlay.is-open, .modal-backdrop.is-open, dialog[open]')
             );
-            if (inExam || hasOpenEditorModal) {
+            var hasDirtyAdmin = Boolean(typeof hasUnsavedCourseChanges !== 'undefined' && hasUnsavedCourseChanges);
+            if (inExam || inFormBuilder || hasOpenEditorModal || hasDirtyAdmin) {
               if (typeof PBNotify === 'object' && PBNotify && typeof PBNotify.toast === 'function') {
                 PBNotify.toast(
                   'info',
@@ -6418,6 +6436,10 @@
               reloadedFor = sessionStorage.getItem('pb_auto_reloaded_ver') || '';
               if (reloadedFor === liveVer) return;
               sessionStorage.setItem('pb_auto_reloaded_ver', liveVer);
+              sessionStorage.setItem('pb_post_update_reload_from', declared);
+              if (inMemorySessionToken && window.sessionStorage && !readPersistedTokenIfAvailable()) {
+                window.sessionStorage.setItem(STORAGE_KEY_SESSION_TOKEN, inMemorySessionToken);
+              }
             } catch (eStore) {
               return;
             }
@@ -6540,8 +6562,13 @@
           inMemorySessionToken = persisted;
           window.__PB_SESSION_TOKEN__ = persisted;
           hadPersistedToken = true;
-          currentStorageMode =
-            'LOCAL_STORAGE_REMEMBER_ME (Resumed from browser localStorage)';
+          var hasLsTok = false;
+          try {
+            hasLsTok = Boolean(window.localStorage && window.localStorage.getItem(STORAGE_KEY_SESSION_TOKEN));
+          } catch (_eLsCheck) {}
+          currentStorageMode = hasLsTok
+            ? 'LOCAL_STORAGE_REMEMBER_ME (Resumed from browser localStorage)'
+            : 'SESSION_STORAGE_CURRENT_TAB (Resumed cleanly on refresh)';
         }
       }
 
@@ -6621,7 +6648,25 @@
           }
 
           if (bootstrapData.session && bootstrapData.session.user) {
+            var postUpdPrev = '';
+            try {
+              postUpdPrev = sessionStorage.getItem('pb_post_update_reload_from') || '';
+              if (postUpdPrev) sessionStorage.removeItem('pb_post_update_reload_from');
+            } catch (_eUpdFlag) {}
+            if (postUpdPrev && typeof clearRpcReadCache === 'function') {
+              clearRpcReadCache();
+            }
             applySessionAndRouteState(bootstrapData.session, 'RESTORED');
+            if (postUpdPrev && typeof PBNotify === 'object' && PBNotify && typeof PBNotify.toast === 'function') {
+              PBNotify.toast(
+                'success',
+                'Portal Updated & Session Restored',
+                'Loaded latest build (' + (getDeclaredBuildVersion() || 'latest') + ') and automatically restored your session.'
+              );
+            }
+            if (typeof PBPortalEnhancements === 'object' && PBPortalEnhancements && typeof PBPortalEnhancements.onAuthStateUpdated === 'function') {
+              PBPortalEnhancements.onAuthStateUpdated(bootstrapData.session.user, 'RESTORED');
+            }
           } else {
             var restoreOutcome =
               bootstrapData.sessionRestoreReason === 'NEW_DEVICE_LOGIN'
@@ -6913,6 +6958,9 @@
                 );
                 setTimeout(function () {
                   applySessionAndRouteState(sessionSummary, 'FRESH_LOGIN');
+                  if (typeof PBPortalEnhancements === 'object' && PBPortalEnhancements && typeof PBPortalEnhancements.onAuthStateUpdated === 'function') {
+                    PBPortalEnhancements.onAuthStateUpdated(loginData.user, 'FRESH_LOGIN');
+                  }
                   renderDiagnosticResult(
                     'PASS: Login succeeded for ' +
                       loginData.user.username +
@@ -7079,6 +7127,9 @@
           }
 
           applySessionAndRouteState(currentSessionMeta, 'PRIVACY_ACKNOWLEDGED');
+          if (typeof PBPortalEnhancements === 'object' && PBPortalEnhancements && typeof PBPortalEnhancements.onAuthStateUpdated === 'function') {
+            PBPortalEnhancements.onAuthStateUpdated(currentSessionMeta && currentSessionMeta.user, 'PRIVACY_ACKNOWLEDGED');
+          }
 
           renderDiagnosticResult(
             'PASS: Privacy Notice (' +
@@ -7246,6 +7297,9 @@
               setLogoutSpinnerState(false);
               clearClientSessionCredential();
               applySessionAndRouteState(null, 'LOGGED_OUT');
+              if (typeof PBPortalEnhancements === 'object' && PBPortalEnhancements && typeof PBPortalEnhancements.onAuthStateUpdated === 'function') {
+                PBPortalEnhancements.onAuthStateUpdated(null, 'LOGGED_OUT');
+              }
               if (typeof PBNotify === 'object' && PBNotify && typeof PBNotify.clearAllToasts === 'function') {
                 PBNotify.clearAllToasts();
               }
@@ -7262,6 +7316,9 @@
           setLogoutSpinnerState(false);
           clearClientSessionCredential();
           applySessionAndRouteState(null, 'LOGGED_OUT');
+          if (typeof PBPortalEnhancements === 'object' && PBPortalEnhancements && typeof PBPortalEnhancements.onAuthStateUpdated === 'function') {
+            PBPortalEnhancements.onAuthStateUpdated(null, 'LOGGED_OUT');
+          }
           if (typeof PBNotify === 'object' && PBNotify && typeof PBNotify.clearAllToasts === 'function') {
             PBNotify.clearAllToasts();
           }
@@ -7693,6 +7750,7 @@
         { key: 'settings', btnId: 'btn-admin-tab-settings', panelId: 'admin-panel-settings' },
         { key: 'users', btnId: 'btn-admin-tab-users', panelId: 'admin-panel-users' },
         { key: 'courses', btnId: 'btn-admin-tab-courses', panelId: 'admin-panel-courses' },
+        { key: 'announcements', btnId: 'btn-admin-tab-announcements', panelId: 'admin-panel-announcements' },
         { key: 'assessments', btnId: 'btn-admin-tab-assessments', panelId: 'admin-panel-assessments' },
         { key: 'exam-creation', btnId: 'btn-admin-tab-exam-creation', panelId: 'admin-panel-exam-creation' },
         { key: 'exam-integrity', btnId: 'btn-admin-tab-exam-integrity', panelId: 'admin-panel-exam-integrity' },
@@ -7740,6 +7798,10 @@
         loadAdminAttemptsQueuePhase6();
       } else if (currentAdminTab === 'invoices') {
         loadAdminInvoicesStep10();
+      } else if (currentAdminTab === 'announcements') {
+        if (typeof PBAnnouncementsManager === 'object' && PBAnnouncementsManager && typeof PBAnnouncementsManager.loadAdminTab === 'function') {
+          PBAnnouncementsManager.loadAdminTab();
+        }
       } else if (currentAdminTab === 'unavailability') {
         loadAdminUnavailabilityRequestsStep14();
       }
@@ -7867,6 +7929,9 @@
       }
       if (acad.reminderMessage) {
         setText('admin-instructor-academic-reminder-text', acad.reminderMessage);
+      }
+      if (typeof PBAdminConfigAdvisor === 'object' && PBAdminConfigAdvisor && typeof PBAdminConfigAdvisor.updateFromCmsAndDom === 'function') {
+        setTimeout(function () { PBAdminConfigAdvisor.updateFromCmsAndDom(cmsData); }, 0);
       }
 
       /* Instructor Portrait Thumbnail Preview */
@@ -8147,6 +8212,9 @@
             mode === 'PUBLISH' ? 'Public Website Published' : 'CMS Updated',
             d.savedMessage || ''
           );
+          if (typeof PBAdminConfigAdvisor === 'object' && PBAdminConfigAdvisor && typeof PBAdminConfigAdvisor.updateFromSettingsPayload === 'function') {
+            PBAdminConfigAdvisor.updateFromSettingsPayload(d);
+          }
           return d;
         })
         .catch(function (err) {
@@ -9547,10 +9615,21 @@
             activeTabPromise = loadAdminCoursesAndAssessmentsStep7();
           } else if (currentAdminTab === 'invoices') {
             activeTabPromise = loadAdminInvoicesStep10();
+          } else if (currentAdminTab === 'announcements') {
+            activeTabPromise =
+              typeof PBAnnouncementsManager === 'object' && PBAnnouncementsManager && typeof PBAnnouncementsManager.loadAdminTab === 'function'
+                ? PBAnnouncementsManager.loadAdminTab()
+                : Promise.resolve();
           } else if (currentAdminTab === 'unavailability') {
             activeTabPromise = loadAdminUnavailabilityRequestsStep14();
           } else {
             activeTabPromise = loadAdminSettingsStep6();
+          }
+          if (typeof PBAdminConfigAdvisor === 'object' && PBAdminConfigAdvisor && typeof PBAdminConfigAdvisor.checkAdminSettingsPrompt === 'function') {
+            PBAdminConfigAdvisor.checkAdminSettingsPrompt();
+          }
+          if (typeof PBPortalEnhancements === 'object' && PBPortalEnhancements && typeof PBPortalEnhancements.onAuthStateUpdated === 'function') {
+            PBPortalEnhancements.onAuthStateUpdated((d && d.adminUser) || (currentSessionMeta && currentSessionMeta.user) || null, 'ADMIN_SUMMARY');
           }
           return activeTabPromise;
         })
@@ -30360,6 +30439,7 @@ var qrcode = (function() {
           { key: 'settings', btnId: 'btn-admin-tab-settings', panelId: 'admin-panel-settings' },
           { key: 'users', btnId: 'btn-admin-tab-users', panelId: 'admin-panel-users' },
           { key: 'courses', btnId: 'btn-admin-tab-courses', panelId: 'admin-panel-courses' },
+          { key: 'announcements', btnId: 'btn-admin-tab-announcements', panelId: 'admin-panel-announcements' },
           { key: 'assessments', btnId: 'btn-admin-tab-assessments', panelId: 'admin-panel-assessments' },
           { key: 'exam-creation', btnId: 'btn-admin-tab-exam-creation', panelId: 'admin-panel-exam-creation' },
           { key: 'exam-integrity', btnId: 'btn-admin-tab-exam-integrity', panelId: 'admin-panel-exam-integrity' },
@@ -36996,6 +37076,13 @@ var qrcode = (function() {
           } else if (activeModalId === 'modal-admin-assigned-assessment-preview') {
             evt.preventDefault();
             closeAdminAssignedAssessmentPreviewPopup();
+          } else if (activeModalId === 'modal-release-notes') {
+            evt.preventDefault();
+            if (typeof PBReleaseNotesManager === 'object' && PBReleaseNotesManager && typeof PBReleaseNotesManager.dismissModal === 'function') {
+              PBReleaseNotesManager.dismissModal();
+            } else {
+              closeModalDialog('modal-release-notes');
+            }
           } else if (activeModalId === 'modal-privacy-gate') {
             evt.preventDefault();
             setPrivacyGateInlineAlert(
@@ -37534,7 +37621,7 @@ var qrcode = (function() {
       }
 
       /* Step 6 Admin Sub-Tab Buttons (Bound by ID for 100% reliability) */
-      var adminTabKeys = ['settings', 'users', 'courses', 'assessments', 'exam-creation', 'exam-integrity', 'invoices', 'overview', 'unavailability'];
+      var adminTabKeys = ['settings', 'users', 'courses', 'announcements', 'assessments', 'exam-creation', 'exam-integrity', 'invoices', 'overview', 'unavailability'];
       for (var tIdx = 0; tIdx < adminTabKeys.length; tIdx++) {
         (function (tKey) {
           var tBtn = document.getElementById('btn-admin-tab-' + tKey);
@@ -40280,6 +40367,13 @@ var qrcode = (function() {
           switchAdminSubTab('courses', true, true);
         });
       }
+      var profJumpAnnouncementsBtn = document.getElementById('btn-profile-admin-jump-announcements');
+      if (profJumpAnnouncementsBtn) {
+        profJumpAnnouncementsBtn.addEventListener('click', function () {
+          showSectionView('admin');
+          switchAdminSubTab('announcements', true, true);
+        });
+      }
       var profJumpAssessmentsBtn = document.getElementById('btn-profile-admin-jump-assessments');
       if (profJumpAssessmentsBtn) {
         profJumpAssessmentsBtn.addEventListener('click', function () {
@@ -41396,7 +41490,1201 @@ var qrcode = (function() {
       }
     }
 
+    /* ======================================================================
+     * DEVICE ADVISOR, ONCE-PER-UPDATE RELEASE NOTES, CONFIG PROMPT & ANNOUNCEMENTS
+     * ====================================================================== */
+    var PBDeviceAdvisor = (function () {
+      var DISMISS_KEY = 'pb_mobile_tip_dismissed_v1';
+      var bound = false;
+
+      function isMobileHandsetDevice() {
+        if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+        var ua = String(navigator.userAgent || '');
+        var touchPts = Number(navigator.maxTouchPoints || 0);
+        var vw = Number(window.innerWidth || 0);
+        var vh = Number(window.innerHeight || 0);
+
+        // Exclude iPads, iPadOS desktop-UA Safari, and Android tablets cleanly
+        var isIpadOrTablet =
+          /iPad|Tablet|PlayBook|Silk/i.test(ua) ||
+          (/Macintosh/i.test(ua) && touchPts > 1) ||
+          (/Android/i.test(ua) && !/Mobile/i.test(ua)) ||
+          (vw >= 768 && Math.min(vw, vh || vw) >= 700);
+        if (isIpadOrTablet) return false;
+
+        if (/(iPhone|iPod|Windows Phone|IEMobile|Opera Mini|BlackBerry|Android.*Mobile|\bMobile\b)/i.test(ua)) {
+          return true;
+        }
+        return vw > 0 && vw <= 640;
+      }
+
+      function isDismissed() {
+        try {
+          return Boolean(window.sessionStorage && window.sessionStorage.getItem(DISMISS_KEY) === '1');
+        } catch (_e) {
+          return false;
+        }
+      }
+
+      function syncVisibility() {
+        var el = document.getElementById('pb-mobile-device-tip');
+        if (!el) return;
+        var examEl = document.getElementById('view-exam-workspace');
+        var loadEl = document.getElementById('view-loading');
+        var fatalEl = document.getElementById('view-fatal-error');
+        var inSuppressedView =
+          (examEl && !examEl.classList.contains('hidden')) ||
+          (loadEl && !loadEl.classList.contains('hidden')) ||
+          (fatalEl && !fatalEl.classList.contains('hidden'));
+        var show = isMobileHandsetDevice() && !isDismissed() && !inSuppressedView;
+        el.classList.toggle('hidden', !show);
+      }
+
+      function bind() {
+        if (bound) return;
+        bound = true;
+        var dismissBtn = document.getElementById('btn-mobile-device-tip-dismiss');
+        if (dismissBtn) {
+          dismissBtn.addEventListener('click', function () {
+            try {
+              if (window.sessionStorage) window.sessionStorage.setItem(DISMISS_KEY, '1');
+            } catch (_e) {}
+            syncVisibility();
+          });
+        }
+        if (typeof window !== 'undefined' && window.addEventListener) {
+          window.addEventListener('resize', syncVisibility);
+          window.addEventListener('hashchange', syncVisibility);
+        }
+        if (typeof MutationObserver === 'function') {
+          var obs = new MutationObserver(function () {
+            syncVisibility();
+          });
+          ['view-exam-workspace', 'view-loading', 'view-fatal-error'].forEach(function (vid) {
+            var node = document.getElementById(vid);
+            if (node) obs.observe(node, { attributes: true, attributeFilter: ['class'] });
+          });
+        }
+        syncVisibility();
+      }
+
+      return Object.freeze({
+        bind: bind,
+        isMobileHandsetDevice: isMobileHandsetDevice,
+        syncVisibility: syncVisibility
+      });
+    })();
+
+    var PBReleaseNotesManager = (function () {
+      var LOCAL_KEY_PREFIX = 'pb_release_seen_v1_';
+      var manifestMeta = null;
+      var checkedUserVersionKey = '';
+      var pendingModalVersion = '';
+      var bound = false;
+
+      var CHANGELOG_TEMPLATE = {
+        adminUpdated: [
+          'Added multi-recipient Student Announcements composer (posted grades, new courses, study links, financial notices, or general updates) with optional Gmail dispatch via pattanabhumi.biology@gmail.com.',
+          'Added guided completion alerts and jump shortcuts for School Settings & Website Configuration (Sections A, B, and E) whenever required or placeholder fields remain.',
+          'Added this role-aware Release Notes notification with once-per-update server and browser tracking.',
+          'Added automatic session restoration across deployment refreshes and a mobile handset prompt recommending tablet, iPad, or computer screens.'
+        ],
+        adminImproved: [
+          'Aligned live Supabase exam publishing (assessments) and automated score sync (assessment_scores) columns with PostgreSQL so course-linked exams publish and grade reliably.',
+          'Fixed submission receipt response wrapping and browser Back history timing after exiting Admin Exam Preview.',
+          'Expanded hash routing (#/admin/announcements, #/admin-exams/qbank, #/course/..., #/exam/...) with reload persistence for non-Remember-Me tabs via sessionStorage.'
+        ],
+        adminPros: [
+          'One-click broadcast to specific cohorts, individual students, or all active students simultaneously with read tracking.',
+          'Admins immediately spot incomplete contact, PromptPay/bank, or homepage CMS sections before students encounter placeholders.',
+          'Students and admins stay signed in seamlessly when new builds roll out.'
+        ],
+        adminCons: [
+          'Email broadcasts dispatch through Google Apps Script Gmail daily quotas; reserve email blasts for important updates and verify student email addresses in Users first.',
+          'Non-"Remember me" logins still clear on full tab close for shared-device privacy, restoring only across in-tab refreshes and portal update reloads.',
+          'Users with an already-open tab across a deployment require one automatic reload when returning to the tab to pick up updated scripts.'
+        ],
+        studentUpdated: [
+          'School Announcements Inbox on My Profile and quick Notices bell in the top bar for new grades, course releases, study links, and billing updates.',
+          'Direct "View Result & Answer Key" transition right from your exam submission receipt.',
+          'Automatic session restoration if you refresh the page after a website update, plus smoother browser Back/Forward navigation across courses and tabs.'
+        ],
+        studentImproved: [
+          'Active exams now protect against accidental browser Back gestures while keeping your answers continuously saved.',
+          'Mobile phones display a polite tip when an iPad, tablet, or computer will provide a clearer view for lessons and exams.'
+        ]
+      };
+
+      function getCurrentVersionTag() {
+        var ver = typeof getDeclaredBuildVersion === 'function' ? getDeclaredBuildVersion() : '';
+        return String(ver || 'dev').trim() || 'dev';
+      }
+
+      function buildBulletSection(titleText, items) {
+        var card = document.createElement('div');
+        card.className = 'pb-release-block';
+        var h3 = document.createElement('h3');
+        h3.textContent = titleText;
+        card.appendChild(h3);
+        var ul = document.createElement('ul');
+        ul.className = 'pb-release-list';
+        for (var i = 0; i < items.length; i++) {
+          var li = document.createElement('li');
+          li.textContent = items[i];
+          ul.appendChild(li);
+        }
+        card.appendChild(ul);
+        return card;
+      }
+
+      function buildProsConsSection() {
+        var grid = document.createElement('div');
+        grid.className = 'pb-release-proscons-grid';
+
+        var pros = document.createElement('div');
+        pros.className = 'pb-release-pros-card';
+        var prosH = document.createElement('h4');
+        prosH.textContent = 'Pros & Operational Benefits';
+        pros.appendChild(prosH);
+        var prosUl = document.createElement('ul');
+        prosUl.className = 'pb-release-list';
+        for (var p = 0; p < CHANGELOG_TEMPLATE.adminPros.length; p++) {
+          var pli = document.createElement('li');
+          pli.textContent = CHANGELOG_TEMPLATE.adminPros[p];
+          prosUl.appendChild(pli);
+        }
+        pros.appendChild(prosUl);
+
+        var cons = document.createElement('div');
+        cons.className = 'pb-release-cons-card';
+        var consH = document.createElement('h4');
+        consH.textContent = 'Cons, Tradeoffs & Admin Notes';
+        cons.appendChild(consH);
+        var consUl = document.createElement('ul');
+        consUl.className = 'pb-release-list';
+        for (var c = 0; c < CHANGELOG_TEMPLATE.adminCons.length; c++) {
+          var cli = document.createElement('li');
+          cli.textContent = CHANGELOG_TEMPLATE.adminCons[c];
+          consUl.appendChild(cli);
+        }
+        cons.appendChild(consUl);
+
+        grid.appendChild(pros);
+        grid.appendChild(cons);
+        return grid;
+      }
+
+      function renderForRole(roleStr, versionStr) {
+        var isAdmin = String(roleStr || '').toUpperCase() === 'ADMIN';
+        setText('release-notes-version-badge', 'Build ' + versionStr);
+        setText('release-notes-role-badge', isAdmin ? 'Administrator Full Changelog' : 'Student Update Summary');
+        setText(
+          'release-notes-modal-title',
+          isAdmin ? 'Portal Update — What Changed & Tradeoffs' : "What's New in Your Student Portal"
+        );
+        var builtAt = manifestMeta && manifestMeta.builtAtUtc ? formatExplicitBangkokLabel('', manifestMeta.builtAtUtc) : '';
+        setText('release-notes-built-at', builtAt ? 'Published ' + builtAt : '');
+
+        var body = document.getElementById('release-notes-modal-body');
+        if (!body) return;
+        while (body.firstChild) body.removeChild(body.firstChild);
+        if (isAdmin) {
+          body.appendChild(buildBulletSection('What Has Been Updated', CHANGELOG_TEMPLATE.adminUpdated));
+          body.appendChild(buildBulletSection('Improvements Made', CHANGELOG_TEMPLATE.adminImproved));
+          body.appendChild(buildProsConsSection());
+        } else {
+          body.appendChild(buildBulletSection('Updated Features Relevant to You', CHANGELOG_TEMPLATE.studentUpdated));
+          body.appendChild(buildBulletSection('Portal Improvements', CHANGELOG_TEMPLATE.studentImproved));
+        }
+      }
+
+      function readLocalSeen(userId) {
+        try {
+          return (window.localStorage && window.localStorage.getItem(LOCAL_KEY_PREFIX + userId)) || '';
+        } catch (_e) {
+          return '';
+        }
+      }
+
+      function writeLocalSeen(userId, versionStr) {
+        try {
+          if (window.localStorage && userId && versionStr) {
+            window.localStorage.setItem(LOCAL_KEY_PREFIX + userId, versionStr);
+          }
+        } catch (_e) {}
+      }
+
+      function recordSeenOnServer(versionStr) {
+        var ver = versionStr || pendingModalVersion || getCurrentVersionTag();
+        var u = currentSessionMeta && currentSessionMeta.user;
+        if (u && u.userId) writeLocalSeen(u.userId, ver);
+        if (!inMemorySessionToken || !ver || ver === 'dev') return Promise.resolve();
+        return rpcCallEnvelope('portal.acknowledgeReleaseNotes', { releaseVersion: ver }, { suppressErrorBanner: true, keepSessionOnAuthError: true }).catch(function () {});
+      }
+
+      function openModal(roleStr, opt_recordDisplayed) {
+        var ver = getCurrentVersionTag();
+        pendingModalVersion = ver;
+        renderForRole(roleStr, ver);
+        openModalDialog('modal-release-notes', 'btn-release-notes-ack');
+        if (opt_recordDisplayed && ver && ver !== 'dev') {
+          recordSeenOnServer(ver);
+        }
+      }
+
+      function dismissModal() {
+        var ver = pendingModalVersion || getCurrentVersionTag();
+        closeModalDialog('modal-release-notes');
+        if (ver && ver !== 'dev') {
+          recordSeenOnServer(ver);
+        }
+      }
+
+      function checkAndPresentOnce(userSummary) {
+        if (!userSummary || !userSummary.userId || userSummary.requiresPrivacyAck) return;
+        if (currentActiveViewName === 'examWorkspace' || currentActiveViewName === 'loading') return;
+        var privModal = document.getElementById('modal-privacy-gate');
+        if (privModal && !privModal.classList.contains('hidden')) return;
+
+        var ver = getCurrentVersionTag();
+        if (!ver || ver === 'dev') return;
+        var checkKey = userSummary.userId + ':' + ver;
+        if (checkedUserVersionKey === checkKey) return;
+        checkedUserVersionKey = checkKey;
+
+        if (readLocalSeen(userSummary.userId) === ver) return;
+
+        rpcCallEnvelope('portal.getReleaseAckStatus', { releaseVersion: ver }, { suppressErrorBanner: true, keepSessionOnAuthError: true })
+          .then(function (env) {
+            var d = env && env.data;
+            if (!d || d.fallback || !d.releaseVersion) return;
+            if (d.acknowledged) {
+              writeLocalSeen(userSummary.userId, ver);
+              return;
+            }
+            if (currentActiveViewName === 'examWorkspace') return;
+            var curPriv = document.getElementById('modal-privacy-gate');
+            if (curPriv && !curPriv.classList.contains('hidden')) return;
+            openModal(userSummary.role, true);
+          })
+          .catch(function () {});
+      }
+
+      function bind() {
+        if (bound) return;
+        bound = true;
+        var ackBtn = document.getElementById('btn-release-notes-ack');
+        var closeBtn = document.getElementById('btn-release-notes-close');
+        var backdrop = document.getElementById('modal-release-notes');
+        if (ackBtn) ackBtn.addEventListener('click', dismissModal);
+        if (closeBtn) closeBtn.addEventListener('click', dismissModal);
+        if (backdrop) {
+          backdrop.addEventListener('click', function (evt) {
+            if (evt.target === backdrop) dismissModal();
+          });
+        }
+        ['btn-admin-open-release-notes', 'btn-profile-open-release-notes', 'btn-footer-release-notes'].forEach(function (btnId) {
+          var b = document.getElementById(btnId);
+          if (b) {
+            b.addEventListener('click', function () {
+              var roleStr = (currentSessionMeta && currentSessionMeta.user && currentSessionMeta.user.role) || 'STUDENT';
+              openModal(roleStr, true);
+            });
+          }
+        });
+      }
+
+      return Object.freeze({
+        bind: bind,
+        setManifestMeta: function (meta) {
+          manifestMeta = meta && typeof meta === 'object' ? meta : null;
+          setText('admin-overview-build-version', getCurrentVersionTag());
+        },
+        checkAndPresentOnce: checkAndPresentOnce,
+        openModal: openModal,
+        dismissModal: dismissModal,
+        resetSessionCheck: function () {
+          checkedUserVersionKey = '';
+        }
+      });
+    })();
+
+    var PBAdminConfigAdvisor = (function () {
+      var PROMPT_DISMISS_KEY = 'pb_admin_cfg_prompt_dismissed_v1';
+      var lastReport = null;
+      var bound = false;
+
+      function isPlaceholderValue(val, extraRegex) {
+        var clean = String(val || '').trim();
+        if (!clean) return true;
+        if (/placeholder|example\.com/i.test(clean)) return true;
+        if (extraRegex && extraRegex.test(clean)) return true;
+        return false;
+      }
+
+      function evaluatePayload(data) {
+        var pub = (data && data.publicSettings) || {};
+        var priv = (data && data.privateSettings) || {};
+        var cms = (data && data.publicWebsiteCms) || {};
+
+        var missingA = [];
+        if (isPlaceholderValue(pub.schoolName)) missingA.push('School Name is missing');
+        if (isPlaceholderValue(pub.contactEmail)) missingA.push('Public Contact Email is unconfigured or placeholder');
+        if (isPlaceholderValue(pub.contactLineUrl)) missingA.push('LINE Contact Link is unconfigured or placeholder');
+
+        var missingB = [];
+        if (isPlaceholderValue(priv.notificationRecipientEmail)) missingB.push('Admin Notification Email is empty');
+        if (isPlaceholderValue(priv.promptPayTarget, /^000-?0-?0000$/)) missingB.push('PromptPay ID is placeholder or missing');
+        if (isPlaceholderValue(priv.bankAccountName)) missingB.push('Bank Account Name is placeholder or missing');
+        if (isPlaceholderValue(priv.bankName)) missingB.push('Bank Name is placeholder or missing');
+        if (isPlaceholderValue(priv.bankAccountNumber, /^000-?0-?00000-?0$/)) missingB.push('Bank Account Number is placeholder or missing');
+
+        var missingE = [];
+        if (!cms.rawPublishedJson) missingE.push('Custom Public Website Copy has not been published yet');
+        if (cms.hasUnpublishedDraft) missingE.push('Unpublished CMS draft changes are waiting to be published');
+        if (!cms.instructorPortraitFileId) missingE.push('Instructor Portrait has not been uploaded (using default crest)');
+
+        var sections = [
+          {
+            key: 'A',
+            title: 'A. Public School & Contact Settings',
+            subtitle: 'Visible on landing & contact pages',
+            targetId: 'admin-settings-section-a',
+            focusId: 'input-admin-contact-email',
+            missing: missingA
+          },
+          {
+            key: 'B',
+            title: 'B. Notification & Banking Settings',
+            subtitle: 'Shown only during student checkout',
+            targetId: 'admin-settings-section-b',
+            focusId: 'input-admin-notification-email',
+            missing: missingB
+          },
+          {
+            key: 'E',
+            title: 'E. Public Website & Instructor CMS',
+            subtitle: 'Hero, DEK cohort & instructor profile',
+            targetId: 'admin-public-website-cms-card',
+            focusId: 'input-admin-cms-hero-eyebrow',
+            missing: missingE
+          }
+        ];
+
+        var incompleteSections = sections.filter(function (s) { return s.missing.length > 0; });
+        return { sections: sections, incompleteCount: incompleteSections.length };
+      }
+
+      function jumpToSettingsSection(targetId, focusId) {
+        if (typeof exitAdminExamsStudioMode === 'function' && isExamStudioModeActive) {
+          exitAdminExamsStudioMode(true, { targetAdminTab: 'settings', skipDataLoad: false });
+        }
+        if (currentActiveViewName !== 'admin') {
+          showSectionView('admin');
+        }
+        if (currentAdminTab !== 'settings') {
+          switchAdminSubTab('settings', true, false);
+        }
+        setTimeout(function () {
+          var targetEl = document.getElementById(targetId);
+          if (targetEl) {
+            try {
+              targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } catch (_eScroll) {
+              targetEl.scrollIntoView(true);
+            }
+            targetEl.classList.remove('pb-section-focus-pulse');
+            void targetEl.offsetWidth;
+            targetEl.classList.add('pb-section-focus-pulse');
+            setTimeout(function () { targetEl.classList.remove('pb-section-focus-pulse'); }, 2400);
+          }
+          if (focusId) {
+            var focusEl = document.getElementById(focusId);
+            if (focusEl && typeof focusEl.focus === 'function') {
+              try { focusEl.focus({ preventScroll: true }); } catch (_eFoc) {}
+            }
+          }
+        }, 60);
+      }
+
+      function renderReport(report) {
+        lastReport = report;
+        var settingsBanner = document.getElementById('admin-settings-completeness-banner');
+        var settingsGrid = document.getElementById('admin-settings-completeness-grid');
+        var overviewPrompt = document.getElementById('admin-overview-config-prompt');
+        var overviewActions = document.getElementById('admin-overview-config-prompt-actions');
+
+        if (settingsBanner && settingsGrid) {
+          while (settingsGrid.firstChild) settingsGrid.removeChild(settingsGrid.firstChild);
+          if (report.incompleteCount === 0) {
+            settingsBanner.classList.add('hidden');
+          } else {
+            settingsBanner.classList.remove('hidden');
+            setText(
+              'admin-settings-completeness-summary',
+              report.incompleteCount + ' of 3 core configuration areas (Sections A, B, E) still need attention before students see final school and payment details.'
+            );
+            report.sections.forEach(function (sec) {
+              var card = document.createElement('div');
+              card.className = 'pb-settings-section-check ' + (sec.missing.length > 0 ? 'is-missing' : 'is-complete');
+
+              var top = document.createElement('div');
+              var badge = document.createElement('span');
+              badge.className = 'badge ' + (sec.missing.length > 0 ? 'badge-incomplete' : 'badge-ok');
+              badge.textContent = sec.missing.length > 0 ? (sec.missing.length + ' Item(s) Incomplete') : 'Configured';
+              top.appendChild(badge);
+
+              var h4 = document.createElement('h4');
+              h4.style.cssText = 'margin: 6px 0 2px 0; font-size: 0.9rem; color: var(--color-brand-deep);';
+              h4.textContent = sec.title;
+              top.appendChild(h4);
+
+              var sub = document.createElement('p');
+              sub.style.cssText = 'margin: 0; font-size: 0.78rem; color: var(--color-text-muted);';
+              sub.textContent = sec.subtitle;
+              top.appendChild(sub);
+
+              if (sec.missing.length > 0) {
+                var ul = document.createElement('ul');
+                ul.className = 'pb-settings-check-items';
+                sec.missing.forEach(function (m) {
+                  var li = document.createElement('li');
+                  li.textContent = m;
+                  ul.appendChild(li);
+                });
+                top.appendChild(ul);
+              }
+              card.appendChild(top);
+
+              if (sec.missing.length > 0) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-secondary btn-sm';
+                btn.textContent = 'Finish Section ' + sec.key;
+                btn.addEventListener('click', function () {
+                  jumpToSettingsSection(sec.targetId, sec.focusId);
+                });
+                card.appendChild(btn);
+              }
+              settingsGrid.appendChild(card);
+            });
+          }
+        }
+
+        if (overviewPrompt && overviewActions) {
+          while (overviewActions.firstChild) overviewActions.removeChild(overviewActions.firstChild);
+          var promptDismissed = false;
+          try {
+            promptDismissed = Boolean(window.sessionStorage && window.sessionStorage.getItem(PROMPT_DISMISS_KEY) === '1');
+          } catch (_eD) {}
+          if (report.incompleteCount === 0 || promptDismissed) {
+            overviewPrompt.classList.add('hidden');
+          } else {
+            var missingNames = report.sections
+              .filter(function (s) { return s.missing.length > 0; })
+              .map(function (s) { return s.title; });
+            setText(
+              'admin-overview-config-prompt-message',
+              'The following areas still use defaults or placeholders: ' + missingNames.join(' | ') + '.'
+            );
+            report.sections.forEach(function (sec) {
+              if (sec.missing.length === 0) return;
+              var jBtn = document.createElement('button');
+              jBtn.type = 'button';
+              jBtn.className = 'btn btn-secondary btn-sm';
+              jBtn.textContent = 'Complete Section ' + sec.key;
+              jBtn.addEventListener('click', function () {
+                jumpToSettingsSection(sec.targetId, sec.focusId);
+              });
+              overviewActions.appendChild(jBtn);
+            });
+            overviewPrompt.classList.remove('hidden');
+          }
+        }
+      }
+
+      function updateFromDomAndCms(cmsData) {
+        var readVal = function (id) {
+          var el = document.getElementById(id);
+          return el && typeof el.value === 'string' ? el.value.trim() : '';
+        };
+        var payload = {
+          publicSettings: {
+            schoolName: readVal('input-admin-school-name'),
+            contactEmail: readVal('input-admin-contact-email'),
+            contactLineUrl: readVal('input-admin-line-url')
+          },
+          privateSettings: {
+            notificationRecipientEmail: readVal('input-admin-notification-email'),
+            promptPayTarget: readVal('input-admin-promptpay-target'),
+            bankAccountName: readVal('input-admin-bank-account-name'),
+            bankName: readVal('input-admin-bank-name'),
+            bankAccountNumber: readVal('input-admin-bank-account-number')
+          },
+          publicWebsiteCms: cmsData || currentAdminPublicCmsState || {}
+        };
+        renderReport(evaluatePayload(payload));
+      }
+
+      function checkAdminSettingsPrompt() {
+        if (!currentSessionMeta || !currentSessionMeta.user || currentSessionMeta.user.role !== 'ADMIN') return Promise.resolve();
+        setText('admin-overview-build-version', typeof getDeclaredBuildVersion === 'function' ? getDeclaredBuildVersion() : 'dev');
+        return rpcCallEnvelope('admin.getSettings', {}, { suppressErrorBanner: true, keepSessionOnAuthError: true })
+          .then(function (env) {
+            var d = env && env.data;
+            if (d && (d.publicSettings || d.privateSettings || d.publicWebsiteCms)) {
+              renderReport(evaluatePayload(d));
+            }
+          })
+          .catch(function () {});
+      }
+
+      function bind() {
+        if (bound) return;
+        bound = true;
+        var dismissBtn = document.getElementById('btn-admin-config-prompt-dismiss');
+        if (dismissBtn) {
+          dismissBtn.addEventListener('click', function () {
+            try {
+              if (window.sessionStorage) window.sessionStorage.setItem(PROMPT_DISMISS_KEY, '1');
+            } catch (_e) {}
+            var p = document.getElementById('admin-overview-config-prompt');
+            if (p) p.classList.add('hidden');
+          });
+        }
+      }
+
+      return Object.freeze({
+        bind: bind,
+        checkAdminSettingsPrompt: checkAdminSettingsPrompt,
+        updateFromSettingsPayload: function (d) {
+          if (d) renderReport(evaluatePayload(d));
+        },
+        updateFromCmsAndDom: updateFromDomAndCms,
+        getLastReport: function () { return lastReport; }
+      });
+    })();
+
+    var PBAnnouncementsManager = (function () {
+      var usersCache = [];
+      var coursesCache = [];
+      var selectedIds = new Set();
+      var adminHistoryCache = [];
+      var studentFeedCache = [];
+      var adminTabLoadSeq = 0;
+      var bound = false;
+
+      var CATEGORY_META = {
+        GRADES: { label: 'Posted Grades & Scores', badgeCls: 'badge-ok' },
+        NEW_COURSE: { label: 'New Course / Lessons', badgeCls: 'badge-ok' },
+        STUDY_LINK: { label: 'Study Resource Link', badgeCls: 'badge-incomplete' },
+        BILLING: { label: 'Tuition & Financial Update', badgeCls: 'badge-incomplete' },
+        GENERAL: { label: 'School Announcement', badgeCls: 'badge-ok' }
+      };
+
+      function isDeliverableEmail(emailStr) {
+        var em = String(emailStr || '').trim();
+        return Boolean(em && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em) && !/\.(example|invalid)$/i.test(em));
+      }
+
+      function setAdminStatusBanner(variant, title, msg) {
+        var box = document.getElementById('admin-ann-status-banner');
+        if (!box) return;
+        if (variant === 'hidden') {
+          box.classList.add('hidden');
+          return;
+        }
+        box.className = 'banner banner-' + (variant || 'info');
+        setText('admin-ann-status-title', title || 'Announcement Status');
+        setText('admin-ann-status-message', msg || '');
+        box.classList.remove('hidden');
+      }
+
+      function updateSelectionBadge() {
+        var withEmail = 0;
+        for (var i = 0; i < usersCache.length; i++) {
+          if (selectedIds.has(usersCache[i].userId) && isDeliverableEmail(usersCache[i].email)) {
+            withEmail += 1;
+          }
+        }
+        var el = document.getElementById('ann-rec-selected-badge');
+        if (el) {
+          el.className = 'badge ' + (selectedIds.size > 0 ? 'badge-ok' : 'badge-incomplete');
+          el.textContent = String(selectedIds.size) + ' Selected • ' + String(withEmail) + ' With Email';
+        }
+      }
+
+      function getFilteredUsers() {
+        var kw = ((document.getElementById('input-ann-rec-search') || {}).value || '').trim().toLowerCase();
+        var crsFilter = ((document.getElementById('select-ann-rec-course-filter') || {}).value || 'ALL').trim();
+        return usersCache.filter(function (u) {
+          if (String(u.status || '').toUpperCase() !== 'ACTIVE') return false;
+          if (crsFilter !== 'ALL') {
+            var assigned = Array.isArray(u.assignedCourseIds) ? u.assignedCourseIds : [];
+            if (assigned.indexOf(crsFilter) === -1) return false;
+          }
+          if (kw) {
+            var hay = (String(u.fullName || '') + ' ' + String(u.username || '') + ' ' + String(u.email || '')).toLowerCase();
+            if (hay.indexOf(kw) === -1) return false;
+          }
+          return true;
+        });
+      }
+
+      function renderRecipientChecklist() {
+        var host = document.getElementById('ann-recipients-checklist');
+        if (!host) return;
+        while (host.firstChild) host.removeChild(host.firstChild);
+
+        var filtered = getFilteredUsers();
+        if (filtered.length === 0) {
+          var emptyP = document.createElement('p');
+          emptyP.className = 'pb-field-hint';
+          emptyP.textContent = 'No active users match this search or course filter.';
+          host.appendChild(emptyP);
+          updateSelectionBadge();
+          return;
+        }
+
+        filtered.forEach(function (u) {
+          var isSel = selectedIds.has(u.userId);
+          var lbl = document.createElement('label');
+          lbl.className = 'pb-ann-rec-item' + (isSel ? ' is-selected' : '');
+
+          var cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.value = u.userId;
+          cb.checked = isSel;
+          cb.addEventListener('change', function () {
+            if (cb.checked) selectedIds.add(u.userId);
+            else selectedIds.delete(u.userId);
+            lbl.classList.toggle('is-selected', cb.checked);
+            updateSelectionBadge();
+          });
+
+          var meta = document.createElement('div');
+          meta.className = 'pb-ann-rec-meta';
+          var nm = document.createElement('span');
+          nm.className = 'pb-ann-rec-name';
+          nm.textContent = (u.fullName || u.username || u.userId) + (u.role === 'ADMIN' ? ' (Admin)' : '');
+          meta.appendChild(nm);
+
+          var sub = document.createElement('span');
+          sub.className = 'pb-ann-rec-sub';
+          var emailOk = isDeliverableEmail(u.email);
+          sub.textContent = '@' + (u.username || '') + ' • ' + (emailOk ? u.email : (u.email ? u.email + ' (test/unverified)' : 'No email'));
+          meta.appendChild(sub);
+
+          lbl.appendChild(cb);
+          lbl.appendChild(meta);
+          host.appendChild(lbl);
+        });
+        updateSelectionBadge();
+      }
+
+      function populateCourseDropdowns() {
+        var courseSel = document.getElementById('select-ann-course');
+        var filterSel = document.getElementById('select-ann-rec-course-filter');
+        if (courseSel) {
+          var prevVal = courseSel.value;
+          while (courseSel.options.length > 1) courseSel.remove(1);
+          coursesCache.forEach(function (c) {
+            var opt = document.createElement('option');
+            opt.value = c.courseId;
+            opt.textContent = '[' + (c.courseCode || c.courseId) + '] ' + (c.title || '');
+            courseSel.appendChild(opt);
+          });
+          if (prevVal) courseSel.value = prevVal;
+        }
+        if (filterSel) {
+          var prevFilter = filterSel.value;
+          while (filterSel.options.length > 1) filterSel.remove(1);
+          coursesCache.forEach(function (c) {
+            var optF = document.createElement('option');
+            optF.value = c.courseId;
+            optF.textContent = 'Enrolled in [' + (c.courseCode || c.courseId) + ']';
+            filterSel.appendChild(optF);
+          });
+          if (prevFilter) filterSel.value = prevFilter;
+        }
+      }
+
+      function resolveLinkEl(linkUrl, linkLabel) {
+        var url = String(linkUrl || '').trim();
+        if (!url) return null;
+        if (/^#\/[a-z0-9/_-]+$/i.test(url)) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn btn-secondary btn-sm';
+          btn.textContent = linkLabel || 'Open Section in Portal';
+          btn.addEventListener('click', function () {
+            window.location.hash = url;
+          });
+          return btn;
+        }
+        if (/^https?:\/\//i.test(url)) {
+          var a = document.createElement('a');
+          a.href = url;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.className = 'btn btn-secondary btn-sm';
+          a.textContent = linkLabel || 'Open Study Link';
+          return a;
+        }
+        return null;
+      }
+
+      function formatEmailSummaryText(ann) {
+        if (!ann.sendEmailRequested) return 'Portal Inbox Only';
+        var s = ann.emailDeliverySummary || {};
+        if (s.status === 'SENT' || s.status === 'PARTIAL') {
+          return 'Gmail Sent ' + String(s.sentCount || 0) + '/' + String(s.targetedWithEmail || ann.recipientCount || 0) +
+            (s.skippedNoEmailCount ? ' (' + s.skippedNoEmailCount + ' skipped no valid email)' : '');
+        }
+        if (s.status === 'SKIPPED_NO_VALID_EMAIL') return 'Portal Delivered (0 valid email addresses)';
+        if (s.status === 'FAILED') return 'Gmail Error' + (s.errorMessage ? ': ' + s.errorMessage : '');
+        return 'Email Queued';
+      }
+
+      function renderAdminHistory() {
+        var host = document.getElementById('admin-ann-history-list');
+        setText('admin-ann-history-badge', String(adminHistoryCache.length) + ' Sent Announcements');
+        if (!host) return;
+        while (host.firstChild) host.removeChild(host.firstChild);
+
+        if (adminHistoryCache.length === 0) {
+          var p = document.createElement('p');
+          p.className = 'pb-field-hint';
+          p.textContent = 'No announcements published yet. Use the composer above to message selected students.';
+          host.appendChild(p);
+          return;
+        }
+
+        adminHistoryCache.forEach(function (ann) {
+          var catInfo = CATEGORY_META[ann.category] || CATEGORY_META.GENERAL;
+          var card = document.createElement('div');
+          card.className = 'pb-announcement-card';
+
+          var top = document.createElement('div');
+          top.className = 'pb-announcement-card-top';
+          var badgesLeft = document.createElement('div');
+          badgesLeft.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
+          var catBadge = document.createElement('span');
+          catBadge.className = 'badge ' + catInfo.badgeCls;
+          catBadge.textContent = catInfo.label;
+          badgesLeft.appendChild(catBadge);
+
+          var rcBadge = document.createElement('span');
+          rcBadge.className = 'badge badge-ok';
+          rcBadge.textContent = String(ann.recipientCount || 0) + ' Recipients (' + String(ann.readCount || 0) + ' Read)';
+          badgesLeft.appendChild(rcBadge);
+
+          var emBadge = document.createElement('span');
+          emBadge.className = 'badge ' + (ann.sendEmailRequested ? 'badge-ok' : 'badge-incomplete');
+          emBadge.textContent = formatEmailSummaryText(ann);
+          badgesLeft.appendChild(emBadge);
+
+          var ts = document.createElement('span');
+          ts.style.cssText = 'font-size:0.78rem;color:var(--color-text-muted);';
+          ts.textContent = ann.createdAtBangkok || ann.createdAtUtc || '';
+
+          top.appendChild(badgesLeft);
+          top.appendChild(ts);
+          card.appendChild(top);
+
+          var h4 = document.createElement('h4');
+          h4.className = 'pb-announcement-card-title';
+          h4.textContent = ann.title || '';
+          card.appendChild(h4);
+
+          var bodyP = document.createElement('p');
+          bodyP.className = 'pb-announcement-card-body';
+          bodyP.textContent = ann.bodyText || '';
+          card.appendChild(bodyP);
+
+          var footer = document.createElement('div');
+          footer.className = 'pb-announcement-card-footer';
+          var leftFt = document.createElement('div');
+          var linkEl = resolveLinkEl(ann.linkUrl, ann.linkLabel);
+          if (linkEl) leftFt.appendChild(linkEl);
+          footer.appendChild(leftFt);
+
+          var delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.className = 'btn btn-outline btn-sm pb-btn-danger-outline';
+          delBtn.textContent = 'Delete';
+          delBtn.addEventListener('click', function () {
+            PBConfirmModal.run({
+              badgeText: 'Confirm Announcement Deletion',
+              title: 'Delete Published Announcement?',
+              targetLabel: 'Announcement',
+              targetDetail: ann.title || ann.announcementId,
+              message: 'This removes the announcement from all recipient student portals. Emails already delivered cannot be recalled.',
+              confirmText: 'Delete Announcement',
+              onConfirm: function () {
+                return rpcCallEnvelope('admin.deleteAnnouncement', { announcementId: ann.announcementId })
+                  .then(function () {
+                    PBNotify.toast('success', 'Announcement Deleted', 'Removed from portal history.');
+                    return loadAdminTab();
+                  });
+              }
+            });
+          });
+          footer.appendChild(delBtn);
+          card.appendChild(footer);
+          host.appendChild(card);
+        });
+      }
+
+      function updateHeaderBadges(unreadCount) {
+        var hdrBadge = document.getElementById('header-announcements-badge');
+        if (hdrBadge) {
+          hdrBadge.textContent = String(unreadCount || 0);
+          hdrBadge.classList.toggle('hidden', !unreadCount || unreadCount < 1);
+        }
+        var profBadge = document.getElementById('profile-announcements-unread-badge');
+        if (profBadge) {
+          profBadge.className = 'badge ' + (unreadCount > 0 ? 'badge-incomplete' : 'badge-ok');
+          profBadge.textContent = String(unreadCount || 0) + ' Unread Notices';
+        }
+      }
+
+      function renderStudentFeed(unreadCount) {
+        var cardWrap = document.getElementById('profile-announcements-card');
+        var host = document.getElementById('profile-announcements-list');
+        updateHeaderBadges(unreadCount);
+        if (!cardWrap || !host) return;
+        var isAdmin = currentSessionMeta && currentSessionMeta.user && String(currentSessionMeta.user.role || '').toUpperCase() === 'ADMIN';
+        cardWrap.classList.toggle('hidden', isAdmin && studentFeedCache.length === 0);
+        while (host.firstChild) host.removeChild(host.firstChild);
+
+        if (studentFeedCache.length === 0) {
+          var empty = document.createElement('div');
+          empty.className = 'status-item';
+          var eLbl = document.createElement('div');
+          eLbl.className = 'status-label';
+          eLbl.textContent = 'Inbox';
+          var eVal = document.createElement('div');
+          eVal.className = 'status-value';
+          eVal.textContent = 'No school announcements have been sent to your account yet.';
+          empty.appendChild(eLbl);
+          empty.appendChild(eVal);
+          host.appendChild(empty);
+          return;
+        }
+
+        studentFeedCache.forEach(function (ann) {
+          var catInfo = CATEGORY_META[ann.category] || CATEGORY_META.GENERAL;
+          var card = document.createElement('div');
+          card.className = 'pb-announcement-card' + (!ann.isRead ? ' is-unread' : '');
+
+          var top = document.createElement('div');
+          top.className = 'pb-announcement-card-top';
+          var badges = document.createElement('div');
+          badges.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
+          if (!ann.isRead) {
+            var newB = document.createElement('span');
+            newB.className = 'badge badge-incomplete';
+            newB.textContent = 'NEW';
+            badges.appendChild(newB);
+          }
+          var cB = document.createElement('span');
+          cB.className = 'badge ' + catInfo.badgeCls;
+          cB.textContent = catInfo.label;
+          badges.appendChild(cB);
+
+          var dt = document.createElement('span');
+          dt.style.cssText = 'font-size:0.78rem;color:var(--color-text-muted);';
+          dt.textContent = ann.createdAtBangkok || ann.createdAtUtc || '';
+
+          top.appendChild(badges);
+          top.appendChild(dt);
+          card.appendChild(top);
+
+          var h4 = document.createElement('h4');
+          h4.className = 'pb-announcement-card-title';
+          h4.textContent = ann.title || '';
+          card.appendChild(h4);
+
+          var bodyP = document.createElement('p');
+          bodyP.className = 'pb-announcement-card-body';
+          bodyP.textContent = ann.bodyText || '';
+          card.appendChild(bodyP);
+
+          var footer = document.createElement('div');
+          footer.className = 'pb-announcement-card-footer';
+          var leftFt = document.createElement('div');
+          var linkEl = resolveLinkEl(ann.linkUrl, ann.linkLabel);
+          if (linkEl) leftFt.appendChild(linkEl);
+          footer.appendChild(leftFt);
+
+          if (!ann.isRead) {
+            var readBtn = document.createElement('button');
+            readBtn.type = 'button';
+            readBtn.className = 'btn btn-outline btn-sm';
+            readBtn.textContent = 'Mark as Read';
+            readBtn.addEventListener('click', function () {
+              rpcCallEnvelope('portal.markAnnouncementRead', { announcementId: ann.announcementId }, { suppressErrorBanner: true, keepSessionOnAuthError: true })
+                .then(function () {
+                  return loadStudentFeed();
+                })
+                .catch(function () {});
+            });
+            footer.appendChild(readBtn);
+          } else {
+            var readTag = document.createElement('span');
+            readTag.style.cssText = 'font-size:0.78rem;color:var(--color-text-muted);';
+            readTag.textContent = 'Read';
+            footer.appendChild(readTag);
+          }
+          card.appendChild(footer);
+          host.appendChild(card);
+        });
+      }
+
+      function loadStudentFeed() {
+        if (!inMemorySessionToken) return Promise.resolve();
+        return rpcCallEnvelope('portal.listAnnouncements', { limit: 40 }, { suppressErrorBanner: true, keepSessionOnAuthError: true })
+          .then(function (env) {
+            var d = (env && env.data) || {};
+            studentFeedCache = Array.isArray(d.announcements) ? d.announcements : [];
+            renderStudentFeed(Number(d.unreadCount || 0));
+          })
+          .catch(function () {});
+      }
+
+      function loadAdminTab() {
+        if (!inMemorySessionToken || !currentSessionMeta || !currentSessionMeta.user || currentSessionMeta.user.role !== 'ADMIN') {
+          return Promise.resolve();
+        }
+        var mySeq = ++adminTabLoadSeq;
+        return Promise.all([
+          rpcCallEnvelope('admin.listUsers', { roleFilter: 'ALL', statusFilter: 'ACTIVE', limit: 500 }, { suppressErrorBanner: true }),
+          rpcCallEnvelope('admin.listCourses', {}, { suppressErrorBanner: true }),
+          rpcCallEnvelope('portal.listAnnouncements', { limit: 50 }, { suppressErrorBanner: true, keepSessionOnAuthError: true }).catch(function () {
+            return { data: { announcements: adminHistoryCache, _preserveExisting: true } };
+          })
+        ]).then(function (results) {
+          if (mySeq !== adminTabLoadSeq) return;
+          var uData = (results[0] && results[0].data) || {};
+          var cData = (results[1] && results[1].data) || {};
+          var aData = (results[2] && results[2].data) || {};
+          usersCache = Array.isArray(uData.users) ? uData.users : [];
+          coursesCache = Array.isArray(cData.courses) ? cData.courses : [];
+          if (!aData._preserveExisting) {
+            adminHistoryCache = Array.isArray(aData.announcements) ? aData.announcements : [];
+          }
+          populateCourseDropdowns();
+          renderRecipientChecklist();
+          renderAdminHistory();
+        }).catch(function () {});
+      }
+
+      function handleAdminSubmit(evt) {
+        if (evt && typeof evt.preventDefault === 'function') evt.preventDefault();
+        setAdminStatusBanner('hidden');
+
+        var cat = ((document.getElementById('select-ann-category') || {}).value || 'GENERAL').trim();
+        var courseId = ((document.getElementById('select-ann-course') || {}).value || '').trim();
+        var title = ((document.getElementById('input-ann-title') || {}).value || '').trim();
+        var bodyText = ((document.getElementById('textarea-ann-body') || {}).value || '').trim();
+        var linkUrl = ((document.getElementById('input-ann-link-url') || {}).value || '').trim();
+        var linkLabel = ((document.getElementById('input-ann-link-label') || {}).value || '').trim();
+        var sendEmail = Boolean((document.getElementById('chk-ann-send-email') || {}).checked);
+        var recipientUserIds = Array.from(selectedIds);
+
+        if (title.length < 2) {
+          setAdminStatusBanner('danger', 'Title Required', 'Please enter an announcement title (at least 2 characters).');
+          return;
+        }
+        if (bodyText.length < 2) {
+          setAdminStatusBanner('danger', 'Message Required', 'Please enter the announcement message details.');
+          return;
+        }
+        if (recipientUserIds.length === 0) {
+          setAdminStatusBanner('danger', 'Select Recipients', 'Please select at least one recipient student or user from the checklist.');
+          return;
+        }
+
+        var submitBtn = document.getElementById('btn-admin-ann-send');
+        var statusHint = document.getElementById('admin-ann-inline-hint');
+        if (submitBtn) submitBtn.disabled = true;
+        if (statusHint) statusHint.textContent = sendEmail ? 'Publishing announcement & sending Gmail notifications...' : 'Publishing announcement...';
+
+        rpcCallEnvelope('admin.createAnnouncement', {
+          category: cat,
+          courseId: courseId,
+          title: title,
+          bodyText: bodyText,
+          linkUrl: linkUrl,
+          linkLabel: linkLabel,
+          recipientUserIds: recipientUserIds,
+          sendEmail: sendEmail
+        })
+          .then(function (env) {
+            var d = (env && env.data) || {};
+            var ann = d.announcement || {};
+            var summaryTxt = 'Published to ' + String(ann.recipientCount || recipientUserIds.length) + ' student(s).';
+            if (sendEmail) summaryTxt += ' ' + formatEmailSummaryText(ann) + '.';
+            setAdminStatusBanner('success', 'Announcement Published', summaryTxt);
+            PBNotify.toast('success', 'Announcement Published', summaryTxt);
+            setInputValue('input-ann-title', '');
+            var bodyEl = document.getElementById('textarea-ann-body');
+            if (bodyEl) bodyEl.value = '';
+            setInputValue('input-ann-link-url', '');
+            setInputValue('input-ann-link-label', '');
+            if (submitBtn) submitBtn.disabled = false;
+            if (statusHint) statusHint.textContent = '';
+            return loadAdminTab();
+          })
+          .catch(function (err) {
+            var errMsg = (err && err.message) || 'Failed to publish announcement.';
+            setAdminStatusBanner('danger', 'Failed to Publish Announcement', errMsg);
+            if (submitBtn) submitBtn.disabled = false;
+            if (statusHint) statusHint.textContent = '';
+          });
+      }
+
+      function bind() {
+        if (bound) return;
+        bound = true;
+        var form = document.getElementById('form-admin-announcement');
+        if (form) form.addEventListener('submit', handleAdminSubmit);
+
+        var refBtn = document.getElementById('btn-admin-ann-refresh');
+        if (refBtn) refBtn.addEventListener('click', loadAdminTab);
+
+        var searchInp = document.getElementById('input-ann-rec-search');
+        var filterSel = document.getElementById('select-ann-rec-course-filter');
+        if (searchInp) searchInp.addEventListener('input', renderRecipientChecklist);
+        if (filterSel) filterSel.addEventListener('change', renderRecipientChecklist);
+
+        var selAllVisBtn = document.getElementById('btn-ann-rec-select-all');
+        var allStuBtn = document.getElementById('btn-ann-rec-all-students');
+        var clearBtn = document.getElementById('btn-ann-rec-clear');
+
+        if (selAllVisBtn) {
+          selAllVisBtn.addEventListener('click', function () {
+            getFilteredUsers().forEach(function (u) { selectedIds.add(u.userId); });
+            renderRecipientChecklist();
+          });
+        }
+        if (allStuBtn) {
+          allStuBtn.addEventListener('click', function () {
+            usersCache.forEach(function (u) {
+              if (String(u.role || '').toUpperCase() === 'STUDENT' && String(u.status || '').toUpperCase() === 'ACTIVE') {
+                selectedIds.add(u.userId);
+              }
+            });
+            renderRecipientChecklist();
+          });
+        }
+        if (clearBtn) {
+          clearBtn.addEventListener('click', function () {
+            selectedIds.clear();
+            renderRecipientChecklist();
+          });
+        }
+
+        var markAllReadBtn = document.getElementById('btn-student-mark-all-ann-read');
+        if (markAllReadBtn) {
+          markAllReadBtn.addEventListener('click', function () {
+            rpcCallEnvelope('portal.markAnnouncementRead', {}, { suppressErrorBanner: true, keepSessionOnAuthError: true })
+              .then(function () { return loadStudentFeed(); })
+              .catch(function () {});
+          });
+        }
+
+        var openNoticesHandler = function () {
+          setMobileMenuOpen(false);
+          var isAdmin = currentSessionMeta && currentSessionMeta.user && String(currentSessionMeta.user.role || '').toUpperCase() === 'ADMIN';
+          if (isAdmin) {
+            if (typeof exitAdminExamsStudioMode === 'function' && isExamStudioModeActive) {
+              exitAdminExamsStudioMode(true, { targetAdminTab: 'announcements', skipDataLoad: false });
+            }
+            showSectionView('admin');
+            switchAdminSubTab('announcements', true, true);
+          } else {
+            showSectionView('profile');
+            refreshStudentProfileCourses();
+            setTimeout(function () {
+              var card = document.getElementById('profile-announcements-card');
+              if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 80);
+          }
+        };
+        var hdrAnnBtn = document.getElementById('btn-header-announcements');
+        var mobAnnBtn = document.getElementById('nav-mobile-announcements');
+        if (hdrAnnBtn) hdrAnnBtn.addEventListener('click', openNoticesHandler);
+        if (mobAnnBtn) mobAnnBtn.addEventListener('click', openNoticesHandler);
+      }
+
+      function reset() {
+        usersCache = [];
+        coursesCache = [];
+        selectedIds.clear();
+        adminHistoryCache = [];
+        studentFeedCache = [];
+        updateHeaderBadges(0);
+      }
+
+      return Object.freeze({
+        bind: bind,
+        reset: reset,
+        loadAdminTab: loadAdminTab,
+        loadStudentFeed: loadStudentFeed
+      });
+    })();
+
+    var PBPortalEnhancements = (function () {
+      function setNavElHidden(id, hide) {
+        var el = document.getElementById(id);
+        if (el) el.classList.toggle('hidden', Boolean(hide));
+      }
+
+      function syncAuthNavigationExtras(user) {
+        var signedIn = Boolean(user && user.userId && !user.requiresPrivacyAck);
+        setNavElHidden('btn-header-announcements', !signedIn);
+        setNavElHidden('nav-mobile-announcements', !signedIn);
+        setNavElHidden('footer-release-notes-item', !signedIn);
+      }
+
+      function onAuthStateUpdated(user, source) {
+        syncAuthNavigationExtras(user);
+        if (!user || !user.userId) {
+          PBAnnouncementsManager.reset();
+          PBReleaseNotesManager.resetSessionCheck();
+          return;
+        }
+        if (user.requiresPrivacyAck) {
+          return;
+        }
+        PBReleaseNotesManager.checkAndPresentOnce(user);
+        if (String(user.role || '').toUpperCase() === 'ADMIN' && (source === 'RESTORED' || source === 'FRESH_LOGIN' || source === 'PRIVACY_ACKNOWLEDGED')) {
+          PBAdminConfigAdvisor.checkAdminSettingsPrompt();
+        } else if (source === 'RESTORED' || source === 'FRESH_LOGIN' || source === 'PRIVACY_ACKNOWLEDGED') {
+          PBAnnouncementsManager.loadStudentFeed();
+        }
+      }
+
+      function init() {
+        PBDeviceAdvisor.bind();
+        PBReleaseNotesManager.bind();
+        PBAdminConfigAdvisor.bind();
+        PBAnnouncementsManager.bind();
+      }
+
+      return Object.freeze({
+        init: init,
+        onAuthStateUpdated: onAuthStateUpdated
+      });
+    })();
+
     window.PBClientCore = Object.freeze({
+      deviceAdvisor: PBDeviceAdvisor,
+      releaseNotes: PBReleaseNotesManager,
+      adminConfigAdvisor: PBAdminConfigAdvisor,
+      announcements: PBAnnouncementsManager,
       rpcCall: rpcCall,
       rpcCallEnvelope: rpcCallEnvelope,
       nextRequestId: nextRequestId,
@@ -41485,6 +42773,11 @@ var qrcode = (function() {
         bindNavigationAndDiagnosticEvents();
       } catch (bindErr) {
         console.error('Non-fatal event binding error during startup:', bindErr);
+      }
+      try {
+        PBPortalEnhancements.init();
+      } catch (enhErr) {
+        console.error('Non-fatal enhancements init error:', enhErr);
       }
       try {
         if (typeof PBEnhancedSelect === 'object' && PBEnhancedSelect && typeof PBEnhancedSelect.startAutoObserver === 'function') {
