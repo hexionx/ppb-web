@@ -65,6 +65,18 @@ CREATE TABLE IF NOT EXISTS public.login_attempts (
   updated_at_utc timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS public.admin_email_otps (
+  otp_id text PRIMARY KEY,
+  actor_user_id text NOT NULL REFERENCES public.users(user_id) ON DELETE CASCADE,
+  target_email text NOT NULL,
+  otp_sha256_hex text NOT NULL,
+  attempt_count integer NOT NULL DEFAULT 0,
+  expires_at_utc timestamptz NOT NULL,
+  consumed_at_utc timestamptz,
+  created_at_utc timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_admin_email_otps_actor ON public.admin_email_otps(actor_user_id, created_at_utc DESC);
+
 CREATE TABLE IF NOT EXISTS public.privacy_choices (
   choice_id text PRIMARY KEY,
   user_id text NOT NULL REFERENCES public.users(user_id) ON DELETE CASCADE,
@@ -781,10 +793,12 @@ ON CONFLICT (setting_key) DO NOTHING;
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.login_attempts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.admin_email_otps ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON public.users FROM anon, authenticated;
 REVOKE ALL ON public.sessions FROM anon, authenticated;
 REVOKE ALL ON public.login_attempts FROM anon, authenticated;
+REVOKE ALL ON public.admin_email_otps FROM anon, authenticated;
 
 DROP POLICY IF EXISTS "Deny direct users table access" ON public.users;
 CREATE POLICY "Deny direct users table access" ON public.users AS RESTRICTIVE FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
@@ -794,6 +808,9 @@ CREATE POLICY "Deny direct sessions table access" ON public.sessions AS RESTRICT
 
 DROP POLICY IF EXISTS "Deny direct login_attempts table access" ON public.login_attempts;
 CREATE POLICY "Deny direct login_attempts table access" ON public.login_attempts AS RESTRICTIVE FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
+
+DROP POLICY IF EXISTS "Deny direct admin_email_otps table access" ON public.admin_email_otps;
+CREATE POLICY "Deny direct admin_email_otps table access" ON public.admin_email_otps AS RESTRICTIVE FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
 
 -- 2) ENABLE RLS & CREATE FRONTEND POLICIES ON ALL 33 APPLICATION TABLES
 DO $$
@@ -1065,6 +1082,16 @@ BEGIN
     'marketingOptIn', coalesce(p_user.marketing_opt_in, false),
     'marketingUpdatedAtBangkok', v_choice_bkk,
     'isMinorFlag', coalesce(p_user.is_minor_flag, false),
+    'assignedCourseIds', coalesce((
+      SELECT jsonb_agg(e.course_id ORDER BY e.assigned_at_utc ASC)
+      FROM public.enrollments e
+      WHERE e.user_id = p_user.user_id AND e.status = 'ACTIVE'
+    ), '[]'::jsonb),
+    'enrolledCourseIds', coalesce((
+      SELECT jsonb_agg(e.course_id ORDER BY e.assigned_at_utc ASC)
+      FROM public.enrollments e
+      WHERE e.user_id = p_user.user_id AND e.status = 'ACTIVE'
+    ), '[]'::jsonb),
     'version', coalesce(p_user.version, 1)
   );
 END;
@@ -1663,6 +1690,11 @@ DECLARE
   v_updated public.users%ROWTYPE;
   v_admin_cnt integer;
   v_notice_ver text;
+  v_otp_code text;
+  v_otp_hash text;
+  v_otp_row public.admin_email_otps%ROWTYPE;
+  v_desired_courses text[];
+  v_cid text;
 BEGIN
   v_auth := public.pb_validate_session(p_session_token, ARRAY['ADMIN']);
   IF coalesce((v_auth->>'ok')::boolean, false) = false THEN RETURN v_auth; END IF;
@@ -1729,6 +1761,64 @@ BEGIN
       END IF;
     END IF;
 
+    IF (v_existing.role = 'ADMIN' OR v_role = 'ADMIN')
+       AND p_payload ? 'email'
+       AND lower(v_email) <> lower(coalesce(v_existing.email, '')) THEN
+      IF v_email = '' OR v_email !~* '^[^@\s]+@[^@\s]+\.[^@\s]+$' THEN
+        RETURN public.pb_err('ERR_VALIDATION_FAILED', 'A valid email address is required for an administrator account.', jsonb_build_object('email', 'Valid email address required.'));
+      END IF;
+
+      v_otp_code := trim(coalesce(p_payload->>'emailChangeOtpCode', ''));
+      IF v_otp_code = '' THEN
+        RETURN public.pb_err(
+          'ERR_OTP_REQUIRED',
+          'Email change for administrator accounts requires a 6-digit OTP verification code sent to ' || v_email || '.',
+          jsonb_build_object('emailChangeOtpCode', 'Enter the 6-digit OTP sent to the new email address.')
+        );
+      END IF;
+
+      SELECT * INTO v_otp_row
+      FROM public.admin_email_otps
+      WHERE actor_user_id = v_actor_id
+        AND lower(target_email) = lower(v_email)
+        AND consumed_at_utc IS NULL
+        AND expires_at_utc > now()
+      ORDER BY created_at_utc DESC
+      LIMIT 1;
+
+      IF v_otp_row.otp_id IS NULL THEN
+        RETURN public.pb_err(
+          'ERR_INVALID_OTP',
+          'Verification code has expired or was not requested for ' || v_email || '. Click "Send Verification OTP" first.',
+          jsonb_build_object('emailChangeOtpCode', 'Request a new verification OTP.')
+        );
+      END IF;
+
+      IF coalesce(v_otp_row.attempt_count, 0) >= 5 THEN
+        RETURN public.pb_err(
+          'ERR_OTP_LOCKED',
+          'Too many failed OTP attempts. Please request a new verification OTP.',
+          jsonb_build_object('emailChangeOtpCode', 'Request a new OTP code.')
+        );
+      END IF;
+
+      v_otp_hash := encode(extensions.digest(convert_to(v_otp_code, 'UTF8'), 'sha256'), 'hex');
+      IF lower(v_otp_hash) <> lower(v_otp_row.otp_sha256_hex) THEN
+        UPDATE public.admin_email_otps
+        SET attempt_count = attempt_count + 1
+        WHERE otp_id = v_otp_row.otp_id;
+        RETURN public.pb_err(
+          'ERR_INVALID_OTP',
+          'The 6-digit verification code does not match. Check your inbox and try again.',
+          jsonb_build_object('emailChangeOtpCode', 'Invalid 6-digit OTP code.')
+        );
+      END IF;
+
+      UPDATE public.admin_email_otps
+      SET consumed_at_utc = now()
+      WHERE otp_id = v_otp_row.otp_id;
+    END IF;
+
     UPDATE public.users SET
       email = CASE WHEN p_payload ? 'email' THEN v_email ELSE email END,
       full_name = CASE WHEN v_full_name <> '' THEN v_full_name ELSE full_name END,
@@ -1744,6 +1834,30 @@ BEGIN
       UPDATE public.sessions SET status = 'REVOKED', revoked_at_utc = now(), revoke_reason = 'USER_SECURITY_UPDATE'
       WHERE user_id = v_user_id AND status = 'ACTIVE';
     END IF;
+  END IF;
+
+  IF p_payload ? 'assignedCourseIds' THEN
+    SELECT coalesce(array_agg(DISTINCT val), ARRAY[]::text[])
+    INTO v_desired_courses
+    FROM jsonb_array_elements_text(coalesce(p_payload->'assignedCourseIds', '[]'::jsonb)) AS t(val)
+    WHERE trim(coalesce(val, '')) <> '';
+
+    UPDATE public.enrollments
+    SET status = 'REVOKED', updated_at_utc = now(), version = version + 1
+    WHERE user_id = v_updated.user_id AND status = 'ACTIVE' AND NOT (course_id = ANY(v_desired_courses));
+
+    FOREACH v_cid IN ARRAY v_desired_courses LOOP
+      IF EXISTS (SELECT 1 FROM public.courses WHERE course_id = v_cid) THEN
+        IF EXISTS (SELECT 1 FROM public.enrollments WHERE user_id = v_updated.user_id AND course_id = v_cid) THEN
+          UPDATE public.enrollments
+          SET status = 'ACTIVE', assigned_by_user_id = v_actor_id, assigned_at_utc = now(), updated_at_utc = now(), version = version + 1
+          WHERE user_id = v_updated.user_id AND course_id = v_cid;
+        ELSE
+          INSERT INTO public.enrollments (enrollment_id, user_id, course_id, status, assigned_by_user_id, assigned_at_utc, updated_at_utc, version)
+          VALUES (public.pb_gen_id('enr_'), v_updated.user_id, v_cid, 'ACTIVE', v_actor_id, now(), now(), 1);
+        END IF;
+      END IF;
+    END LOOP;
   END IF;
 
   RETURN public.pb_ok(jsonb_build_object('user', public.pb_build_user_summary(v_updated, v_notice_ver)));
@@ -1849,11 +1963,11 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.pb_admin_delete_user(
+DROP FUNCTION IF EXISTS public.pb_admin_delete_user(text, text, boolean, integer);
+
+CREATE OR REPLACE FUNCTION public.pb_admin_verify_actor_password(
   p_session_token text,
-  p_user_id text,
-  p_hard_delete boolean DEFAULT false,
-  p_expected_version integer DEFAULT NULL
+  p_admin_password text
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -1863,13 +1977,100 @@ AS $$
 DECLARE
   v_auth jsonb;
   v_actor_id text;
-  v_existing public.users%ROWTYPE;
-  v_admin_cnt integer;
-  v_has_fin boolean := false;
+  v_actor_row public.users%ROWTYPE;
 BEGIN
   v_auth := public.pb_validate_session(p_session_token, ARRAY['ADMIN']);
   IF coalesce((v_auth->>'ok')::boolean, false) = false THEN RETURN v_auth; END IF;
   v_actor_id := v_auth->'data'->>'userId';
+
+  SELECT * INTO v_actor_row FROM public.users WHERE user_id = v_actor_id;
+  IF v_actor_row.user_id IS NULL OR NOT public.pb_verify_password(coalesce(p_admin_password, ''), v_actor_row.password_hash) THEN
+    RETURN public.pb_err('ERR_INVALID_CREDENTIALS', 'Administrator password verification failed.', jsonb_build_object('adminPassword', 'Incorrect administrator password.'));
+  END IF;
+
+  RETURN public.pb_ok(jsonb_build_object(
+    'userId', v_actor_row.user_id,
+    'username', coalesce(NULLIF(v_actor_row.username_display, ''), v_actor_row.username_lower),
+    'email', coalesce(v_actor_row.email, ''),
+    'fullName', coalesce(v_actor_row.full_name, '')
+  ));
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.pb_admin_set_course_enrollments(
+  p_session_token text,
+  p_course_id text,
+  p_user_ids text[]
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_auth jsonb;
+  v_actor_id text;
+  v_uid text;
+  v_desired text[];
+BEGIN
+  v_auth := public.pb_validate_session(p_session_token, ARRAY['ADMIN']);
+  IF coalesce((v_auth->>'ok')::boolean, false) = false THEN RETURN v_auth; END IF;
+  v_actor_id := v_auth->'data'->>'userId';
+
+  IF NOT EXISTS (SELECT 1 FROM public.courses WHERE course_id = p_course_id) THEN
+    RETURN public.pb_err('ERR_NOT_FOUND', 'Course not found.');
+  END IF;
+
+  v_desired := coalesce(p_user_ids, ARRAY[]::text[]);
+
+  UPDATE public.enrollments
+  SET status = 'REVOKED', updated_at_utc = now(), version = version + 1
+  WHERE course_id = p_course_id AND status = 'ACTIVE' AND NOT (user_id = ANY(v_desired));
+
+  FOREACH v_uid IN ARRAY v_desired LOOP
+    IF EXISTS (SELECT 1 FROM public.users WHERE user_id = v_uid) THEN
+      IF EXISTS (SELECT 1 FROM public.enrollments WHERE course_id = p_course_id AND user_id = v_uid) THEN
+        UPDATE public.enrollments
+        SET status = 'ACTIVE', assigned_by_user_id = v_actor_id, assigned_at_utc = now(), updated_at_utc = now(), version = version + 1
+        WHERE course_id = p_course_id AND user_id = v_uid;
+      ELSE
+        INSERT INTO public.enrollments (enrollment_id, user_id, course_id, status, assigned_by_user_id, assigned_at_utc, updated_at_utc, version)
+        VALUES (public.pb_gen_id('enr_'), v_uid, p_course_id, 'ACTIVE', v_actor_id, now(), now(), 1);
+      END IF;
+    END IF;
+  END LOOP;
+
+  RETURN public.pb_ok(jsonb_build_object('courseId', p_course_id, 'userIds', to_jsonb(v_desired)));
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.pb_admin_delete_user(
+  p_session_token text,
+  p_user_id text,
+  p_hard_delete boolean DEFAULT false,
+  p_expected_version integer DEFAULT NULL,
+  p_admin_password text DEFAULT ''
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_auth jsonb;
+  v_actor_id text;
+  v_actor_row public.users%ROWTYPE;
+  v_existing public.users%ROWTYPE;
+  v_admin_cnt integer;
+BEGIN
+  v_auth := public.pb_validate_session(p_session_token, ARRAY['ADMIN']);
+  IF coalesce((v_auth->>'ok')::boolean, false) = false THEN RETURN v_auth; END IF;
+  v_actor_id := v_auth->'data'->>'userId';
+
+  SELECT * INTO v_actor_row FROM public.users WHERE user_id = v_actor_id;
+  IF v_actor_row.user_id IS NULL OR trim(coalesce(p_admin_password, '')) = '' OR NOT public.pb_verify_password(p_admin_password, v_actor_row.password_hash) THEN
+    RETURN public.pb_err('ERR_INVALID_CREDENTIALS', 'Your signed-in administrator password is required to confirm deleting or archiving a user account.', jsonb_build_object('adminPassword', 'Incorrect administrator password.'));
+  END IF;
 
   SELECT * INTO v_existing FROM public.users WHERE user_id = trim(coalesce(p_user_id, ''));
   IF v_existing.user_id IS NULL THEN
@@ -1885,17 +2086,13 @@ BEGIN
     END IF;
   END IF;
 
-  SELECT EXISTS(SELECT 1 FROM public.invoices WHERE user_id = v_existing.user_id)
-      OR EXISTS(SELECT 1 FROM public.payments WHERE user_id = v_existing.user_id) INTO v_has_fin;
-
-  IF p_hard_delete AND v_has_fin THEN
-    RETURN public.pb_err('ERR_FORBIDDEN_OPERATION', 'Users with invoice or payment history cannot be permanently deleted; archive instead.');
-  END IF;
-
   UPDATE public.sessions SET status = 'REVOKED', revoked_at_utc = now(), revoke_reason = 'ACCOUNT_DELETED' WHERE user_id = v_existing.user_id AND status = 'ACTIVE';
 
   IF p_hard_delete THEN
+    DELETE FROM public.payment_journal WHERE payment_id IN (SELECT payment_id FROM public.payments WHERE user_id = v_existing.user_id);
     DELETE FROM public.users WHERE user_id = v_existing.user_id;
+    INSERT INTO public.audit_events (audit_id, actor_user_id, actor_role, event_type, target_entity_type, target_entity_id, summary_json)
+    VALUES (public.pb_gen_id('aud_'), v_actor_id, 'ADMIN', 'ADMIN_USER_DELETED', 'User', v_existing.user_id, jsonb_build_object('usernameLower', v_existing.username_lower));
     RETURN public.pb_ok(jsonb_build_object('userId', v_existing.user_id, 'mode', 'HARD_DELETED'));
   ELSE
     UPDATE public.users SET status = 'ARCHIVED', updated_at_utc = now(), version = version + 1 WHERE user_id = v_existing.user_id;
@@ -1971,9 +2168,14 @@ AS $$
 DECLARE
   v_auth jsonb;
   v_cats jsonb;
+  v_admin_email text;
 BEGIN
   v_auth := public.pb_validate_session(p_session_token, ARRAY['ADMIN']);
   IF coalesce((v_auth->>'ok')::boolean, false) = false THEN RETURN v_auth; END IF;
+
+  SELECT coalesce(email, '') INTO v_admin_email
+  FROM public.users
+  WHERE user_id = (v_auth->'data'->>'userId');
 
   v_cats := jsonb_build_array(
     jsonb_build_object('id', 'COURSES_CONTENT', 'label', 'Courses, Sections, Cards & Quizzes', 'description', 'Course catalog, sections, lesson cards, and legacy assessment scores.', 'rowCount', (SELECT count(*) FROM public.courses) + (SELECT count(*) FROM public.sections) + (SELECT count(*) FROM public.cards) + (SELECT count(*) FROM public.assessments) + (SELECT count(*) FROM public.assessment_scores)),
@@ -1987,7 +2189,11 @@ BEGIN
     jsonb_build_object('id', 'SETTINGS_RESET', 'label', 'Portal Settings (Restore Defaults)', 'description', 'Resets portal branding, bank transfer instructions, and display settings to defaults.', 'rowCount', (SELECT count(*) FROM public.settings))
   );
 
-  RETURN public.pb_ok(jsonb_build_object('categories', v_cats, 'requiresEmailOtp', false));
+  RETURN public.pb_ok(jsonb_build_object(
+    'categories', v_cats,
+    'requiresEmailOtp', false,
+    'designatedEmail', coalesce(v_admin_email, '')
+  ));
 END;
 $$;
 
@@ -2203,7 +2409,9 @@ GRANT EXECUTE ON FUNCTION
   public.pb_admin_save_user(text, jsonb),
   public.pb_admin_reset_password(text, text, text, integer),
   public.pb_admin_set_user_enrollments(text, text, text[]),
-  public.pb_admin_delete_user(text, text, boolean, integer),
+  public.pb_admin_set_course_enrollments(text, text, text[]),
+  public.pb_admin_verify_actor_password(text, text),
+  public.pb_admin_delete_user(text, text, boolean, integer, text),
   public.pb_student_get_profile(text, text),
   public.pb_admin_factory_reset_preview(text),
   public.pb_admin_execute_factory_reset(text, text, text[], text, text, boolean),

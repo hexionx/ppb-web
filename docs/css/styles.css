@@ -18980,3 +18980,160 @@
     background: #FFFBEB;
     border-bottom-color: #FDE68A;
   }
+
+  /* ==========================================================================
+   * STUDENT COURSE DETAIL V2 UX/UI UPGRADE
+   * ========================================================================== */
+  .pb-course-hero-v2 {
+    background: linear-gradient(150deg, #FFFFFF 0%, #F0FDF9 55%, #ECFEFF 100%) !important;
+    border: 1.5px solid #BCE3D6 !important;
+    box-shadow: 0 18px 40px -24px rgba(13, 148, 136, 0.25);
+  }
+  .pb-course-hero-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .pb-course-hero-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .pb-course-updated-pill {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #475569;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid #E2E8F0;
+  }
+  .pb-course-hero-title-v2 {
+    margin: 2px 0 6px 0;
+    font-size: clamp(1.45rem, 2.5vw, 1.9rem);
+    font-weight: 900;
+    letter-spacing: -0.025em;
+    color: #064E3B;
+    line-height: 1.22;
+  }
+  .pb-course-quickstats-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px dashed #A7F3D0;
+  }
+  .pb-course-stat-pill {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #D1FAE5;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+  }
+  .pb-course-stat-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #475569;
+  }
+  .pb-course-stat-val {
+    font-size: 1.08rem;
+    font-weight: 800;
+    color: #0F766E;
+  }
+  .pb-course-nav-card-v2 {
+    background: #FFFFFF;
+    border: 1.5px solid #D5E8E0;
+  }
+  .pb-course-nav-card-v2 .section-selector-grid {
+    gap: 12px;
+  }
+  .pb-course-nav-card-v2 .section-selector-card {
+    border-radius: 14px;
+    box-shadow: 0 4px 14px -8px rgba(15, 23, 42, 0.14);
+    transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+  }
+  .pb-course-nav-card-v2 .section-selector-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px -12px rgba(15, 118, 110, 0.25);
+  }
+
+  /* ==========================================================================
+   * CONTEXTUAL WORD FORMATTING TOOLBAR ABOVE ACTIVE QUESTION CARD
+   * ========================================================================== */
+  .pb-forms-card-toolbar-slot {
+    margin-bottom: 12px;
+  }
+  .pb-word-toolbar-dock.is-floating-card-bar {
+    position: sticky;
+    top: 10px;
+    z-index: 35;
+    box-shadow: 0 10px 24px -10px rgba(8, 145, 178, 0.28);
+    border-color: #67E8F9;
+    background: linear-gradient(180deg, #ECFEFF 0%, #F0FDFA 100%);
+  }
+
+  /* Free Question & Multiple Accepted Answer Key Styling */
+  .pb-badge-free-question {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: #EEF2FF;
+    border: 1px solid #C7D2FE;
+    color: #3730A3;
+    font-size: 0.74rem;
+    font-weight: 700;
+  }
+  .pb-forms-free-toggle-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid #C7D2FE;
+    background: #EEF2FF;
+    color: #3730A3;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+  }
+  .pb-forms-free-toggle-label input[type="checkbox"] {
+    accent-color: #4F46E5;
+    width: 14px;
+    height: 14px;
+    margin: 0;
+  }
+  .pb-btn-danger-outline {
+    border-color: #FCA5A5 !important;
+    color: #B91C1C !important;
+    background: #FEF2F2 !important;
+  }
+  .pb-btn-danger-outline:hover {
+    background: #FEE2E2 !important;
+    border-color: #F87171 !important;
+  }
+  .pb-admin-email-otp-box {
+    margin-top: 10px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1.5px solid #FDE68A;
+    background: #FFFBEB;
+  }
+  .pb-locked-admin-email-input {
+    background: #F1F5F9 !important;
+    color: #334155 !important;
+    border-color: #CBD5E1 !important;
+    font-weight: 700;
+    cursor: not-allowed;
+  }

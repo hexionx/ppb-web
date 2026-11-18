@@ -1015,7 +1015,7 @@
       sb.from('courses').select('*').order('sort_order', { ascending: true }).order('created_at_utc', { ascending: false }),
       sb.from('sections').select('section_id,course_id,status'),
       sb.from('cards').select('card_id,course_id,status'),
-      sb.from('enrollments').select('enrollment_id,course_id,status'),
+      sb.from('enrollments').select('enrollment_id,course_id,user_id,status'),
       sb.from('assessments').select('*').order('created_at_utc', { ascending: false })
     ]);
     var coursesRows = throwIfPgErr(all[0], 'List courses') || [];
@@ -1024,10 +1024,16 @@
     var enrRows = throwIfPgErr(all[3]) || [];
     var asmRows = throwIfPgErr(all[4]) || [];
 
-    var secCnt = {}, cardCnt = {}, enrCnt = {};
+    var secCnt = {}, cardCnt = {}, enrCnt = {}, enrUserIds = {};
     secRows.forEach(function (s) { if (s.status !== 'ARCHIVED') secCnt[s.course_id] = (secCnt[s.course_id] || 0) + 1; });
     cardRows.forEach(function (c) { if (c.status !== 'ARCHIVED') cardCnt[c.course_id] = (cardCnt[c.course_id] || 0) + 1; });
-    enrRows.forEach(function (e) { if (e.status === 'ACTIVE') enrCnt[e.course_id] = (enrCnt[e.course_id] || 0) + 1; });
+    enrRows.forEach(function (e) {
+      if (e.status === 'ACTIVE') {
+        enrCnt[e.course_id] = (enrCnt[e.course_id] || 0) + 1;
+        if (!enrUserIds[e.course_id]) enrUserIds[e.course_id] = [];
+        enrUserIds[e.course_id].push(e.user_id);
+      }
+    });
 
     var statusFilter = String(req.statusFilter || 'ALL').trim().toUpperCase();
     var kw = String(req.searchQuery || '').trim().toLowerCase();
@@ -1037,7 +1043,11 @@
         if (kw && (c.course_code + ' ' + c.title + ' ' + (c.subtitle || '')).toLowerCase().indexOf(kw) === -1) return false;
         return true;
       })
-      .map(function (c) { return mapCourseRowToDto(c, secCnt[c.course_id], cardCnt[c.course_id], enrCnt[c.course_id]); });
+      .map(function (c) {
+        var dto = mapCourseRowToDto(c, secCnt[c.course_id], cardCnt[c.course_id], enrCnt[c.course_id]);
+        dto.enrolledUserIds = enrUserIds[c.course_id] || [];
+        return dto;
+      });
 
     return {
       courses: dtos,
@@ -1098,7 +1108,8 @@
       course: mapCourseRowToDto(cRow, secs.length, cards.length, enrs.length),
       sections: sectionDtos,
       assessments: asmDtos,
-      assessmentsLibrary: asmDtos
+      assessmentsLibrary: asmDtos,
+      enrolledUserIds: enrs.map(function (e) { return e.user_id; })
     };
   }
 
@@ -1127,28 +1138,43 @@
       calendar_tag: cleanSingleLine(req.calendarTag, 60),
       updated_at_utc: nowIso
     };
+    var savedCourseId = courseId;
     if (!courseId) {
       row.created_at_utc = nowIso;
       row.version = 1;
       var created = throwIfPgErr(await sb.from('courses').insert(row).select('*').single(), 'Create course');
+      savedCourseId = created.course_id;
       // Seed 3 standard sections
       await sb.from('sections').insert([
-        { section_id: genId('sec_'), course_id: created.course_id, section_type: 'ASSESSMENT', title: 'Assessments & Quizzes', status: 'PUBLISHED', sort_order: 10, updated_at_utc: nowIso, version: 1 },
-        { section_id: genId('sec_'), course_id: created.course_id, section_type: 'READING', title: 'Reading Materials & PDFs', status: 'PUBLISHED', sort_order: 20, updated_at_utc: nowIso, version: 1 },
-        { section_id: genId('sec_'), course_id: created.course_id, section_type: 'RECORDING', title: 'Recorded Lessons', status: 'PUBLISHED', sort_order: 30, updated_at_utc: nowIso, version: 1 }
+        { section_id: genId('sec_'), course_id: savedCourseId, section_type: 'ASSESSMENT', title: 'Assessments & Quizzes', status: 'PUBLISHED', sort_order: 10, updated_at_utc: nowIso, version: 1 },
+        { section_id: genId('sec_'), course_id: savedCourseId, section_type: 'READING', title: 'Reading Materials & PDFs', status: 'PUBLISHED', sort_order: 20, updated_at_utc: nowIso, version: 1 },
+        { section_id: genId('sec_'), course_id: savedCourseId, section_type: 'RECORDING', title: 'Recorded Lessons', status: 'PUBLISHED', sort_order: 30, updated_at_utc: nowIso, version: 1 }
       ]);
-      return await handleAdminGetCourseEditorDetail({ courseId: created.course_id }, sessionToken);
+    } else {
+      var cur = throwIfPgErr(await sb.from('courses').select('version').eq('course_id', courseId).single());
+      row.version = Number(cur.version || 1) + 1;
+      throwIfPgErr(await sb.from('courses').update(row).eq('course_id', courseId), 'Update course');
     }
-    var cur = throwIfPgErr(await sb.from('courses').select('version').eq('course_id', courseId).single());
-    row.version = Number(cur.version || 1) + 1;
-    throwIfPgErr(await sb.from('courses').update(row).eq('course_id', courseId), 'Update course');
-    return await handleAdminGetCourseEditorDetail({ courseId: courseId }, sessionToken);
+
+    if (Array.isArray(req.enrolledUserIds)) {
+      unwrapRpcResult(await sb.rpc('pb_admin_set_course_enrollments', {
+        p_session_token: sessionToken,
+        p_course_id: savedCourseId,
+        p_user_ids: req.enrolledUserIds
+      }));
+    }
+
+    return await handleAdminGetCourseEditorDetail({ courseId: savedCourseId }, sessionToken);
   }
 
   async function handleAdminDeleteCourse(payload, sessionToken) {
     await requireSession(sessionToken, ['ADMIN']);
     var courseId = cleanSingleLine(payload && payload.courseId, 64);
+    if (!courseId) throw pbError('ERR_VALIDATION_FAILED', 'courseId is required.');
     var sb = getSupabase();
+    throwIfPgErr(await sb.from('assessment_scores').delete().eq('course_id', courseId), 'Delete course scores');
+    throwIfPgErr(await sb.from('calendar_events').delete().eq('course_id', courseId), 'Delete course calendar events');
+    throwIfPgErr(await sb.from('exam_sets').update({ course_id: '', updated_at_utc: nowUtcIso() }).eq('course_id', courseId), 'Detach course exam sets');
     throwIfPgErr(await sb.from('courses').delete().eq('course_id', courseId), 'Delete course');
     return await handleAdminListCourses({}, sessionToken);
   }
@@ -2402,13 +2428,59 @@
           p_user_id: payload.userId || '',
           p_course_ids: Array.isArray(payload.courseIds) ? payload.courseIds : []
         }));
+      } else if (action === 'admin.setCourseEnrollments') {
+        data = unwrapRpcResult(await getSupabase().rpc('pb_admin_set_course_enrollments', {
+          p_session_token: token,
+          p_course_id: payload.courseId || '',
+          p_user_ids: Array.isArray(payload.userIds) ? payload.userIds : []
+        }));
+      } else if (action === 'admin.verifyActorPassword') {
+        data = unwrapRpcResult(await getSupabase().rpc('pb_admin_verify_actor_password', {
+          p_session_token: token,
+          p_admin_password: payload.adminPassword || ''
+        }));
+      } else if (action === 'admin.requestEmailChangeOtp') {
+        await requireSession(token, ['ADMIN']);
+        var cfg = getConfig();
+        var fnUrl = String(cfg.SUPABASE_URL || '').replace(/\/+$/, '') + '/functions/v1/send-admin-email-otp';
+        var otpResp;
+        try {
+          otpResp = await fetch(fnUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': cfg.SUPABASE_ANON_KEY || ''
+            },
+            body: JSON.stringify({
+              sessionToken: token,
+              newEmail: cleanSingleLine(payload && payload.newEmail, 160),
+              targetUserId: cleanSingleLine(payload && payload.targetUserId, 64)
+            })
+          });
+        } catch (netErr) {
+          throw pbError('ERR_NETWORK', 'Could not reach the Email OTP verification service: ' + (netErr && netErr.message ? netErr.message : 'Network error'));
+        }
+        if (otpResp.status === 404) {
+          throw pbError('ERR_FUNCTION_NOT_DEPLOYED', 'Edge Function "send-admin-email-otp" is not deployed on Supabase yet. Deploy supabase/functions/send-admin-email-otp/index.ts and set RESEND_API_KEY in Supabase Edge Function Secrets.');
+        }
+        var otpJson = await otpResp.json().catch(function () { return null; });
+        if (!otpJson || !otpJson.ok) {
+          var errObj = (otpJson && otpJson.error) || {};
+          throw pbError(errObj.code || 'ERR_EMAIL_OTP_FAILED', errObj.message || ('Failed to send verification OTP (HTTP ' + otpResp.status + ').'));
+        }
+        data = otpJson.data || {};
       } else if (action === 'admin.deleteOrArchiveUser') {
-        data = unwrapRpcResult(await getSupabase().rpc('pb_admin_delete_user', {
+        var delRpcRes = await getSupabase().rpc('pb_admin_delete_user', {
           p_session_token: token,
           p_user_id: payload.userId || '',
           p_hard_delete: Boolean(payload.hardDelete || payload.mode === 'HARD_DELETE'),
-          p_expected_version: payload.expectedVersion !== undefined ? Number(payload.expectedVersion) : null
-        }));
+          p_expected_version: payload.expectedVersion !== undefined ? Number(payload.expectedVersion) : null,
+          p_admin_password: payload.adminPassword || ''
+        });
+        if (delRpcRes && delRpcRes.error && (delRpcRes.error.code === 'PGRST202' || String(delRpcRes.error.message || '').indexOf('pb_admin_delete_user') !== -1)) {
+          throw pbError('ERR_RPC_NOT_DEPLOYED', 'Please run supabase/manual_sql_patches.sql in Supabase Dashboard -> SQL Editor once to enable pb_admin_delete_user.');
+        }
+        data = unwrapRpcResult(delRpcRes);
       } else if (action === 'student.getProfile') {
         var sbProf = getSupabase();
         var pRes = unwrapRpcResult(await sbProf.rpc('pb_student_get_profile', {
@@ -2463,14 +2535,18 @@
       } else if (action === 'admin.getFactoryResetPreview' || action === 'admin.requestFactoryResetOtp') {
         data = unwrapRpcResult(await getSupabase().rpc('pb_admin_factory_reset_preview', { p_session_token: token }));
       } else if (action === 'admin.executeFactoryReset') {
-        data = unwrapRpcResult(await getSupabase().rpc('pb_admin_execute_factory_reset', {
+        var resetRpcRes = await getSupabase().rpc('pb_admin_execute_factory_reset', {
           p_session_token: token,
           p_mode: payload.resetMode || 'SELECTIVE',
           p_categories: Array.isArray(payload.selectedCategories) ? payload.selectedCategories : [],
           p_admin_password: payload.adminPassword || '',
           p_phrase: payload.confirmationPhrase || '',
           p_keep_current_admin: payload.keepCurrentAdmin !== false
-        }));
+        });
+        if (resetRpcRes && resetRpcRes.error && (resetRpcRes.error.code === 'PGRST202' || String(resetRpcRes.error.message || '').indexOf('pb_admin_execute_factory_reset') !== -1)) {
+          throw pbError('ERR_RPC_NOT_DEPLOYED', 'Please run supabase/manual_sql_patches.sql in Supabase Dashboard -> SQL Editor once to enable pb_admin_execute_factory_reset.');
+        }
+        data = unwrapRpcResult(resetRpcRes);
       } else if (action === 'admin.getSettings') {
         data = await handleAdminGetSettings(token);
       } else if (action === 'admin.updateSettings' || action === 'admin.updateSchoolSettings') {

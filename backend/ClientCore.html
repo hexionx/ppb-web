@@ -3615,18 +3615,23 @@
         }
         if (targetId === 'admin-factory-reset-card') {
           var resetEmailInp = document.getElementById('input-admin-factory-reset-email');
-          if (resetEmailInp && !resetEmailInp.value.trim()) {
+          if (resetEmailInp) {
             var notifInp = document.getElementById('input-admin-notification-email');
             var contactInp = document.getElementById('input-admin-contact-email');
             var sessionEmail =
               currentSessionMeta && currentSessionMeta.user && currentSessionMeta.user.email
                 ? String(currentSessionMeta.user.email).trim()
                 : '';
-            resetEmailInp.value =
+            var lockedEmail =
+              sessionEmail ||
+              (resetEmailInp.value && resetEmailInp.value.trim()) ||
               (notifInp && notifInp.value.trim()) ||
               (contactInp && contactInp.value.trim()) ||
-              sessionEmail ||
-              'phuwadet.khu@student.mahidol.edu';
+              '';
+            resetEmailInp.value = lockedEmail;
+            resetEmailInp.readOnly = true;
+            resetEmailInp.disabled = true;
+            resetEmailInp.setAttribute('aria-readonly', 'true');
           }
           if (typeof loadFactoryResetPreviewCounts === 'function') {
             loadFactoryResetPreviewCounts();
@@ -8414,6 +8419,17 @@
         if (prvBox) {
           prvBox.classList.add('hidden');
         }
+        window.__pbEditingUserMeta = null;
+        var delOpenBtnNew = document.getElementById('btn-user-editor-open-delete-modal');
+        if (delOpenBtnNew) {
+          delOpenBtnNew.classList.add('hidden');
+        }
+        var otpBoxNew = document.getElementById('admin-email-otp-verification-box');
+        if (otpBoxNew) {
+          otpBoxNew.classList.add('hidden');
+        }
+        setInputValue('input-user-editor-email-otp', '');
+        setText('user-editor-email-otp-status', 'Click "Send Verification OTP" to verify the new email.');
         renderUserEditorCourseCheckboxes([]);
 
         setInputValue('input-pw-reset-user-id', '');
@@ -8430,6 +8446,7 @@
       }
 
       /* Populate Edit Mode */
+      window.__pbEditingUserMeta = userObj;
       setInputValue('input-user-editor-id', userObj.userId);
       setInputValue('input-user-editor-version', String(userObj.version || 1));
       setInputValue('input-user-editor-username', userObj.username || '');
@@ -8438,6 +8455,8 @@
       setInputValue('select-user-editor-role', userObj.role || 'STUDENT');
       setInputValue('select-user-editor-status', userObj.status || 'ACTIVE');
       setInputValue('input-user-editor-password', '');
+      setInputValue('input-user-editor-email-otp', '');
+      setText('user-editor-email-otp-status', 'Click "Send Verification OTP" to verify the new email.');
 
       var minorCb = document.getElementById('input-user-editor-minor-flag');
       if (minorCb) {
@@ -8489,7 +8508,22 @@
         );
       }
 
-      renderUserEditorCourseCheckboxes(userObj.assignedCourseIds || []);
+      renderUserEditorCourseCheckboxes(
+        userObj.assignedCourseIds ||
+          userObj.enrolledCourseIds ||
+          (Array.isArray(userObj.activeEnrollments)
+            ? userObj.activeEnrollments.map(function (c) { return c.courseId; })
+            : [])
+      );
+
+      var curSignedInUid = currentSessionMeta && currentSessionMeta.user ? currentSessionMeta.user.userId : '';
+      var delOpenBtnEdit = document.getElementById('btn-user-editor-open-delete-modal');
+      if (delOpenBtnEdit) {
+        delOpenBtnEdit.classList.toggle('hidden', !userObj.userId || userObj.userId === curSignedInUid);
+      }
+      if (typeof syncUserEditorAdminEmailOtpVisibility === 'function') {
+        syncUserEditorAdminEmailOtpVisibility();
+      }
 
       /* Populate Password Reset card */
       setInputValue('input-pw-reset-user-id', userObj.userId);
@@ -8705,6 +8739,20 @@
           });
           btnGroup.appendChild(toggleBtn);
 
+          var curActorUid = currentSessionMeta && currentSessionMeta.user ? currentSessionMeta.user.userId : '';
+          if (u.userId && u.userId !== curActorUid) {
+            var delUserRowBtn = document.createElement('button');
+            delUserRowBtn.type = 'button';
+            delUserRowBtn.className = 'btn btn-outline btn-sm pb-btn-danger-outline';
+            setBtnVectorIcon(delUserRowBtn, 'trash', 'Delete', 'Delete or archive user account');
+            delUserRowBtn.addEventListener('click', function () {
+              if (typeof openDeleteUserConfirmModalStep6 === 'function') {
+                openDeleteUserConfirmModalStep6(u);
+              }
+            });
+            btnGroup.appendChild(delUserRowBtn);
+          }
+
           tdActions.appendChild(btnGroup);
 
           tr.appendChild(tdUser);
@@ -8716,6 +8764,40 @@
           tbody.appendChild(tr);
         })(items[i]);
       }
+    }
+
+    function syncUserEditorAdminEmailOtpVisibility() {
+      var otpBox = document.getElementById('admin-email-otp-verification-box');
+      if (!otpBox) return false;
+      var meta = window.__pbEditingUserMeta;
+      var idVal = (document.getElementById('input-user-editor-id') || {}).value || '';
+      var emailVal = String((document.getElementById('input-user-editor-email') || {}).value || '').trim().toLowerCase();
+      var roleVal = String((document.getElementById('select-user-editor-role') || {}).value || 'STUDENT').toUpperCase();
+      var origEmail = meta && meta.email ? String(meta.email).trim().toLowerCase() : '';
+      var isAdminTarget = Boolean(meta && meta.role === 'ADMIN') || roleVal === 'ADMIN';
+      var needsOtp = Boolean(idVal && meta && isAdminTarget && emailVal && emailVal !== origEmail);
+      otpBox.classList.toggle('hidden', !needsOtp);
+      return needsOtp;
+    }
+
+    function openDeleteUserConfirmModalStep6(userObj) {
+      if (!userObj || !userObj.userId) return;
+      var modal = document.getElementById('modal-admin-delete-user');
+      if (!modal) return;
+      setInputValue('input-delete-user-target-id', userObj.userId);
+      setInputValue('input-delete-user-target-version', String(userObj.version || 1));
+      setInputValue('input-delete-user-admin-password', '');
+      var hardChk = document.getElementById('chk-delete-user-hard');
+      if (hardChk) hardChk.checked = true;
+      setText(
+        'delete-user-target-summary',
+        (userObj.fullName || userObj.username) + ' (@' + userObj.username + ' • ' + (userObj.role || 'STUDENT') + ')'
+      );
+      setText('admin-delete-user-status', '');
+      modal.classList.remove('hidden');
+      syncAllModalAccessibilityAndScrollLock();
+      var pwEl = document.getElementById('input-delete-user-admin-password');
+      if (pwEl) pwEl.focus();
     }
 
     /**
@@ -9116,6 +9198,20 @@
           opt_forceStaleVersionTest === true
             ? 999999
             : Number(verInp ? verInp.value : 1);
+        if (typeof syncUserEditorAdminEmailOtpVisibility === 'function' && syncUserEditorAdminEmailOtpVisibility()) {
+          var otpCodeEl = document.getElementById('input-user-editor-email-otp');
+          var otpCodeVal = otpCodeEl ? otpCodeEl.value.trim() : '';
+          if (!otpCodeVal) {
+            setText(
+              'admin-user-editor-status',
+              'Enter the 6-digit verification OTP sent to ' + payload.email + ' before saving the email change.'
+            );
+            setText('user-editor-email-otp-status', '6-digit verification OTP is required.');
+            if (otpCodeEl) otpCodeEl.focus();
+            return Promise.resolve();
+          }
+          payload.emailChangeOtpCode = otpCodeVal;
+        }
       } else {
         payload.initialPassword = passInp ? passInp.value : '';
       }
@@ -9169,6 +9265,7 @@
           );
           selectUserForAdminEditing(usr);
           PBAdminActionModal.close();
+          loadAdminUsersStep6(null, false);
           return refreshAdminDashboardSummary();
         })
         .catch(function (err) {
@@ -14502,7 +14599,7 @@
                 : adminCourseDetailCacheById[c.courseId];
             if (cached && cached.course) {
               currentSelectedCourseDetail = cached;
-              populateCourseEditorForm(cached.course);
+              populateCourseEditorForm(cached.course, cached.enrolledUserIds);
               var wsOpen = document.getElementById('admin-selected-course-workspace');
               if (wsOpen) wsOpen.classList.remove('hidden');
               renderSelectedCourseSectionsAndCards(cached);
@@ -14542,7 +14639,7 @@
                 : adminCourseDetailCacheById[c.courseId];
             if (cached && cached.course) {
               currentSelectedCourseDetail = cached;
-              populateCourseEditorForm(cached.course);
+              populateCourseEditorForm(cached.course, cached.enrolledUserIds);
               populateSectionEditorForm(null);
               populateCardEditorForm(null);
               renderSelectedCourseSectionsAndCards(cached);
@@ -14873,7 +14970,104 @@
       setCourseEditorDirtyState(false);
     }
 
-    function populateCourseEditorForm(courseObj) {
+    function updateCourseEditorAssignedCountBadge() {
+      var host = document.getElementById('course-editor-students-checkbox-list');
+      if (!host) return;
+      var cnt = host.querySelectorAll('input[type="checkbox"]:checked').length;
+      setText('course-editor-assigned-count-badge', cnt + ' Assigned');
+    }
+
+    function getCheckedUserIdsInCourseEditor() {
+      var host = document.getElementById('course-editor-students-checkbox-list');
+      if (!host) return [];
+      var boxes = host.querySelectorAll('input[type="checkbox"]');
+      var ids = [];
+      for (var i = 0; i < boxes.length; i++) {
+        if (boxes[i].checked) ids.push(boxes[i].value);
+      }
+      return ids;
+    }
+
+    function renderCourseEditorStudentsChecklist(assignedUserIds) {
+      var host = document.getElementById('course-editor-students-checkbox-list');
+      if (!host) return;
+      var assignedMap = {};
+      (Array.isArray(assignedUserIds) ? assignedUserIds : []).forEach(function (id) {
+        if (id) assignedMap[id] = true;
+      });
+
+      var usersSource = Array.isArray(currentAdminUsersCache) ? currentAdminUsersCache : [];
+      if (usersSource.length === 0 && !window.__pbLoadingUsersForCourseChecklist) {
+        window.__pbLoadingUsersForCourseChecklist = true;
+        rpcCallEnvelope('admin.listUsers', { limit: 200 })
+          .then(function (env) {
+            window.__pbLoadingUsersForCourseChecklist = false;
+            var d = (env && env.data) || {};
+            if (Array.isArray(d.users)) {
+              currentAdminUsersCache = d.users;
+              renderCourseEditorStudentsChecklist(Object.keys(assignedMap));
+            }
+          })
+          .catch(function () {
+            window.__pbLoadingUsersForCourseChecklist = false;
+          });
+      }
+
+      clearChildren(host);
+      var students = usersSource.filter(function (u) {
+        return u && (u.role === 'STUDENT' || assignedMap[u.userId]);
+      });
+
+      if (students.length === 0) {
+        var emptyP = document.createElement('p');
+        emptyP.style.margin = '0';
+        emptyP.style.fontSize = '0.85rem';
+        emptyP.style.color = 'var(--color-text-muted)';
+        emptyP.textContent = usersSource.length === 0
+          ? 'Loading student accounts...'
+          : 'No student accounts created yet. Create a student in Tab 2 (Users) first.';
+        host.appendChild(emptyP);
+        updateCourseEditorAssignedCountBadge();
+        return;
+      }
+
+      var grid = document.createElement('div');
+      grid.className = 'status-grid';
+      grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(220px, 1fr))';
+      grid.style.gap = '8px';
+
+      students.forEach(function (u) {
+        var lbl = document.createElement('label');
+        lbl.style.display = 'flex';
+        lbl.style.alignItems = 'center';
+        lbl.style.gap = '8px';
+        lbl.style.padding = '8px 10px';
+        lbl.style.borderRadius = '8px';
+        lbl.style.border = '1px solid var(--color-brand-border)';
+        lbl.style.background = '#FFFFFF';
+        lbl.style.cursor = 'pointer';
+        lbl.style.fontSize = '0.85rem';
+
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = u.userId;
+        cb.checked = Boolean(assignedMap[u.userId]);
+        cb.addEventListener('change', function () {
+          updateCourseEditorAssignedCountBadge();
+          setCourseEditorDirtyState(true, 'Assigned Students');
+        });
+        lbl.appendChild(cb);
+
+        var span = document.createElement('span');
+        span.textContent = (u.fullName || u.username) + ' (@' + u.username + ')' + (u.status !== 'ACTIVE' ? ' [' + u.status + ']' : '');
+        lbl.appendChild(span);
+        grid.appendChild(lbl);
+      });
+      host.appendChild(grid);
+      updateCourseEditorAssignedCountBadge();
+    }
+
+    function populateCourseEditorForm(courseObj, opt_enrolledUserIds) {
       ensureStep7RichTextEditorsInitialized();
       var objEditor = richTextEditorsRegistry['richtext-editor-course-objectives'];
       var outEditor = richTextEditorsRegistry['richtext-editor-course-outcomes'];
@@ -14881,6 +15075,7 @@
       var resetCourseBtn = document.getElementById('btn-course-editor-reset-new');
 
       if (!courseObj || !courseObj.courseId) {
+        renderCourseEditorStudentsChecklist([]);
         setInputValue('input-course-editor-id', '');
         setInputValue('input-course-editor-version', '');
         setInputValue('input-course-editor-code', '');
@@ -14976,6 +15171,17 @@
       if (outEditor) {
         outEditor.setValue(courseObj.outcomesRichText);
       }
+      var resolvedCourseEnrolled = Array.isArray(opt_enrolledUserIds)
+        ? opt_enrolledUserIds
+        : (Array.isArray(courseObj.enrolledUserIds)
+          ? courseObj.enrolledUserIds
+          : (currentSelectedCourseDetail &&
+              currentSelectedCourseDetail.course &&
+              currentSelectedCourseDetail.course.courseId === courseObj.courseId &&
+              Array.isArray(currentSelectedCourseDetail.enrolledUserIds)
+            ? currentSelectedCourseDetail.enrolledUserIds
+            : []));
+      renderCourseEditorStudentsChecklist(resolvedCourseEnrolled);
       setCourseEditorDirtyState(false);
     }
 
@@ -16023,7 +16229,8 @@
         calendarTag: document.getElementById('input-course-editor-calendar-tag').value.trim(),
         coverFileId: document.getElementById('input-course-editor-cover-file-id').value.trim(),
         objectivesRichText: objEditor ? objEditor.getValue() : createDefaultEmptyRichTextDoc(),
-        outcomesRichText: outEditor ? outEditor.getValue() : createDefaultEmptyRichTextDoc()
+        outcomesRichText: outEditor ? outEditor.getValue() : createDefaultEmptyRichTextDoc(),
+        enrolledUserIds: getCheckedUserIdsInCourseEditor()
       };
 
       if (!payload.courseCode || !payload.title) {
@@ -16091,14 +16298,19 @@
           return rpcCallEnvelope('admin.saveCourse', payload, { suppressErrorBanner: true })
             .then(function (envelope) {
               var d = envelope.data || {};
+              if (d.course && Array.isArray(d.enrolledUserIds)) {
+                d.course.enrolledUserIds = d.enrolledUserIds.slice();
+              }
               if (pendingCourseMutationCountById[courseId] <= 1 && d.course) {
                 currentSelectedCourseDetail = d;
                 renderSelectedCourseSectionsAndCards(d);
-                populateCourseEditorForm(d.course);
+                populateCourseEditorForm(d.course, d.enrolledUserIds);
               } else if (d.course && currentSelectedCourseDetail && currentSelectedCourseDetail.course) {
                 currentSelectedCourseDetail.course.version = d.course.version;
               }
               syncCourseCachesAfterMutation(d.course ? d : currentSelectedCourseDetail);
+              loadAdminUsersStep6(null, false);
+              loadAdminCoursesAndAssessmentsStep7(courseId);
               setCourseEditorDirtyState(false);
               setText('admin-course-editor-status', d.savedMessage || 'Course saved.');
               setAdminCoursesAlert('success', 'Course Saved', d.savedMessage || '');
@@ -16131,7 +16343,12 @@
           PBAdminActionModal.close();
           syncCourseCachesAfterMutation(d);
           if (d.course) {
-            populateCourseEditorForm(d.course);
+            if (Array.isArray(d.enrolledUserIds)) {
+              d.course.enrolledUserIds = d.enrolledUserIds.slice();
+            }
+            populateCourseEditorForm(d.course, d.enrolledUserIds);
+            loadAdminUsersStep6(null, false);
+            loadAdminCoursesAndAssessmentsStep7(d.course.courseId);
             var wsNew = document.getElementById('admin-selected-course-workspace');
             if (wsNew) wsNew.classList.remove('hidden');
             renderSelectedCourseSectionsAndCards(d);
@@ -23841,6 +24058,18 @@ var qrcode = (function() {
           }
 
           currentStudentCourseDetailBundle = d;
+          var secsCount = Array.isArray(d.sections) ? d.sections.length : 0;
+          var lessonsCount = 0;
+          (Array.isArray(d.sections) ? d.sections : []).forEach(function (sec) {
+            lessonsCount += Array.isArray(sec.cards) ? sec.cards.length : 0;
+          });
+          var scoresCount = Array.isArray(d.publishedScores) ? d.publishedScores.length : 0;
+          setText('student-course-stat-sections', String(secsCount));
+          setText('student-course-stat-lessons', String(lessonsCount));
+          setText('student-course-stat-scores', String(scoresCount));
+          if (typeof course.publishedExamCount === 'number') {
+            setText('student-course-stat-exams', String(course.publishedExamCount));
+          }
           try {
             renderStudentCourseSectionsFiltered(d, 'ALL');
           } catch (renderErr) {
@@ -25851,6 +26080,39 @@ var qrcode = (function() {
             });
             actRow.appendChild(archBtn);
 
+            var delQBtn = document.createElement('button');
+            delQBtn.type = 'button';
+            delQBtn.className = 'btn btn-outline btn-sm pb-btn-danger-outline';
+            setBtnVectorIcon(delQBtn, 'trash', 'Delete', 'Permanently delete question');
+            delQBtn.addEventListener('click', function () {
+              var qPrompt =
+                'Permanently delete question "' +
+                (q.questionCode || q.title || q.questionId) +
+                '"? This removes it from the Question Bank and detaches it from any exam set.';
+              if (typeof window.confirm === 'function' && window.__PB_AUTO_CONFIRM_DELETE__ !== true && !window.confirm(qPrompt)) {
+                return;
+              }
+              runButtonWithLoadingState(delQBtn, 'Deleting...', function () {
+                return rpcCallEnvelope('admin.questions.archive', {
+                  questionId: q.questionId,
+                  deletePermanently: true,
+                  forceDelete: true
+                })
+                  .then(function (env) {
+                    invalidateQBankClientCachePhase2();
+                    renderQuestionBankTablePhase2(env.data);
+                    if (typeof loadAdminExamsCatalogPhase3 === 'function') {
+                      loadAdminExamsCatalogPhase3();
+                    }
+                    PBNotify.toast('success', 'Question Deleted', (q.questionCode || q.questionId) + ' permanently deleted.');
+                  })
+                  .catch(function (err) {
+                    PBNotify.toast('danger', 'Delete Failed', (err && err.message) || 'Could not delete question.');
+                  });
+              });
+            });
+            actRow.appendChild(delQBtn);
+
             td6.appendChild(actRow);
 
             tr.appendChild(td1);
@@ -27494,6 +27756,43 @@ var qrcode = (function() {
           });
           btnWrap.appendChild(asgBtn);
 
+          var delExamBtn = document.createElement('button');
+          delExamBtn.type = 'button';
+          delExamBtn.className = 'btn btn-outline btn-sm pb-btn-danger-outline';
+          setBtnVectorIcon(delExamBtn, 'trash', 'Delete', 'Delete question set and all contained questions');
+          delExamBtn.addEventListener('click', function () {
+            var qCnt = Number(ex.totalQuestionsCount || ex.questionCount || 0);
+            var confirmMsg =
+              'Permanently delete question set "' +
+              (ex.title || ex.examCode || ex.examSetId) +
+              '" and ALL ' +
+              String(qCnt) +
+              ' question(s) contained inside it? This cannot be undone.';
+            if (typeof window.confirm === 'function' && window.__PB_AUTO_CONFIRM_DELETE__ !== true && !window.confirm(confirmMsg)) {
+              return;
+            }
+            runButtonWithLoadingState(delExamBtn, 'Deleting...', function () {
+              return rpcCallEnvelope('admin.exams.delete', { examSetId: ex.examSetId })
+                .then(function (env) {
+                  renderAdminExamsTablePhase3(env.data);
+                  invalidateQBankClientCachePhase2();
+                  if (typeof loadQuestionBankListPhase2 === 'function') {
+                    loadQuestionBankListPhase2();
+                  }
+                  if (typeof loadAdminCoursesAndAssessmentsStep7 === 'function') {
+                    loadAdminCoursesAndAssessmentsStep7();
+                  }
+                  setText('admin-exams-status-banner', 'Deleted question set "' + (ex.title || ex.examCode) + '" and its contained questions.');
+                  PBNotify.toast('success', 'Question Set Deleted', 'Removed set and its contained questions.');
+                })
+                .catch(function (err) {
+                  setText('admin-exams-status-banner', 'Delete failed: ' + ((err && err.message) || 'Unknown error'));
+                  PBNotify.toast('danger', 'Delete Failed', (err && err.message) || 'Could not delete question set.');
+                });
+            });
+          });
+          btnWrap.appendChild(delExamBtn);
+
           var anlBtn = document.createElement('button');
           anlBtn.type = 'button';
           anlBtn.className = 'btn btn-outline btn-sm';
@@ -27583,6 +27882,7 @@ var qrcode = (function() {
           (exams.length === 1 ? ' Assessment' : ' Assessments') +
           (pracCount > 0 ? ' (' + pracCount + ' Practice)' : '')
       );
+      setText('student-course-stat-exams', String(exams.length));
 
       var emptyBox = document.getElementById('student-course-exams-empty');
       var gridEl = document.getElementById('student-course-exams-grid');
@@ -28669,22 +28969,32 @@ var qrcode = (function() {
         state.clientRevisionCounter += 1;
         var revNo = state.clientRevisionCounter;
         var isAns = computeIsResponseNonEmpty(responsePayload);
+        var isPreviewMode = Boolean(state.attempt && state.attempt._isAdminPreview);
 
         state.localResponsesByItemId[attemptItemId] = {
           attemptItemId: attemptItemId,
           responsePayload: responsePayload || {},
           isAnsweredLocal: isAns,
-          isSavedOnServer: false,
+          isSavedOnServer: isPreviewMode ? true : false,
           clientRevisionNo: revNo,
           serverRevisionNo:
             (state.localResponsesByItemId[attemptItemId] &&
               state.localResponsesByItemId[attemptItemId].serverRevisionNo) ||
-            0,
+            (isPreviewMode ? revNo : 0),
           savedAtBangkok:
-            (state.localResponsesByItemId[attemptItemId] &&
-              state.localResponsesByItemId[attemptItemId].savedAtBangkok) ||
-            ''
+            isPreviewMode
+              ? 'Preview Ready'
+              : ((state.localResponsesByItemId[attemptItemId] &&
+                  state.localResponsesByItemId[attemptItemId].savedAtBangkok) ||
+                '')
         };
+
+        if (isPreviewMode) {
+          delete state.pendingDirtyByItemId[attemptItemId];
+          state.saveState = 'SAVED';
+          notifyListeners();
+          return Promise.resolve(getSnapshot());
+        }
 
         state.pendingDirtyByItemId[attemptItemId] = {
           attemptItemId: attemptItemId,
@@ -28975,7 +29285,11 @@ var qrcode = (function() {
             for (var fei = 0; fei < currentAdminExamsListPhase3.length; fei++) {
               var freshEx = currentAdminExamsListPhase3[fei];
               if (freshEx && freshEx.examSetId === examDto.examSetId) {
-                if (Array.isArray(freshEx.sections) && freshEx.sections.length > 0) {
+                var alreadyHasPreviewSections =
+                  Boolean(examDto._isAdminPreview) &&
+                  Array.isArray(examDto.sections) &&
+                  examDto.sections.length > 0;
+                if (!alreadyHasPreviewSections && Array.isArray(freshEx.sections) && freshEx.sections.length > 0) {
                   examDto.sections = freshEx.sections;
                   if (freshEx.title) examDto.title = freshEx.title;
                   if (freshEx.description !== undefined) examDto.description = freshEx.description;
@@ -29073,7 +29387,14 @@ var qrcode = (function() {
                 : fullQ.defaultPointsBp !== undefined && fullQ.defaultPointsBp !== null
                 ? Number(fullQ.defaultPointsBp) / 100
                 : 2.4;
-            var pts = isFinite(resolvedPts) && resolvedPts >= 0 ? Math.round(resolvedPts * 100) / 100 : 2.4;
+            var isFreePrevItem =
+              Boolean(secItems[it] && secItems[it].isFreeQuestion) ||
+              Boolean(fullQ && fullQ.isFreeQuestion) ||
+              resolvedPts === 0 ||
+              String((secItems[it] && secItems[it].pointsDisplay) || '').toLowerCase().indexOf('free') !== -1;
+            var pts = isFreePrevItem
+              ? 0
+              : (isFinite(resolvedPts) && resolvedPts >= 0 ? Math.round(resolvedPts * 100) / 100 : 2.4);
             var resolvedNegPts =
               secItems[it].negativePoints !== undefined && secItems[it].negativePoints !== null && secItems[it].negativePoints !== ''
                 ? Number(secItems[it].negativePoints)
@@ -29084,13 +29405,14 @@ var qrcode = (function() {
                 : fullQ.negativePointsBp !== undefined && fullQ.negativePointsBp !== null
                 ? Number(fullQ.negativePointsBp) / 100
                 : 0;
-            var negPts = isFinite(resolvedNegPts) && resolvedNegPts > 0 ? Math.round(resolvedNegPts * 100) / 100 : 0;
+            var negPts = isFreePrevItem ? 0 : (isFinite(resolvedNegPts) && resolvedNegPts > 0 ? Math.round(resolvedNegPts * 100) / 100 : 0);
             previewItems.push({
               attemptItemId: 'prev_item_' + dispNum,
               displayNumber: dispNum,
               sectionTitle: sec.title || 'Part I',
+              isFreeQuestion: isFreePrevItem,
               pointsBp: Math.round(pts * 100),
-              pointsDisplay: pts + (pts === 1 ? ' pt' : ' pts'),
+              pointsDisplay: isFreePrevItem ? 'Free Question' : (pts + (pts === 1 ? ' pt' : ' pts')),
               negativePointsBp: Math.round(negPts * 100),
               negativePointsDisplay: negPts + (negPts === 1 ? ' pt' : ' pts'),
               isFlagged: false,
@@ -29204,6 +29526,18 @@ var qrcode = (function() {
           'You are previewing "' + (examDto.title || 'Exam') + '". Click "Check Answer" on any question or "Exit Preview" when done.'
         );
         return previewBundle;
+      }).catch(function (prevErr) {
+        if (startBtn) {
+          startBtn.disabled = false;
+          startBtn.classList.remove('is-btn-loading');
+          startBtn.textContent = 'Launch Interactive Question Preview';
+        }
+        PBNotify.toast(
+          'danger',
+          'Preview Launch Failed',
+          (prevErr && prevErr.message) || 'Could not launch interactive question preview.'
+        );
+        return null;
       });
     }
 
@@ -29471,6 +29805,8 @@ var qrcode = (function() {
       return PB_ALEVEL_66_BIO_BLUEPRINT.sections[0];
     }
 
+    var activeFormsToolbarCardId = '';
+
     function ensureFormsWordToolbarMounted() {
       syncFormsStickyToolbarOffset();
       if (!formsStickyResizeBound && typeof window !== 'undefined') {
@@ -29483,6 +29819,40 @@ var qrcode = (function() {
         PBWordRichEditor.renderToolbarInto(dockEl, canvasEl || document.getElementById('pb-forms-builder-workspace'));
         formsWordToolbarMounted = true;
       }
+      if (dockEl && !document.getElementById('pb-forms-word-toolbar-home-anchor') && dockEl.parentNode) {
+        var homeAnchor = document.createElement('div');
+        homeAnchor.id = 'pb-forms-word-toolbar-home-anchor';
+        homeAnchor.style.display = 'none';
+        dockEl.parentNode.insertBefore(homeAnchor, dockEl);
+      }
+    }
+
+    function rescueFormsWordToolbarToHome() {
+      var dockEl = document.getElementById('pb-forms-word-toolbar-dock');
+      var anchorEl = document.getElementById('pb-forms-word-toolbar-home-anchor');
+      if (dockEl && anchorEl && anchorEl.parentNode && dockEl.parentNode !== anchorEl.parentNode) {
+        anchorEl.parentNode.insertBefore(dockEl, anchorEl.nextSibling);
+      }
+      if (dockEl) dockEl.classList.remove('is-floating-card-bar');
+    }
+
+    function moveFormsWordToolbarAboveCard(cardElOrId) {
+      ensureFormsWordToolbarMounted();
+      var dockEl = document.getElementById('pb-forms-word-toolbar-dock');
+      var container = document.getElementById('pb-forms-questions-container');
+      if (!dockEl || !container) return;
+      var cardEl = typeof cardElOrId === 'string'
+        ? container.querySelector('.pb-forms-q-card[data-forms-card-id="' + cardElOrId + '"]')
+        : cardElOrId;
+      if (!cardEl || cardEl.parentNode !== container) return;
+      var cid = cardEl.getAttribute('data-forms-card-id') || '';
+      if (activeFormsToolbarCardId === cid && dockEl.parentNode === container && dockEl.nextElementSibling === cardEl) {
+        dockEl.classList.add('is-floating-card-bar');
+        return;
+      }
+      activeFormsToolbarCardId = cid;
+      dockEl.classList.add('is-floating-card-bar');
+      container.insertBefore(dockEl, cardEl);
     }
 
     function createBlankFormsQuestionCardState(opt_overrides) {
@@ -29507,12 +29877,16 @@ var qrcode = (function() {
               { text: '', doc: createDefaultEmptyRichTextDoc(), isCorrect: false, pinPosition: 'NONE' },
               { text: '', doc: createDefaultEmptyRichTextDoc(), isCorrect: false, pinPosition: 'NONE' }
             ];
-      var defaultPts =
-        ov.points !== undefined
-          ? String(ov.points)
-          : qType === 'COMPLEX_MULTIPLE_CHOICE'
-          ? String(PB_ALEVEL_66_BIO_BLUEPRINT.complexMcDefaultPoints)
-          : String(PB_ALEVEL_66_BIO_BLUEPRINT.singleChoiceDefaultPoints);
+      var fallbackDefaultPts =
+        qType === 'COMPLEX_MULTIPLE_CHOICE'
+          ? PB_ALEVEL_66_BIO_BLUEPRINT.complexMcDefaultPoints
+          : PB_ALEVEL_66_BIO_BLUEPRINT.singleChoiceDefaultPoints;
+      var parsedOvPts =
+        ov.points !== undefined && ov.points !== null && ov.points !== ''
+          ? Number(ov.points)
+          : fallbackDefaultPts;
+      var isFreeCard = Boolean(ov.isFreeQuestion) || (isFinite(parsedOvPts) && parsedOvPts === 0);
+      var defaultPts = isFreeCard ? '0' : String(isFinite(parsedOvPts) && parsedOvPts > 0 ? parsedOvPts : fallbackDefaultPts);
       var stemDoc = ov.stemDoc
         ? cloneRichTextDocSafe(ov.stemDoc)
         : ov.stemRichText
@@ -29534,7 +29908,9 @@ var qrcode = (function() {
         blueprintSection: ov.blueprintSection || activeFormsBlueprintSectionId || 'PART_1',
         stem: extractPlainTextFromRichTextDoc(stemDoc),
         stemDoc: stemDoc,
+        isFreeQuestion: isFreeCard,
         points: defaultPts,
+        _lastNonZeroPoints: isFreeCard ? String(fallbackDefaultPts) : defaultPts,
         negativePoints: ov.negativePoints !== undefined ? String(ov.negativePoints) : '0',
         difficulty: ov.difficulty || 'MEDIUM',
         topicTags: ov.topicTags || getBlueprintSectionById(ov.blueprintSection || activeFormsBlueprintSectionId || 'PART_1').title,
@@ -29577,19 +29953,32 @@ var qrcode = (function() {
       var privGrading = qDto.privateGradingData || {};
       var gSpec = qDto.gradingSpec || privGrading.gradingSpec || {};
       var fallbackPts = qType === 'COMPLEX_MULTIPLE_CHOICE' ? PB_ALEVEL_66_BIO_BLUEPRINT.complexMcDefaultPoints : PB_ALEVEL_66_BIO_BLUEPRINT.singleChoiceDefaultPoints;
-      var pts =
-        opt_pointsDisplay !== undefined
-          ? parseFloat(String(opt_pointsDisplay)) || fallbackPts
-          : (Number(qDto.defaultPointsBp || Math.round(fallbackPts * 100)) / 100);
-      var negPts =
-        opt_negPointsDisplay !== undefined
+      var parsedOptPts =
+        opt_pointsDisplay !== undefined && opt_pointsDisplay !== null && opt_pointsDisplay !== ''
+          ? parseFloat(String(opt_pointsDisplay))
+          : NaN;
+      var isFreeCard =
+        Boolean(qDto.isFreeQuestion) ||
+        Boolean(gSpec.isFreeQuestion) ||
+        String(opt_pointsDisplay || '').toLowerCase().indexOf('free') !== -1 ||
+        (!isNaN(parsedOptPts) && parsedOptPts === 0) ||
+        (qDto.defaultPointsBp !== undefined && qDto.defaultPointsBp !== null && Number(qDto.defaultPointsBp) === 0);
+      var pts = isFreeCard
+        ? 0
+        : (!isNaN(parsedOptPts) && parsedOptPts > 0
+          ? parsedOptPts
+          : ((qDto.defaultPointsBp !== undefined && qDto.defaultPointsBp !== null ? Number(qDto.defaultPointsBp) : Math.round(fallbackPts * 100)) / 100));
+      var negPts = isFreeCard
+        ? 0
+        : (opt_negPointsDisplay !== undefined
           ? parseFloat(String(opt_negPointsDisplay)) || 0
-          : (Number(qDto.negativePointsBp || 0) / 100);
+          : (Number(qDto.negativePointsBp || 0) / 100));
       var imgIds = Array.isArray(qDto.imageFileIds) && qDto.imageFileIds.length > 0
         ? qDto.imageFileIds.slice()
         : (qDto.imageFileId ? [qDto.imageFileId] : []);
+      var tagLabel = Array.isArray(qDto.topicTags) ? qDto.topicTags.join(', ') : '';
       var secGuess = resolveBlueprintSectionIdFromLabel(
-        opt_sectionTitle || (Array.isArray(qDto.topicTags) ? qDto.topicTags.join(', ') : '')
+        (tagLabel && tagLabel.trim()) ? tagLabel : (opt_sectionTitle || '')
       );
       var priv = qDto.privateGradingData || {};
       var expSource = priv.explanationRichText || qDto.explanationRichText || priv.explanationPlainText || qDto.explanationPlainText || '';
@@ -29602,10 +29991,11 @@ var qrcode = (function() {
         questionType: qType,
         blueprintSection: secGuess,
         stemRichText: qDto.stemRichText || qDto.stemPlainText || '',
+        isFreeQuestion: isFreeCard,
         points: pts,
         negativePoints: negPts,
         difficulty: qDto.difficulty || 'MEDIUM',
-        topicTags: Array.isArray(qDto.topicTags) && qDto.topicTags.length > 0 ? qDto.topicTags.join(', ') : getBlueprintSectionById(secGuess).title,
+        topicTags: tagLabel && tagLabel.trim() ? tagLabel : getBlueprintSectionById(secGuess).title,
         options: opts,
         multiSelectRule: gSpec.multiSelectScoringRule || 'EXACT_MATCH',
         numericTarget: gSpec.targetValue !== undefined ? gSpec.targetValue : '0',
@@ -29625,11 +30015,16 @@ var qrcode = (function() {
       var totalPts = 0;
       var count5Opt = 0;
       var countComplex = 0;
+      var countFree = 0;
       var secCounts = {};
       for (var i = 0; i < formsBuilderQuestionCards.length; i++) {
         var c = formsBuilderQuestionCards[i];
         var p = parseFloat(c.points);
-        if (isFinite(p) && p > 0) totalPts += p;
+        if (c.isFreeQuestion || p === 0) {
+          countFree++;
+        } else if (isFinite(p) && p > 0) {
+          totalPts += p;
+        }
         if (c.questionType === 'SINGLE_CHOICE') count5Opt++;
         else if (c.questionType === 'COMPLEX_MULTIPLE_CHOICE') countComplex++;
         var sKey = c.blueprintSection || 'PART_1';
@@ -29638,7 +30033,12 @@ var qrcode = (function() {
       var count = formsBuilderQuestionCards.length;
       setText(
         'pb-forms-live-summary',
-        count + (count === 1 ? ' Question' : ' Questions') + ' \u2022 ' + totalPts.toFixed(2) + ' pts'
+        count +
+          (count === 1 ? ' Question' : ' Questions') +
+          ' \u2022 ' +
+          totalPts.toFixed(2) +
+          ' pts' +
+          (countFree > 0 ? ' (' + countFree + ' Free)' : '')
       );
 
       var p5El = document.getElementById('pb-alevel-count-5opt');
@@ -29678,11 +30078,19 @@ var qrcode = (function() {
       }
     }
 
-    function renderFormsBuilderQuestionCards() {
+    function renderFormsBuilderQuestionCards(opt_renderOpts) {
       var container = document.getElementById('pb-forms-questions-container');
       if (!container) return;
+      var renderOpts = opt_renderOpts && typeof opt_renderOpts === 'object' ? opt_renderOpts : {};
       ensureFormsWordToolbarMounted();
-      while (container.firstChild) container.removeChild(container.firstChild);
+      rescueFormsWordToolbarToHome();
+      var prevScrollX = typeof window !== 'undefined' ? (window.scrollX || window.pageXOffset || 0) : 0;
+      var prevScrollY = typeof window !== 'undefined' ? (window.scrollY || window.pageYOffset || 0) : 0;
+      var prevHeight = container.offsetHeight || 0;
+      if (prevHeight > 0) {
+        container.style.minHeight = prevHeight + 'px';
+      }
+      var frag = document.createDocumentFragment();
       updateFormsBuilderSummaryBadge();
 
       for (var idx = 0; idx < formsBuilderQuestionCards.length; idx++) {
@@ -29690,8 +30098,14 @@ var qrcode = (function() {
           var cardEl = document.createElement('div');
           cardEl.className = 'pb-forms-q-card';
           cardEl.setAttribute('data-forms-card-id', card.localId);
+          cardEl.addEventListener('focusin', function () {
+            moveFormsWordToolbarAboveCard(cardEl);
+          });
+          cardEl.addEventListener('mousedown', function () {
+            moveFormsWordToolbarAboveCard(cardEl);
+          });
 
-          // 1. Card Top Bar: Question # Badge + Blueprint Section + Points + Move/Duplicate/Delete
+          // 1. Card Top Bar: Question # Badge + Blueprint Section + Points + Free Toggle + Move/Duplicate/Delete
           var hdr = document.createElement('div');
           hdr.className = 'pb-forms-q-card-header';
 
@@ -29745,6 +30159,18 @@ var qrcode = (function() {
           rightHdr.style.gap = '6px';
           rightHdr.style.flexWrap = 'wrap';
 
+          var freeLbl = document.createElement('label');
+          freeLbl.className = 'pb-forms-free-toggle-label';
+          freeLbl.title = 'Free question: excluded from exam scoring and total points';
+          var freeChk = document.createElement('input');
+          freeChk.type = 'checkbox';
+          freeChk.checked = Boolean(card.isFreeQuestion);
+          freeLbl.appendChild(freeChk);
+          var freeSpan = document.createElement('span');
+          freeSpan.textContent = 'Free (0 pts)';
+          freeLbl.appendChild(freeSpan);
+          rightHdr.appendChild(freeLbl);
+
           var ptsLabel = document.createElement('label');
           ptsLabel.style.fontSize = '0.78rem';
           ptsLabel.style.fontWeight = '700';
@@ -29755,14 +30181,45 @@ var qrcode = (function() {
           var ptsInp = document.createElement('input');
           ptsInp.type = 'number';
           ptsInp.className = 'form-input';
-          ptsInp.min = '0.1';
+          ptsInp.min = '0';
           ptsInp.max = '100';
           ptsInp.step = '0.1';
           ptsInp.style.width = '76px';
           ptsInp.style.padding = '4px 8px';
-          ptsInp.value = card.points;
+          ptsInp.value = card.isFreeQuestion ? '0' : String(card.points !== undefined && card.points !== '' ? card.points : '2.4');
+          ptsInp.disabled = Boolean(card.isFreeQuestion);
+
+          freeChk.addEventListener('change', function () {
+            if (freeChk.checked) {
+              if (Number(card.points) > 0) card._lastNonZeroPoints = String(card.points);
+              card.isFreeQuestion = true;
+              card.points = '0';
+              card.negativePoints = '0';
+              ptsInp.value = '0';
+              ptsInp.disabled = true;
+            } else {
+              card.isFreeQuestion = false;
+              card.points = card._lastNonZeroPoints || '2.4';
+              ptsInp.value = card.points;
+              ptsInp.disabled = false;
+            }
+            markFormsCardDirty(card);
+            updateFormsBuilderSummaryBadge();
+          });
+
           ptsInp.addEventListener('input', function () {
-            card.points = ptsInp.value || '2.4';
+            var rawVal = String(ptsInp.value || '').trim();
+            var numVal = rawVal === '' ? NaN : Number(rawVal);
+            if (!isNaN(numVal) && numVal === 0) {
+              card.isFreeQuestion = true;
+              card.points = '0';
+              freeChk.checked = true;
+            } else {
+              card.isFreeQuestion = false;
+              freeChk.checked = false;
+              card.points = rawVal !== '' ? rawVal : '0';
+              if (!isNaN(numVal) && numVal > 0) card._lastNonZeroPoints = String(numVal);
+            }
             markFormsCardDirty(card);
             updateFormsBuilderSummaryBadge();
           });
@@ -29781,7 +30238,7 @@ var qrcode = (function() {
             formsBuilderQuestionCards[cardIndex - 1] = formsBuilderQuestionCards[cardIndex];
             formsBuilderQuestionCards[cardIndex] = tmp;
             markFormsBuilderDirty();
-            renderFormsBuilderQuestionCards();
+            renderFormsBuilderQuestionCards({ restoreScroll: true, focusCardId: card.localId, skipScrollIntoView: true });
           });
           rightHdr.appendChild(upBtn);
 
@@ -29798,7 +30255,7 @@ var qrcode = (function() {
             formsBuilderQuestionCards[cardIndex + 1] = formsBuilderQuestionCards[cardIndex];
             formsBuilderQuestionCards[cardIndex] = tmp;
             markFormsBuilderDirty();
-            renderFormsBuilderQuestionCards();
+            renderFormsBuilderQuestionCards({ restoreScroll: true, focusCardId: card.localId, skipScrollIntoView: true });
           });
           rightHdr.appendChild(dnBtn);
 
@@ -29820,6 +30277,7 @@ var qrcode = (function() {
               blueprintSection: card.blueprintSection,
               stem: card.stem,
               stemDoc: card.stemDoc,
+              isFreeQuestion: card.isFreeQuestion,
               points: card.points,
               negativePoints: card.negativePoints,
               difficulty: card.difficulty,
@@ -29839,7 +30297,7 @@ var qrcode = (function() {
             });
             formsBuilderQuestionCards.splice(cardIndex + 1, 0, cloned);
             markFormsBuilderDirty();
-            renderFormsBuilderQuestionCards();
+            renderFormsBuilderQuestionCards({ focusCardId: cloned.localId, focusStem: true });
           });
           rightHdr.appendChild(dupBtn);
 
@@ -29855,7 +30313,7 @@ var qrcode = (function() {
             }
             formsBuilderQuestionCards.splice(cardIndex, 1);
             markFormsBuilderDirty();
-            renderFormsBuilderQuestionCards();
+            renderFormsBuilderQuestionCards({ restoreScroll: true });
           });
           rightHdr.appendChild(delBtn);
 
@@ -29941,7 +30399,7 @@ var qrcode = (function() {
                 if (card.points === '2' || card.points === '3.2') card.points = '2.4';
               }
             }
-            renderFormsBuilderQuestionCards();
+            renderFormsBuilderQuestionCards({ restoreScroll: true, focusCardId: card.localId, skipScrollIntoView: true });
           });
           stemRow.appendChild(typeSel);
           cardEl.appendChild(stemRow);
@@ -30009,7 +30467,7 @@ var qrcode = (function() {
             rmImgBtn.addEventListener('click', function () {
               card.imageFileIds = [];
               card.isDirty = true;
-              renderFormsBuilderQuestionCards();
+              renderFormsBuilderQuestionCards({ restoreScroll: true, focusCardId: card.localId, skipScrollIntoView: true });
             });
             imgTopActions.appendChild(rmImgBtn);
             imgTop.appendChild(imgTopActions);
@@ -30080,7 +30538,7 @@ var qrcode = (function() {
                 yesKeyBtn.addEventListener('click', function () {
                   stmtObj.isCorrect = true;
                   card.isDirty = true;
-                  renderFormsBuilderQuestionCards();
+                  renderFormsBuilderQuestionCards({ restoreScroll: true, focusCardId: card.localId, skipScrollIntoView: true });
                 });
                 tg.appendChild(yesKeyBtn);
 
@@ -30091,7 +30549,7 @@ var qrcode = (function() {
                 noKeyBtn.addEventListener('click', function () {
                   stmtObj.isCorrect = false;
                   card.isDirty = true;
-                  renderFormsBuilderQuestionCards();
+                  renderFormsBuilderQuestionCards({ restoreScroll: true, focusCardId: card.localId, skipScrollIntoView: true });
                 });
                 tg.appendChild(noKeyBtn);
 
@@ -30107,7 +30565,7 @@ var qrcode = (function() {
                   rmStBtn.addEventListener('click', function () {
                     card.options.splice(statementIndex, 1);
                     card.isDirty = true;
-                    renderFormsBuilderQuestionCards();
+                    renderFormsBuilderQuestionCards({ restoreScroll: true, focusCardId: card.localId, skipScrollIntoView: true });
                   });
                   row.appendChild(rmStBtn);
                 }
@@ -30131,7 +30589,7 @@ var qrcode = (function() {
                   pinPosition: 'FIXED'
                 });
                 card.isDirty = true;
-                renderFormsBuilderQuestionCards();
+                renderFormsBuilderQuestionCards({ restoreScroll: true, focusCardId: card.localId, skipScrollIntoView: true });
               });
               cardEl.appendChild(addStmtBtn);
             }
@@ -30142,8 +30600,10 @@ var qrcode = (function() {
             optHint.style.marginBottom = '4px';
             optHint.textContent =
               qType === 'MULTIPLE_SELECT'
-                ? 'Check the box next to ALL correct answer choices (supports Sub/Sup & Greek):'
-                : 'Select the radio button next to the correct answer (supports Sub/Sup & Greek in choices):';
+                ? 'Check the box next to ALL correct answer choices (student selects all matching boxes):'
+                : qType === 'SINGLE_CHOICE'
+                ? 'Check 1 or more accepted correct answers (student picks one choice; any checked key earns full points):'
+                : 'Select the radio button next to the correct answer:';
             cardEl.appendChild(optHint);
 
             var optList = document.createElement('div');
@@ -30155,20 +30615,34 @@ var qrcode = (function() {
                 row.className = 'pb-forms-option-row' + (optObj.isCorrect ? ' is-correct-option' : '');
 
                 var selInp = document.createElement('input');
-                selInp.type = qType === 'MULTIPLE_SELECT' ? 'checkbox' : 'radio';
+                selInp.type = (qType === 'MULTIPLE_SELECT' || qType === 'SINGLE_CHOICE') ? 'checkbox' : 'radio';
                 selInp.name = 'forms_correct_' + card.localId;
                 selInp.checked = Boolean(optObj.isCorrect);
-                selInp.title = 'Mark as correct answer';
+                selInp.title = qType === 'SINGLE_CHOICE' ? 'Mark as accepted correct answer' : 'Mark as correct answer';
                 selInp.addEventListener('change', function () {
-                  card.isDirty = true;
-                  if (qType === 'MULTIPLE_SELECT') {
+                  if (qType === 'MULTIPLE_SELECT' || qType === 'SINGLE_CHOICE') {
+                    if (qType === 'SINGLE_CHOICE' && !selInp.checked && !card.isFreeQuestion) {
+                      var otherCorrect = card.options.some(function (optCandidate, idxCandidate) {
+                        return idxCandidate !== optionIndex && optCandidate.isCorrect;
+                      });
+                      if (!otherCorrect) {
+                        selInp.checked = true;
+                        PBNotify.toast(
+                          'warning',
+                          'At Least 1 Correct Answer Needed',
+                          'Keep at least one accepted answer checked, or enable "Free (0 pts)" above.'
+                        );
+                        return;
+                      }
+                    }
                     optObj.isCorrect = selInp.checked;
                   } else {
                     for (var k = 0; k < card.options.length; k++) {
                       card.options[k].isCorrect = k === optionIndex;
                     }
                   }
-                  renderFormsBuilderQuestionCards();
+                  markFormsCardDirty(card);
+                  renderFormsBuilderQuestionCards({ restoreScroll: true, focusCardId: card.localId, skipScrollIntoView: true });
                 });
                 row.appendChild(selInp);
 
@@ -30203,7 +30677,12 @@ var qrcode = (function() {
                   var corBadge = document.createElement('span');
                   corBadge.className = 'badge badge-ok pb-vec-icon-btn';
                   corBadge.style.fontSize = '0.7rem';
-                  setElementVectorIconLabel(corBadge, 'check', 'Correct Key', 'pb-icon-xs');
+                  setElementVectorIconLabel(
+                    corBadge,
+                    'check',
+                    qType === 'SINGLE_CHOICE' ? 'Accepted Key' : 'Correct Key',
+                    'pb-icon-xs'
+                  );
                   row.appendChild(corBadge);
                 }
 
@@ -30219,8 +30698,8 @@ var qrcode = (function() {
                     if (!card.options.some(function (x) { return x.isCorrect; }) && card.options.length > 0) {
                       card.options[0].isCorrect = true;
                     }
-                    card.isDirty = true;
-                    renderFormsBuilderQuestionCards();
+                    markFormsCardDirty(card);
+                    renderFormsBuilderQuestionCards({ restoreScroll: true, focusCardId: card.localId, skipScrollIntoView: true });
                   });
                   row.appendChild(rmOpt);
                 }
@@ -30242,8 +30721,8 @@ var qrcode = (function() {
                   isCorrect: false,
                   pinPosition: 'NONE'
                 });
-                card.isDirty = true;
-                renderFormsBuilderQuestionCards();
+                markFormsCardDirty(card);
+                renderFormsBuilderQuestionCards({ restoreScroll: true, focusCardId: card.localId, skipScrollIntoView: true });
               });
               cardEl.appendChild(addOptBtn);
             }
@@ -30536,8 +31015,41 @@ var qrcode = (function() {
           advDetails.appendChild(advGrid);
           cardEl.appendChild(advDetails);
 
-          container.appendChild(cardEl);
+          frag.appendChild(cardEl);
         })(formsBuilderQuestionCards[idx], idx);
+      }
+
+      while (container.firstChild) container.removeChild(container.firstChild);
+      container.appendChild(frag);
+      container.style.minHeight = '';
+
+      var preferredCardId = renderOpts.focusCardId || activeFormsToolbarCardId || (formsBuilderQuestionCards[0] && formsBuilderQuestionCards[0].localId) || '';
+      var targetCardEl = preferredCardId
+        ? container.querySelector('.pb-forms-q-card[data-forms-card-id="' + preferredCardId + '"]')
+        : container.querySelector('.pb-forms-q-card');
+      if (!targetCardEl) {
+        targetCardEl = container.querySelector('.pb-forms-q-card');
+      }
+      if (targetCardEl) {
+        moveFormsWordToolbarAboveCard(targetCardEl);
+      }
+
+      if (renderOpts.focusCardId && targetCardEl && !renderOpts.skipScrollIntoView) {
+        try {
+          targetCardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch (scrollErr) {}
+        if (renderOpts.focusStem !== false) {
+          var stemTarget = targetCardEl.querySelector('.pb-word-inline-editor.is-stem');
+          if (stemTarget && typeof stemTarget.focus === 'function') {
+            try {
+              stemTarget.focus({ preventScroll: true });
+            } catch (focusErr) {
+              stemTarget.focus();
+            }
+          }
+        }
+      } else if (renderOpts.restoreScroll !== false && typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+        window.scrollTo(prevScrollX, prevScrollY);
       }
     }
 
@@ -31271,6 +31783,20 @@ var qrcode = (function() {
         var expDocPayload = card.explanationDoc ? cloneRichTextDocSafe(card.explanationDoc) : plainTextToRichTextDocSafe(card.explanation || '');
         var expFinalPayload = extractPlainTextFromRichTextDoc(expDocPayload).trim() ? expDocPayload : '';
 
+        var isFreeQCard = Boolean(card.isFreeQuestion) || (card.points !== undefined && card.points !== '' && Number(card.points) === 0);
+        var defaultPtsStr = isFreeQCard
+          ? '0'
+          : String(
+              card.points !== undefined && card.points !== null && String(card.points).trim() !== ''
+                ? card.points
+                : card.questionType === 'COMPLEX_MULTIPLE_CHOICE'
+                ? '3.2'
+                : '2.4'
+            );
+        var resolvedTopicTag = getBlueprintSectionById(card.blueprintSection || 'PART_1').title;
+        if (!card.topicTags || PB_ALEVEL_66_BIO_BLUEPRINT.sections.some(function (sec) { return sec.title === card.topicTags; })) {
+          card.topicTags = resolvedTopicTag;
+        }
         var qPayload = {
           questionId: card.questionId || '',
           expectedVersion: card.expectedVersion ? Number(card.expectedVersion) : undefined,
@@ -31278,9 +31804,10 @@ var qrcode = (function() {
           title: qTitle,
           questionType: card.questionType,
           difficulty: card.difficulty || 'MEDIUM',
-          defaultPoints: String(card.points || (card.questionType === 'COMPLEX_MULTIPLE_CHOICE' ? '3.2' : '2.4')),
-          negativePoints: String(card.negativePoints || '0'),
-          topicTags: card.topicTags || getBlueprintSectionById(card.blueprintSection).title,
+          isFreeQuestion: isFreeQCard,
+          defaultPoints: defaultPtsStr,
+          negativePoints: isFreeQCard ? '0' : String(card.negativePoints !== undefined && card.negativePoints !== '' ? card.negativePoints : '0'),
+          topicTags: resolvedTopicTag,
           status: 'PUBLISHED',
           stimulusId: '',
           stemRichText: stemDocPayload,
@@ -31385,18 +31912,6 @@ var qrcode = (function() {
 
       return savePromise.then(function () {
         invalidateQBankClientCachePhase2();
-        var itemsBySectionId = {};
-        for (var i = 0; i < formsBuilderQuestionCards.length; i++) {
-          var c = formsBuilderQuestionCards[i];
-          var sId = c.blueprintSection || 'PART_1';
-          if (!itemsBySectionId[sId]) itemsBySectionId[sId] = [];
-          itemsBySectionId[sId].push({
-            questionId: c.questionId,
-            points: String(c.points || '2.4'),
-            negativePoints: String(c.negativePoints || '0')
-          });
-        }
-
         var examId = ((document.getElementById('input-forms-exam-id') || {}).value || '').trim();
         var examVer = ((document.getElementById('input-forms-exam-version') || {}).value || '').trim();
         var examMode = (document.getElementById('select-forms-exam-mode') || {}).value || 'MOCK_EXAM';
@@ -31406,25 +31921,49 @@ var qrcode = (function() {
         }
         var descTxt = (document.getElementById('textarea-forms-exam-description') || {}).value || '';
         var secMode = (document.getElementById('select-forms-sec-mode') || {}).value || 'FIXED_ITEMS';
-        var customSecTitle = ((document.getElementById('input-forms-sec-title') || {}).value || '').trim();
 
-        var builtSections = [];
-        for (var bs = 0; bs < PB_ALEVEL_66_BIO_BLUEPRINT.sections.length; bs++) {
-          var bpSec = PB_ALEVEL_66_BIO_BLUEPRINT.sections[bs];
-          var secItemList = itemsBySectionId[bpSec.id];
-          if (secItemList && secItemList.length > 0) {
-            var pDraw = Number((document.getElementById('input-forms-sec-pool-draw') || {}).value || 1);
-            if (secMode === 'QUESTION_POOL' && pDraw > secItemList.length) pDraw = secItemList.length;
-            builtSections.push({
-              title: bpSec.title,
-              selectionMode: secMode,
-              poolDrawCount: pDraw,
-              items: secItemList
+        // Group contiguous cards by blueprint section so card order never silently jumps when changing 1 question's category
+        var sectionGroups = [];
+        for (var i = 0; i < formsBuilderQuestionCards.length; i++) {
+          var c = formsBuilderQuestionCards[i];
+          var sId = c.blueprintSection || 'PART_1';
+          var isFreeItCard = Boolean(c.isFreeQuestion) || (c.points !== undefined && c.points !== '' && Number(c.points) === 0);
+          var ptsItemStr = isFreeItCard
+            ? '0'
+            : String(c.points !== undefined && c.points !== null && String(c.points).trim() !== '' ? c.points : '2.4');
+          var itemPayload = {
+            questionId: c.questionId,
+            isFreeQuestion: isFreeItCard,
+            points: ptsItemStr,
+            negativePoints: isFreeItCard ? '0' : String(c.negativePoints !== undefined && c.negativePoints !== '' ? c.negativePoints : '0')
+          };
+          var lastGrp = sectionGroups.length > 0 ? sectionGroups[sectionGroups.length - 1] : null;
+          if (!lastGrp || lastGrp.sectionId !== sId) {
+            sectionGroups.push({
+              sectionId: sId,
+              title: getBlueprintSectionById(sId).title,
+              items: [itemPayload]
             });
+          } else {
+            lastGrp.items.push(itemPayload);
           }
         }
-        if (builtSections.length === 1 && customSecTitle && customSecTitle !== 'Part I: Biology Questions') {
-          builtSections[0].title = customSecTitle;
+
+        var builtSections = [];
+        for (var sg = 0; sg < sectionGroups.length; sg++) {
+          var grp = sectionGroups[sg];
+          var pDraw = Number((document.getElementById('input-forms-sec-pool-draw') || {}).value || 1);
+          if (secMode === 'QUESTION_POOL' && pDraw > grp.items.length) pDraw = grp.items.length;
+          builtSections.push({
+            title: grp.title,
+            selectionMode: secMode,
+            poolDrawCount: pDraw,
+            items: grp.items
+          });
+        }
+        if (builtSections.length > 0) {
+          var secTitleField = document.getElementById('input-forms-sec-title');
+          if (secTitleField) secTitleField.value = builtSections[0].title;
         }
 
         return {
@@ -31696,21 +32235,14 @@ var qrcode = (function() {
       if (addComplexMcBtn && !(addComplexMcBtn.dataset && addComplexMcBtn.dataset.boundAddCmc)) {
         if (addComplexMcBtn.dataset) addComplexMcBtn.dataset.boundAddCmc = '1';
         addComplexMcBtn.addEventListener('click', function () {
-          formsBuilderQuestionCards.push(
-            createBlankFormsQuestionCardState({
-              questionType: 'COMPLEX_MULTIPLE_CHOICE',
-              points: String(PB_ALEVEL_66_BIO_BLUEPRINT.complexMcDefaultPoints),
-              blueprintSection: activeFormsBlueprintSectionId
-            })
-          );
+          var newCmcCard = createBlankFormsQuestionCardState({
+            questionType: 'COMPLEX_MULTIPLE_CHOICE',
+            points: String(PB_ALEVEL_66_BIO_BLUEPRINT.complexMcDefaultPoints),
+            blueprintSection: activeFormsBlueprintSectionId
+          });
+          formsBuilderQuestionCards.push(newCmcCard);
           markFormsBuilderDirty();
-          renderFormsBuilderQuestionCards();
-          var container = document.getElementById('pb-forms-questions-container');
-          if (container && container.lastElementChild) {
-            try {
-              container.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            } catch (e) {}
-          }
+          renderFormsBuilderQuestionCards({ focusCardId: newCmcCard.localId, focusStem: true });
         });
       }
       var studioTabBtns = document.querySelectorAll('[data-exam-studio-tab]');
@@ -31767,15 +32299,10 @@ var qrcode = (function() {
           if (!btn || (btn.dataset && btn.dataset.boundAddQ)) return;
           if (btn.dataset) btn.dataset.boundAddQ = '1';
           btn.addEventListener('click', function () {
-            formsBuilderQuestionCards.push(createBlankFormsQuestionCardState());
+            var newQCard = createBlankFormsQuestionCardState();
+            formsBuilderQuestionCards.push(newQCard);
             markFormsBuilderDirty();
-            renderFormsBuilderQuestionCards();
-            var container = document.getElementById('pb-forms-questions-container');
-            if (container && container.lastElementChild) {
-              try {
-                container.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              } catch (e) {}
-            }
+            renderFormsBuilderQuestionCards({ focusCardId: newQCard.localId, focusStem: true });
           });
         })(addQBtns[aq]);
       }
@@ -33393,13 +33920,17 @@ var qrcode = (function() {
           }
           var fbBox = document.getElementById('exam-ws-practice-feedback-box');
           if (fbBox) fbBox.classList.remove('hidden');
-          setText('exam-ws-practice-feedback-badge', isCorr ? 'CORRECT (PREVIEW)' : 'ANSWER KEY PREVIEW');
+          setText(
+            'exam-ws-practice-feedback-badge',
+            activeItem.isFreeQuestion
+              ? 'FREE QUESTION (EXCLUDED FROM SCORE)'
+              : (isCorr ? 'CORRECT (PREVIEW)' : 'ANSWER KEY PREVIEW')
+          );
           setText(
             'exam-ws-practice-feedback-score',
             scoreNote +
-              (corrLabels.length > 0 ? 'Correct Key: ' + corrLabels.join(', ') + '  •  ' : '') +
-              'Max Score: ' +
-              (activeItem.pointsDisplay || '1 pt')
+              (corrLabels.length > 0 ? 'Accepted Key(s): ' + corrLabels.join(', ') + '  •  ' : '') +
+              (activeItem.isFreeQuestion ? 'Free Question (0 pts / Not Counted)' : ('Max Score: ' + (activeItem.pointsDisplay || '1 pt')))
           );
           renderRichTextDocumentToDom(
             document.getElementById('exam-ws-practice-feedback-richtext'),
@@ -36295,6 +36826,121 @@ var qrcode = (function() {
       if (userEditorForm) {
         userEditorForm.addEventListener('submit', function (evt) {
           handleAdminUserEditorSubmit(evt, false);
+        });
+      }
+
+      ['input-user-editor-email', 'select-user-editor-role'].forEach(function (elId) {
+        var el = document.getElementById(elId);
+        if (el) {
+          el.addEventListener('input', function () {
+            if (typeof syncUserEditorAdminEmailOtpVisibility === 'function') {
+              syncUserEditorAdminEmailOtpVisibility();
+            }
+          });
+          el.addEventListener('change', function () {
+            if (typeof syncUserEditorAdminEmailOtpVisibility === 'function') {
+              syncUserEditorAdminEmailOtpVisibility();
+            }
+          });
+        }
+      });
+
+      var sendUserEmailOtpBtn = document.getElementById('btn-user-editor-send-email-otp');
+      if (sendUserEmailOtpBtn) {
+        sendUserEmailOtpBtn.addEventListener('click', function () {
+          var newEmailVal = String((document.getElementById('input-user-editor-email') || {}).value || '').trim();
+          var targetUidVal = String((document.getElementById('input-user-editor-id') || {}).value || '').trim();
+          if (!newEmailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmailVal)) {
+            setText('user-editor-email-otp-status', 'Enter a valid new email address first.');
+            return;
+          }
+          runButtonWithLoadingState(sendUserEmailOtpBtn, 'Sending OTP...', function () {
+            setText('user-editor-email-otp-status', 'Sending 6-digit OTP to ' + newEmailVal + '...');
+            return rpcCallEnvelope('admin.requestEmailChangeOtp', {
+              newEmail: newEmailVal,
+              targetUserId: targetUidVal
+            })
+              .then(function (env) {
+                var d = (env && env.data) || {};
+                setText(
+                  'user-editor-email-otp-status',
+                  'OTP sent to ' + (d.sentTo || newEmailVal) + ' (expires in ' + String(d.expiresInMinutes || 10) + ' min).'
+                );
+                PBNotify.toast('success', 'Verification OTP Sent', 'Check ' + (d.sentTo || newEmailVal) + ' for the 6-digit verification code.');
+                var otpFocus = document.getElementById('input-user-editor-email-otp');
+                if (otpFocus) otpFocus.focus();
+              })
+              .catch(function (err) {
+                setText('user-editor-email-otp-status', (err && err.message) || 'Failed to send verification OTP.');
+                PBNotify.toast('danger', 'OTP Request Blocked', (err && err.message) || 'Could not send email verification OTP.');
+              });
+          });
+        });
+      }
+
+      var openDelUserModalBtn = document.getElementById('btn-user-editor-open-delete-modal');
+      if (openDelUserModalBtn) {
+        openDelUserModalBtn.addEventListener('click', function () {
+          if (window.__pbEditingUserMeta && typeof openDeleteUserConfirmModalStep6 === 'function') {
+            openDeleteUserConfirmModalStep6(window.__pbEditingUserMeta);
+          }
+        });
+      }
+
+      function closeAdminDeleteUserModal() {
+        var delModal = document.getElementById('modal-admin-delete-user');
+        if (delModal) {
+          delModal.classList.add('hidden');
+          syncAllModalAccessibilityAndScrollLock();
+        }
+      }
+      ['btn-close-delete-user-modal', 'btn-cancel-delete-user-modal'].forEach(function (cid) {
+        var cBtn = document.getElementById(cid);
+        if (cBtn) {
+          cBtn.addEventListener('click', closeAdminDeleteUserModal);
+        }
+      });
+
+      var deleteUserConfirmForm = document.getElementById('form-admin-delete-user-confirm');
+      if (deleteUserConfirmForm) {
+        deleteUserConfirmForm.addEventListener('submit', function (evt) {
+          if (evt && typeof evt.preventDefault === 'function') evt.preventDefault();
+          var targetUid = String((document.getElementById('input-delete-user-target-id') || {}).value || '').trim();
+          var targetVer = Number((document.getElementById('input-delete-user-target-version') || {}).value || 1);
+          var adminPw = String((document.getElementById('input-delete-user-admin-password') || {}).value || '');
+          var hardDel = Boolean((document.getElementById('chk-delete-user-hard') || { checked: true }).checked);
+          var submitBtn = document.getElementById('btn-confirm-delete-user-submit');
+          if (!targetUid) return;
+          if (!adminPw.trim()) {
+            setText('admin-delete-user-status', 'Enter your signed-in administrator password to confirm.');
+            return;
+          }
+          setText('admin-delete-user-status', hardDel ? 'Verifying password and deleting user...' : 'Verifying password and archiving user...');
+          runButtonWithLoadingState(submitBtn, hardDel ? 'Deleting...' : 'Archiving...', function () {
+            return rpcCallEnvelope('admin.deleteOrArchiveUser', {
+              userId: targetUid,
+              hardDelete: hardDel,
+              expectedVersion: targetVer,
+              adminPassword: adminPw
+            })
+              .then(function (env) {
+                var d = (env && env.data) || {};
+                closeAdminDeleteUserModal();
+                PBAdminActionModal.close();
+                selectUserForAdminEditing(null);
+                PBNotify.toast(
+                  'success',
+                  d.mode === 'HARD_DELETED' ? 'User Deleted' : 'User Archived',
+                  'User account processed successfully.'
+                );
+                loadAdminUsersStep6(null, false);
+                return refreshAdminDashboardSummary();
+              })
+              .catch(function (err) {
+                setText('admin-delete-user-status', (err && err.message) || 'Delete failed.');
+                PBNotify.toast('danger', 'User Action Failed', (err && err.message) || 'Could not delete user.');
+              });
+          });
         });
       }
 
@@ -39645,8 +40291,15 @@ var qrcode = (function() {
               factoryResetCategoriesCache = d.categories;
             }
             var emailInp = document.getElementById('input-admin-factory-reset-email');
-            if (emailInp && !emailInp.value.trim() && d.designatedEmail) {
-              emailInp.value = d.designatedEmail;
+            var resolvedAdminEmail =
+              d.designatedEmail ||
+              (currentSessionMeta && currentSessionMeta.user && currentSessionMeta.user.email) ||
+              '';
+            if (emailInp) {
+              emailInp.value = resolvedAdminEmail;
+              emailInp.readOnly = true;
+              emailInp.disabled = true;
+              emailInp.setAttribute('aria-readonly', 'true');
             }
             renderFactoryResetScopeUi();
           })

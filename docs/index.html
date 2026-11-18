@@ -8,7 +8,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <meta name="pb-build-version" content="aefa77ad" />
+    <meta name="pb-build-version" content="e7373ba6" />
     <base target="_self" />
     <title>Pattanabhumi Biology — Learning Portal</title>
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
@@ -19,7 +19,7 @@
       href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/styles.css?v=6f42bc56" />
+    <link rel="stylesheet" href="css/styles.css?v=cb05a3df" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -1728,8 +1728,8 @@
     </div>
   </div>
 
-  <div class="card pb-course-hero-card" id="student-course-header-card">
-    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
+  <div class="card pb-course-hero-card pb-course-hero-v2" id="student-course-header-card">
+    <div class="pb-course-hero-topbar">
       <div style="display: flex; gap: 8px; flex-wrap: wrap;">
         <button type="button" class="btn btn-outline btn-sm" id="btn-course-detail-back-profile">
           <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
@@ -1742,30 +1742,43 @@
       </div>
       <button type="button" class="btn btn-secondary btn-sm" id="btn-course-detail-refresh">
         <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-        <span>Refresh Course Content</span>
+        <span>Refresh</span>
       </button>
     </div>
 
-    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+    <div id="student-course-cover-banner" class="hidden" style="margin-bottom: 18px;"></div>
+
+    <div class="pb-course-hero-meta-row">
       <span class="badge badge-ok" id="student-course-code-badge">BIO-COURSE</span>
       <span class="badge badge-ok" id="student-course-status-badge">PUBLISHED</span>
-      <span style="font-size: 0.82rem; font-weight: 600; color: #64748B;" id="student-course-updated-at">
+      <span class="pb-course-updated-pill" id="student-course-updated-at">
         Updated: -
       </span>
     </div>
 
-    <div id="student-course-cover-banner" class="hidden" style="margin-bottom: 16px;"></div>
-    <h1
-      id="student-course-title"
-      style="margin: 2px 0 6px 0; font-size: 1.65rem; font-weight: 900; letter-spacing: -0.02em; color: #0F172A;"
-    >
+    <h1 id="student-course-title" class="pb-course-hero-title-v2">
       Course Title
     </h1>
-    <div
-      id="student-course-subtitle"
-      class="pb-course-hero-subtitle"
-      style="margin: 0 0 8px 0;"
-    ></div>
+    <div id="student-course-subtitle" class="pb-course-hero-subtitle"></div>
+
+    <div class="pb-course-quickstats-strip" id="student-course-quickstats-strip">
+      <div class="pb-course-stat-pill">
+        <span class="pb-course-stat-label">Sections</span>
+        <strong class="pb-course-stat-val" id="student-course-stat-sections">0</strong>
+      </div>
+      <div class="pb-course-stat-pill">
+        <span class="pb-course-stat-label">Materials &amp; Lessons</span>
+        <strong class="pb-course-stat-val" id="student-course-stat-lessons">0</strong>
+      </div>
+      <div class="pb-course-stat-pill">
+        <span class="pb-course-stat-label">Quizzes &amp; Exams</span>
+        <strong class="pb-course-stat-val" id="student-course-stat-exams">0</strong>
+      </div>
+      <div class="pb-course-stat-pill">
+        <span class="pb-course-stat-label">Published Scores</span>
+        <strong class="pb-course-stat-val" id="student-course-stat-scores">0</strong>
+      </div>
+    </div>
 
     <div class="banner banner-warning hidden pb-public-launch-hidden" style="display: none !important;" aria-hidden="true">
       <p class="banner-title">Course Access</p>
@@ -1773,13 +1786,13 @@
     </div>
   </div>
 
-  <!-- Administrator-Defined Section Cards Navigation (Step 9) -->
-  <div class="card" id="student-course-section-cards-card">
-    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+  <!-- Administrator-Defined Section Cards Navigation -->
+  <div class="card pb-course-nav-card-v2" id="student-course-section-cards-card">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 4px;">
       <div>
-        <span class="badge badge-ok">Course Sections</span>
+        <span class="badge badge-ok">Course Workspace</span>
         <h2 style="margin: 6px 0 2px 0; font-size: 1.2rem; color: var(--color-brand-deep);">
-          Course Sections (Click or Press Enter on Any Section Card to Filter)
+          Explore Course Content
         </h2>
       </div>
       <span id="student-course-active-section-indicator" class="badge badge-ok">
@@ -6090,15 +6103,21 @@
         </h3>
         <div class="form-grid-2col" style="align-items: flex-end;">
           <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" for="input-admin-factory-reset-email">
-              Designated OTP Recipient Email (Defaults to School Notification / Admin Email)
-            </label>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 4px;">
+              <label class="form-label" for="input-admin-factory-reset-email" style="margin: 0;">
+                Designated OTP Recipient Email (Locked to Signed-In Administrator)
+              </label>
+              <span class="badge badge-ok" id="admin-factory-reset-email-lock-badge">Locked</span>
+            </div>
             <input
               type="email"
-              class="form-input"
+              class="form-input pb-locked-admin-email-input"
               id="input-admin-factory-reset-email"
-              placeholder="phuwadet.khu@student.mahidol.edu"
+              placeholder="Admin email loaded automatically"
               maxlength="254"
+              readonly
+              disabled
+              aria-readonly="true"
             />
           </div>
           <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
@@ -6471,6 +6490,37 @@
               maxlength="254"
               required
             />
+            <div id="admin-email-otp-verification-box" class="pb-admin-email-otp-box hidden" aria-live="polite">
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 6px;">
+                <span class="badge badge-incomplete">Identity Verification Required</span>
+                <span style="font-size: 0.78rem; font-weight: 700; color: #92400E;">6-Digit Email OTP</span>
+              </div>
+              <p style="margin: 0 0 8px 0; font-size: 0.82rem; color: #78350F; line-height: 1.45;">
+                Changing an administrator's email requires sending and entering a 6-digit verification code from the new inbox.
+              </p>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px;">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-user-editor-send-email-otp">
+                  Send Verification OTP
+                </button>
+                <span id="user-editor-email-otp-status" style="font-size: 0.8rem; font-weight: 700; color: #0F172A;">
+                  Click "Send Verification OTP" to verify the new email.
+                </span>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" for="input-user-editor-email-otp" style="font-size: 0.8rem;">
+                  6-Digit Verification OTP Code
+                </label>
+                <input
+                  type="text"
+                  class="form-input"
+                  id="input-user-editor-email-otp"
+                  placeholder="Enter 6-digit code sent to the new email"
+                  maxlength="6"
+                  inputmode="numeric"
+                  autocomplete="one-time-code"
+                />
+              </div>
+            </div>
           </div>
 
           <div class="form-grid-2col">
@@ -6555,6 +6605,13 @@
             </button>
             <button
               type="button"
+              class="btn btn-outline btn-sm pb-btn-danger-outline hidden"
+              id="btn-user-editor-open-delete-modal"
+            >
+              Delete User
+            </button>
+            <button
+              type="button"
               class="btn btn-outline btn-sm hidden"
               id="btn-user-editor-test-stale"
               style="display: none !important;"
@@ -6580,6 +6637,72 @@
             style="margin: 10px 0 0 0; font-size: 0.88rem; font-weight: 600; color: var(--color-brand-medium);"
           ></p>
         </form>
+      </div>
+
+      <!-- Delete / Archive User Confirmation Modal (Requires Signed-In Admin Password) -->
+      <div
+        id="modal-admin-delete-user"
+        class="modal-backdrop hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-admin-delete-user-title"
+      >
+        <div class="modal-dialog" role="document" style="max-width: 500px;">
+          <div class="modal-header">
+            <div>
+              <span class="badge badge-danger">Administrator Password Confirmation</span>
+              <h2 id="modal-admin-delete-user-title" style="margin: 6px 0 2px 0; font-size: 1.2rem; color: #991B1B;">
+                Delete User Account
+              </h2>
+            </div>
+            <button type="button" class="modal-close-btn" id="btn-close-delete-user-modal" aria-label="Close delete user confirmation">
+              &times;
+            </button>
+          </div>
+          <form id="form-admin-delete-user-confirm" novalidate style="padding-top: 8px;">
+            <input type="hidden" id="input-delete-user-target-id" value="" />
+            <input type="hidden" id="input-delete-user-target-version" value="1" />
+            <div class="status-item" style="margin-bottom: 12px; border-color: #FECACA; background: #FEF2F2;">
+              <div class="status-label" style="color: #991B1B;">Target Account</div>
+              <div class="status-value" id="delete-user-target-summary" style="font-size: 0.92rem; color: #7F1D1D;">
+                -
+              </div>
+            </div>
+            <div class="checkbox-card" style="margin-bottom: 12px;">
+              <label class="checkbox-label" for="chk-delete-user-hard">
+                <input type="checkbox" id="chk-delete-user-hard" checked />
+                <span>Permanently delete this user account and all linked records (uncheck to archive instead).</span>
+              </label>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="input-delete-user-admin-password">
+                Your Signed-In Administrator Password *
+              </label>
+              <input
+                type="password"
+                class="form-input"
+                id="input-delete-user-admin-password"
+                placeholder="Enter your administrator password to confirm"
+                autocomplete="current-password"
+                required
+              />
+            </div>
+            <p
+              id="admin-delete-user-status"
+              role="status"
+              aria-live="polite"
+              style="margin: 0 0 12px 0; font-size: 0.86rem; font-weight: 600; color: #B91C1C;"
+            ></p>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;">
+              <button type="button" class="btn btn-outline btn-sm" id="btn-cancel-delete-user-modal">
+                Cancel
+              </button>
+              <button type="submit" class="btn btn-primary btn-sm" id="btn-confirm-delete-user-submit" style="background: #DC2626; border-color: #B91C1C;">
+                Confirm &amp; Delete User
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
 
       <!-- Card 2: Dedicated Password Reset & Session Revocation Tool -->
@@ -7014,6 +7137,24 @@
             Course Learning Outcomes
           </label>
           <div id="richtext-editor-course-outcomes"></div>
+        </div>
+
+        <!-- Assigned Students Checklist (Direct Course-to-Student Assignment) -->
+        <div
+          style="padding: 12px 14px; background: var(--color-bg-subtle); border: 1px solid var(--color-brand-border); border-radius: var(--radius-sm); margin-bottom: 14px;"
+        >
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 4px;">
+            <label class="form-label" style="margin: 0;">Assigned Students for This Course</label>
+            <span class="badge badge-ok" id="course-editor-assigned-count-badge">0 Assigned</span>
+          </div>
+          <p style="margin: 0 0 10px 0; font-size: 0.83rem; color: var(--color-text-secondary);">
+            Select the students who should have active access to this course. Changes sync directly when saving the course.
+          </p>
+          <div id="course-editor-students-checkbox-list">
+            <p style="margin: 0; font-size: 0.85rem; color: var(--color-text-muted);">
+              Loading student accounts...
+            </p>
+          </div>
         </div>
 
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 12px;">
@@ -11968,9 +12109,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/config.js?v=233d62d3"></script>
     <script src="js/drive-storage.js?v=e69064d1"></script>
-    <script src="js/supabase-backend.js?v=116b7d86"></script>
-    <script src="js/supabase-exams.js?v=85ebdbac"></script>
+    <script src="js/supabase-backend.js?v=a4643bd1"></script>
+    <script src="js/supabase-exams.js?v=62d76556"></script>
     <script src="js/api.js?v=afd08d1a"></script>
-    <script src="js/app.js?v=00206b68"></script>
+    <script src="js/app.js?v=0c06b24f"></script>
   </body>
 </html>

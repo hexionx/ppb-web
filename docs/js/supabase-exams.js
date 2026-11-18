@@ -48,6 +48,49 @@
   function fmtBkk(ts) { return B().formatBangkokTimestamp(ts); }
   function okPg(res, label) { return B().throwIfPgErr(res, label); }
 
+  function resolvePointsBp(val, fallbackBp) {
+    if (val === undefined || val === null || val === '') return fallbackBp;
+    var n = Number(val);
+    return isFinite(n) && n >= 0 ? Math.round(n) : fallbackBp;
+  }
+
+  async function fetchAllRowsPaged(tableName, selectExpr) {
+    var out = [];
+    var pageSize = 1000;
+    var offset = 0;
+    while (true) {
+      var q = sb().from(tableName).select(selectExpr || '*');
+      if (typeof q.range !== 'function') {
+        return okPg(await q, 'Load ' + tableName) || [];
+      }
+      var res = okPg(await q.range(offset, offset + pageSize - 1), 'Load ' + tableName) || [];
+      for (var i = 0; i < res.length; i++) out.push(res[i]);
+      if (res.length < pageSize) break;
+      offset += pageSize;
+    }
+    return out;
+  }
+
+  async function fetchRowsByInChunks(tableName, selectExpr, colName, values) {
+    var seen = {};
+    var unique = [];
+    (values || []).forEach(function (v) {
+      var s = String(v || '').trim();
+      if (s && !seen[s]) { seen[s] = true; unique.push(s); }
+    });
+    if (unique.length === 0) return [];
+    var out = [];
+    var chunkSize = 120;
+    for (var idx = 0; idx < unique.length; idx += chunkSize) {
+      var chunk = unique.slice(idx, idx + chunkSize);
+      var q = sb().from(tableName).select(selectExpr || '*').in(colName, chunk);
+      if (typeof q.range === 'function') q = q.range(0, 4999);
+      var rows = okPg(await q, 'Load ' + tableName) || [];
+      for (var j = 0; j < rows.length; j++) out.push(rows[j]);
+    }
+    return out;
+  }
+
   function asJsonObj(val, fallback) {
     if (val && typeof val === 'object' && !Array.isArray(val)) return val;
     if (typeof val === 'string' && val.trim()) {
@@ -259,6 +302,10 @@
       return d;
     });
     var imgIds = parseImageIds(qVerRow.image_file_id);
+    var defPtsBp = resolvePointsBp(qVerRow.default_points_bp, 100);
+    var gSpecPeek = asJsonObj(qVerRow.grading_spec_private_json, {});
+    var isFreeFlag = defPtsBp === 0 || Boolean(gSpecPeek.isFreeQuestion);
+    if (isFreeFlag) defPtsBp = 0;
     var dto = {
       questionId: qBankRow.question_id,
       questionCode: qBankRow.question_code,
@@ -280,10 +327,11 @@
       imageAltText: qVerRow.image_alt_text || '',
       imageCaption: qVerRow.image_caption || '',
       accessibleDesignFlag: qVerRow.accessible_design_flag || 'STANDARD_ALT',
-      defaultPointsBp: Number(qVerRow.default_points_bp) || 100,
-      defaultPointsDisplay: formatPointsBp(qVerRow.default_points_bp || 100),
-      negativePointsBp: Number(qVerRow.negative_points_bp) || 0,
-      negativePointsDisplay: formatPointsBp(qVerRow.negative_points_bp || 0),
+      isFreeQuestion: isFreeFlag,
+      defaultPointsBp: defPtsBp,
+      defaultPointsDisplay: isFreeFlag ? 'Free Question' : formatPointsBp(defPtsBp),
+      negativePointsBp: isFreeFlag ? 0 : (Number(qVerRow.negative_points_bp) || 0),
+      negativePointsDisplay: formatPointsBp(isFreeFlag ? 0 : (qVerRow.negative_points_bp || 0)),
       lockOptionOrder: Boolean(qVerRow.lock_option_order),
       selectionInstruction: qVerRow.selection_instruction || '',
       unitLabel: qVerRow.unit_label || '',
@@ -379,8 +427,12 @@
         });
       }
       if (hasOrderDep) lockOptionOrder = true;
-      if (qType === 'SINGLE_CHOICE' || qType === 'TRUE_FALSE') {
-        if (correctIds.length !== 1) fieldErrors.correctOptions = qType + ' requires exactly 1 correct option.';
+      if (qType === 'SINGLE_CHOICE') {
+        if (correctIds.length < 1) fieldErrors.correctOptions = 'SINGLE_CHOICE requires at least 1 correct option.';
+        if (!selectionInstruction) selectionInstruction = 'Select the single best answer.';
+        spec.correctOptionIds = correctIds; spec.scoringRule = correctIds.length > 1 ? 'ANY_MATCH' : 'EXACT_MATCH';
+      } else if (qType === 'TRUE_FALSE') {
+        if (correctIds.length !== 1) fieldErrors.correctOptions = 'TRUE_FALSE requires exactly 1 correct option.';
         if (!selectionInstruction) selectionInstruction = 'Select the single best answer.';
         spec.correctOptionIds = correctIds; spec.scoringRule = 'EXACT_MATCH';
       } else if (qType === 'COMPLEX_MULTIPLE_CHOICE') {
@@ -462,6 +514,9 @@
       if (!selectionInstruction) selectionInstruction = 'Write a clear biological explanation (max ' + maxLengthChars + ' chars).';
     }
 
+    var isFreeFlag = Boolean(req.isFreeQuestion) || Number(defaultPointsBp) === 0;
+    spec.isFreeQuestion = isFreeFlag;
+
     return {
       normalizedOptions: normOptions,
       lockOptionOrder: lockOptionOrder,
@@ -541,17 +596,41 @@
     return { stimulus: projectStimulusDto(saved), stimuli: (await handleAdminListStimuli({}, token)).stimuli };
   }
 
-  async function loadQuestionBankBundle() {
-    var all = await Promise.all([
-      sb().from('question_bank').select('*'),
-      sb().from('question_versions').select('*'),
-      sb().from('question_options').select('*'),
-      sb().from('shared_stimuli').select('*')
-    ]);
-    var qbRows = okPg(all[0], 'Load question bank') || [];
-    var qvRows = okPg(all[1], 'Load question versions') || [];
-    var qoRows = okPg(all[2], 'Load question options') || [];
-    var stRows = okPg(all[3], 'Load stimuli') || [];
+  async function loadQuestionBankBundle(opt_qvIds) {
+    var qbRows, qvRows, qoRows, stRows;
+    if (Array.isArray(opt_qvIds)) {
+      if (opt_qvIds.length === 0) {
+        return { qbRows: [], qbById: {}, qvRows: [], qvById: {}, qoByQvId: {}, stRows: [], stById: {} };
+      }
+      var verAndOpt = await Promise.all([
+        fetchRowsByInChunks('question_versions', '*', 'question_version_id', opt_qvIds),
+        fetchRowsByInChunks('question_options', '*', 'question_version_id', opt_qvIds)
+      ]);
+      qvRows = verAndOpt[0];
+      qoRows = verAndOpt[1];
+      var qIds = [], stimIds = [];
+      qvRows.forEach(function (v) {
+        if (v.question_id) qIds.push(v.question_id);
+        if (v.stimulus_id) stimIds.push(v.stimulus_id);
+      });
+      var qbAndSt = await Promise.all([
+        fetchRowsByInChunks('question_bank', '*', 'question_id', qIds),
+        stimIds.length > 0 ? fetchRowsByInChunks('shared_stimuli', '*', 'stimulus_id', stimIds) : Promise.resolve([])
+      ]);
+      qbRows = qbAndSt[0];
+      stRows = qbAndSt[1];
+    } else {
+      var all = await Promise.all([
+        fetchAllRowsPaged('question_bank', '*'),
+        fetchAllRowsPaged('question_versions', '*'),
+        fetchAllRowsPaged('question_options', '*'),
+        fetchAllRowsPaged('shared_stimuli', '*')
+      ]);
+      qbRows = all[0];
+      qvRows = all[1];
+      qoRows = all[2];
+      stRows = all[3];
+    }
     var qbById = {}, qvById = {}, qoByQvId = {}, stById = {};
     qbRows.forEach(function (r) { qbById[r.question_id] = r; });
     qvRows.forEach(function (r) { qvById[r.question_version_id] = r; });
@@ -622,12 +701,13 @@
     var status = String(req.status || 'PUBLISHED').trim().toUpperCase();
     if (!ITEM_STATUSES[status]) status = 'PUBLISHED';
 
-    var defPtsBp = parsePointsBp(req.defaultPoints !== undefined ? req.defaultPoints : 1, 'defaultPoints', 'Question points', false, errs);
-    var negPtsBp = parsePointsBp(req.negativePoints !== undefined && req.negativePoints !== '' ? req.negativePoints : 0, 'negativePoints', 'Negative penalty', true, errs);
+    var isFreeReq = Boolean(req.isFreeQuestion) || (req.defaultPoints !== undefined && req.defaultPoints !== '' && Number(req.defaultPoints) === 0);
+    var defPtsBp = isFreeReq ? 0 : parsePointsBp(req.defaultPoints !== undefined ? req.defaultPoints : 1, 'defaultPoints', 'Question points', true, errs);
+    var negPtsBp = isFreeReq ? 0 : parsePointsBp(req.negativePoints !== undefined && req.negativePoints !== '' ? req.negativePoints : 0, 'negativePoints', 'Negative penalty', true, errs);
     var stemNorm = B().normalizeRichTextDoc(req.stemRichText, false);
     if (!stemNorm.plainTextSummary) errs.stemRichText = 'Question stem content is required.';
     var expNorm = B().normalizeRichTextDoc(req.explanationRichText || '', false);
-    var specB = validateQuestionGradingSpec(qType, req, defPtsBp || 100, errs);
+    var specB = validateQuestionGradingSpec(qType, req, defPtsBp === 0 ? 0 : (defPtsBp || 100), errs);
 
     var candImgIds = parseImageIds(Array.isArray(req.imageFileIds) && req.imageFileIds.length > 0 ? req.imageFileIds : req.imageFileId);
     var validImgIds = candImgIds.map(function (id, idx) { return validateFileId(id, 'imageFileId_' + idx, errs); }).filter(Boolean);
@@ -736,6 +816,7 @@
     var qv = okPg(await sb().from('question_versions').select('*').eq('question_version_id', qb.active_version_id).maybeSingle());
     var opts = okPg(await sb().from('question_options').select('*').eq('question_version_id', qv.question_version_id)) || [];
     var gSpec = asJsonObj(qv.grading_spec_private_json, {});
+    var origDefBp = resolvePointsBp(qv.default_points_bp, 100);
     var copyPayload = {
       questionCode: (qb.question_code + '-COPY-' + Math.floor(100 + Math.random() * 899)).slice(0, 48),
       title: qb.title + ' (Copy)',
@@ -743,7 +824,8 @@
       difficulty: qb.difficulty,
       topicTags: asJsonArr(qb.topic_tags_json, []),
       status: 'DRAFT',
-      defaultPoints: (Number(qv.default_points_bp) || 100) / 100,
+      isFreeQuestion: origDefBp === 0 || Boolean(gSpec.isFreeQuestion),
+      defaultPoints: origDefBp / 100,
       negativePoints: (Number(qv.negative_points_bp) || 0) / 100,
       stemRichText: asRichDoc(qv.stem_richtext_json),
       stimulusId: qv.stimulus_id || '',
@@ -786,13 +868,46 @@
     if (!ITEM_STATUSES[nextStatus]) nextStatus = 'ARCHIVED';
     var qb = okPg(await sb().from('question_bank').select('*').eq('question_id', qId).maybeSingle());
     if (!qb) throw err('ERR_NOT_FOUND', 'Question not found.');
+    var wantDelete = Boolean(payload && payload.deletePermanently);
     var used = Number(qb.used_in_attempts_count || 0);
-    if (Boolean(payload && payload.deletePermanently) && used === 0) {
+    if (wantDelete) {
+      if (used > 0 && !Boolean(payload && payload.forceDelete)) {
+        throw err('ERR_FORBIDDEN_OPERATION', 'This question is referenced in ' + used + ' student exam attempt(s). Confirm force deletion or archive it instead.');
+      }
+      var refItems = okPg(await sb().from('exam_items').select('exam_item_id,exam_version_id,exam_section_id').eq('question_id', qId)) || [];
+      if (refItems.length > 0) {
+        okPg(await sb().from('exam_items').delete().eq('question_id', qId), 'Remove question from exam sets');
+        var verSeen = {}, verIds = [];
+        refItems.forEach(function (ri) {
+          if (ri.exam_version_id && !verSeen[ri.exam_version_id]) { verSeen[ri.exam_version_id] = true; verIds.push(ri.exam_version_id); }
+        });
+        for (var vi = 0; vi < verIds.length; vi++) {
+          var vId = verIds[vi];
+          var remSecs = okPg(await sb().from('exam_sections').select('*').eq('exam_version_id', vId)) || [];
+          var remItems = okPg(await sb().from('exam_items').select('*').eq('exam_version_id', vId)) || [];
+          var vQ = 0, vBp = 0;
+          for (var si = 0; si < remSecs.length; si++) {
+            var sRec = remSecs[si];
+            var sItems = remItems.filter(function (x) { return x.exam_section_id === sRec.exam_section_id; });
+            var sDraw = sRec.selection_mode === 'QUESTION_POOL' ? Math.min(sItems.length, Math.max(0, Number(sRec.pool_draw_count) || 0)) : sItems.length;
+            var sMaxBp = 0;
+            for (var kk = 0; kk < sDraw; kk++) sMaxBp += resolvePointsBp(sItems[kk] && sItems[kk].points_bp, 100);
+            vQ += sDraw;
+            vBp += sMaxBp;
+            await sb().from('exam_sections').update({ section_questions_count: sDraw, section_max_points_bp: sMaxBp }).eq('exam_section_id', sRec.exam_section_id);
+          }
+          await sb().from('exam_versions').update({ total_questions_count: vQ, max_points_bp: vBp }).eq('exam_version_id', vId);
+        }
+      }
+      if (used > 0) {
+        await sb().from('attempt_items').delete().eq('question_id', qId);
+      }
       okPg(await sb().from('question_bank').delete().eq('question_id', qId), 'Delete question');
+      await B().writeAuditEvent(admin.userId, 'ADMIN', 'ADMIN_QUESTION_DELETED', 'QuestionBank', qId, { questionCode: qb.question_code || qId });
     } else {
       okPg(await sb().from('question_bank').update({ status: nextStatus, updated_at_utc: nowIso() }).eq('question_id', qId), 'Archive question');
+      await B().writeAuditEvent(admin.userId, 'ADMIN', 'ADMIN_QUESTION_STATUS_CHANGED', 'QuestionBank', qId, { status: nextStatus });
     }
-    await B().writeAuditEvent(admin.userId, 'ADMIN', 'ADMIN_QUESTION_STATUS_CHANGED', 'QuestionBank', qId, { status: nextStatus });
     return await handleAdminListQuestions({}, token);
   }
 
@@ -978,11 +1093,13 @@
       var itemDtos = rawItems.map(function (it, k) {
         var qb = qbById[it.question_id], qv = qvById[it.question_version_id];
         var qType = qv ? qv.question_type : (qb ? qb.question_type : 'SINGLE_CHOICE');
+        var itPtsBp = resolvePointsBp(it.points_bp, resolvePointsBp(qv && qv.default_points_bp, 100));
+        var itNegBp = itPtsBp === 0 ? 0 : (Number(it.negative_points_bp) || 0);
         if (sRow.selection_mode !== 'QUESTION_POOL' || k < Number(sRow.pool_draw_count || 0)) {
           qTypeCounts[qType] = (qTypeCounts[qType] || 0) + 1;
-          secPtsBp += Number(it.points_bp) || 100;
+          secPtsBp += itPtsBp;
         }
-        if ((Number(it.negative_points_bp) || 0) > 0) anyNeg = true;
+        if (itNegBp > 0) anyNeg = true;
         if (qv && qv.grading_mode === 'MANUAL') hasManual = true;
         if (!includeDetail) return null;
         var stim = qv && qv.stimulus_id && stimById ? stimById[qv.stimulus_id] : null;
@@ -998,18 +1115,19 @@
           sortOrder: Number(it.sort_order) || (k + 1) * 10,
           lockItemPosition: Boolean(it.lock_item_position),
           lockOptionOrder: Boolean(it.lock_option_order),
-          pointsBp: Number(it.points_bp) || 100,
-          pointsDisplay: formatPointsBp(it.points_bp || 100),
-          negativePointsBp: Number(it.negative_points_bp) || 0,
-          negativePointsDisplay: formatPointsBp(it.negative_points_bp || 0),
+          isFreeQuestion: itPtsBp === 0,
+          pointsBp: itPtsBp,
+          pointsDisplay: itPtsBp === 0 ? 'Free Question' : formatPointsBp(itPtsBp),
+          negativePointsBp: itNegBp,
+          negativePointsDisplay: formatPointsBp(itNegBp),
           isPoolCandidate: Boolean(it.is_pool_candidate),
           poolGroupTag: it.pool_group_tag || '',
           questionPreview: qb && qv ? projectQuestionVersionDto(qb, qv, qoByQvId[qv.question_version_id] || [], stim, opt_includePrivate === true) : null
         };
       }).filter(Boolean);
 
-      var computedSecQ = Number(sRow.section_questions_count) || secQ;
-      var computedSecBp = Number(sRow.section_max_points_bp) || secPtsBp;
+      var computedSecQ = (sRow.section_questions_count !== undefined && sRow.section_questions_count !== null) ? Number(sRow.section_questions_count) : secQ;
+      var computedSecBp = (sRow.section_max_points_bp !== undefined && sRow.section_max_points_bp !== null) ? Number(sRow.section_max_points_bp) : secPtsBp;
       totalQ += computedSecQ;
       totalMaxBp += computedSecBp;
       var secInstDoc = asRichDoc(sRow.instructions_richtext_json || '');
@@ -1035,8 +1153,8 @@
       secDtos.push(sd);
     });
 
-    var fQ = Number(verRow.total_questions_count) || totalQ;
-    var fBp = Number(verRow.max_points_bp) || totalMaxBp;
+    var fQ = (verRow.total_questions_count !== undefined && verRow.total_questions_count !== null) ? Number(verRow.total_questions_count) : totalQ;
+    var fBp = (verRow.max_points_bp !== undefined && verRow.max_points_bp !== null) ? Number(verRow.max_points_bp) : totalMaxBp;
     return {
       examVersionId: verRow.exam_version_id,
       versionNo: Number(verRow.version_no) || 1,
@@ -1077,10 +1195,10 @@
           blockingErrors.push({ code: 'POOL_DRAW_EXCEEDS_CANDIDATES', message: 'Section "' + sec.title + '" pool draw count (' + draw + ') must be 1..' + list.length + '.' });
         }
         totQ += Math.min(draw, list.length);
-        for (var k = 0; k < Math.min(draw, list.length); k++) totMaxBp += Number(list[k].points_bp) || 100;
+        for (var k = 0; k < Math.min(draw, list.length); k++) totMaxBp += resolvePointsBp(list[k].points_bp, 100);
       } else {
         totQ += list.length;
-        list.forEach(function (it) { totMaxBp += Number(it.points_bp) || 100; });
+        list.forEach(function (it) { totMaxBp += resolvePointsBp(it.points_bp, 100); });
       }
       list.forEach(function (it) {
         if ((Number(it.negative_points_bp) || 0) > 0) hasNeg = true;
@@ -1126,7 +1244,9 @@
     if (!exRow.course_id) return exRow.assessment_id || '';
     var now = nowIso();
     var asmId = exRow.assessment_id || '';
-    var maxScore = verRow && verRow.max_points_bp ? Math.round((Number(verRow.max_points_bp) / 100) * 100) / 100 : 100;
+    var maxScore = verRow && verRow.max_points_bp !== undefined && verRow.max_points_bp !== null
+      ? Math.round((Number(verRow.max_points_bp) / 100) * 100) / 100
+      : 100;
     if (asmId) {
       var ex = okPg(await sb().from('assessments').select('assessment_id,version').eq('assessment_id', asmId).maybeSingle());
       if (ex) {
@@ -1449,8 +1569,23 @@
         var qvid = clean(itObj.questionVersionId, 64) || qb.active_version_id;
         var qv = qbB.qvById[qvid] || qbB.qvById[qb.active_version_id];
         if (!qv) return;
-        var ptsBp = itObj.points !== undefined && itObj.points !== '' ? Math.max(1, Math.round(Number(itObj.points) * 100)) : (Number(itObj.pointsBp) || Number(qv.default_points_bp) || 100);
-        var negBp = itObj.negativePoints !== undefined && itObj.negativePoints !== '' ? Math.max(0, Math.round(Number(itObj.negativePoints) * 100)) : (Number(itObj.negativePointsBp) || Number(qv.negative_points_bp) || 0);
+        var qvSpec = asJsonObj(qv.grading_spec_private_json, {});
+        var qvDefBp = resolvePointsBp(qv.default_points_bp, 100);
+        var isFreeIt = Boolean(itObj.isFreeQuestion)
+          || (itObj.points !== undefined && itObj.points !== '' && Number(itObj.points) === 0)
+          || (itObj.pointsBp !== undefined && itObj.pointsBp !== '' && Number(itObj.pointsBp) === 0)
+          || qvDefBp === 0
+          || Boolean(qvSpec.isFreeQuestion);
+        var ptsBp = isFreeIt
+          ? 0
+          : (itObj.points !== undefined && itObj.points !== ''
+            ? Math.max(0, Math.round(Number(itObj.points) * 100))
+            : resolvePointsBp(itObj.pointsBp, qvDefBp));
+        var negBp = isFreeIt
+          ? 0
+          : (itObj.negativePoints !== undefined && itObj.negativePoints !== ''
+            ? Math.max(0, Math.round(Number(itObj.negativePoints) * 100))
+            : resolvePointsBp(itObj.negativePointsBp, resolvePointsBp(qv.negative_points_bp, 0)));
         if (negBp > 0) anyNeg = true;
         if (selMode !== 'QUESTION_POOL' || k < drawCount) secMaxBp += ptsBp;
         itemsToInsert.push({
@@ -1587,6 +1722,44 @@
     await B().writeAuditEvent(admin.userId, 'ADMIN', 'ADMIN_EXAM_PUBLISHED', 'ExamSet', examSetId, { examCode: exRow.exam_code, versionId: verId });
     var updated = await handleAdminListExams({}, token);
     return { exam: updated.exams.find(function (e) { return e.examSetId === examSetId; }), validationReport: exDto.validationReport, exams: updated.exams, summary: updated.summary };
+  }
+
+  async function handleAdminDeleteExam(payload, token) {
+    var admin = await B().requireSession(token, ['ADMIN']);
+    var examSetId = clean(payload && payload.examSetId, 64);
+    if (!examSetId) throw err('ERR_VALIDATION_FAILED', 'examSetId is required.');
+    var exRow = okPg(await sb().from('exam_sets').select('*').eq('exam_set_id', examSetId).maybeSingle());
+    if (!exRow) throw err('ERR_NOT_FOUND', 'Examination set not found.');
+
+    var itemRows = okPg(await sb().from('exam_items').select('question_id').eq('exam_set_id', examSetId)) || [];
+    var qSeen = {}, qIdsToDelete = [];
+    itemRows.forEach(function (it) {
+      if (it.question_id && !qSeen[it.question_id]) {
+        qSeen[it.question_id] = true;
+        qIdsToDelete.push(it.question_id);
+      }
+    });
+
+    if (exRow.assessment_id) {
+      await sb().from('cards').update({ assessment_id: '' }).eq('assessment_id', exRow.assessment_id);
+      await sb().from('assessment_scores').delete().eq('assessment_id', exRow.assessment_id);
+      await sb().from('assessments').delete().eq('assessment_id', exRow.assessment_id);
+    }
+
+    okPg(await sb().from('exam_sets').delete().eq('exam_set_id', examSetId), 'Delete exam set');
+
+    for (var qi = 0; qi < qIdsToDelete.length; qi += 100) {
+      var chunk = qIdsToDelete.slice(qi, qi + 100);
+      await sb().from('attempt_items').delete().in('question_id', chunk);
+      await sb().from('exam_items').delete().in('question_id', chunk);
+      okPg(await sb().from('question_bank').delete().in('question_id', chunk), 'Delete contained exam questions');
+    }
+
+    await B().writeAuditEvent(admin.userId, 'ADMIN', 'ADMIN_EXAM_DELETED', 'ExamSet', examSetId, {
+      examCode: exRow.exam_code || examSetId,
+      deletedQuestionCount: qIdsToDelete.length
+    });
+    return await handleAdminListExams({}, token);
   }
 
   async function handleAdminAssignExam(payload, token) {
@@ -1977,20 +2150,21 @@
       if (!ex) throw err('ERR_NOT_FOUND', 'Examination set not found.');
       var prevVerId = ex.draft_exam_version_id || ex.active_exam_version_id;
       if (!prevVerId) throw err('ERR_NOT_FOUND', 'No draft or active exam version found for preview.');
+      var prevItemsRes = okPg(await sb().from('exam_items').select('*').eq('exam_version_id', prevVerId).order('sort_order', { ascending: true })) || [];
+      var prevQvIds = prevItemsRes.map(function (it) { return it.question_version_id; }).filter(Boolean);
       var prevFetched = await Promise.all([
         sb().from('exam_versions').select('*').eq('exam_version_id', prevVerId).single(),
         sb().from('exam_sections').select('*').eq('exam_version_id', prevVerId).order('sort_order', { ascending: true }),
-        sb().from('exam_items').select('*').eq('exam_version_id', prevVerId).order('sort_order', { ascending: true }),
         ex.course_id ? sb().from('courses').select('*').eq('course_id', ex.course_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-        loadQuestionBankBundle()
+        loadQuestionBankBundle(prevQvIds)
       ]);
       ver = okPg(prevFetched[0]);
       var prevSecs = okPg(prevFetched[1]) || [];
-      var prevItems = okPg(prevFetched[2]) || [];
-      var crsRow = okPg(prevFetched[3]);
+      var prevItems = prevItemsRes;
+      var crsRow = okPg(prevFetched[2]);
       var prevCrsById = {};
       if (crsRow && crsRow.course_id) prevCrsById[crsRow.course_id] = crsRow;
-      var prevQb = prevFetched[4];
+      var prevQb = prevFetched[3];
       entry = evaluateStudentExamCatalogEntry(
         ex, ver, prevSecs, prevItems, ses.userId, true, [], [], prevCrsById, prevQb.qbById, prevQb.qvById, true
       );
@@ -2042,12 +2216,27 @@
   }
 
   async function evaluateSingleItemScore(qvRec, rawPayload, pointsBp, negPointsBp) {
-    var maxBp = Math.max(0, Number(pointsBp) || Number(qvRec && qvRec.default_points_bp) || 100);
-    var negBp = Math.max(0, Number(negPointsBp) || Number(qvRec && qvRec.negative_points_bp) || 0);
+    var spec = asJsonObj(qvRec && qvRec.grading_spec_private_json, {});
+    var rawPtsBp = resolvePointsBp(pointsBp, resolvePointsBp(qvRec && qvRec.default_points_bp, 100));
+    var isFreeItem = (rawPtsBp === 0 || Boolean(spec.isFreeQuestion));
+    var maxBp = isFreeItem ? 0 : Math.max(0, rawPtsBp);
+    var negBp = isFreeItem ? 0 : Math.max(0, resolvePointsBp(negPointsBp, resolvePointsBp(qvRec && qvRec.negative_points_bp, 0)));
     var qType = qvRec ? qvRec.question_type : 'SINGLE_CHOICE';
     var gMode = qvRec ? qvRec.grading_mode || 'AUTO' : 'AUTO';
-    var spec = asJsonObj(qvRec && qvRec.grading_spec_private_json, {});
     var p = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
+
+    if (isFreeItem) {
+      var freeAnswered = hasResponseValue(qvRec, p);
+      return {
+        isAnswered: freeAnswered,
+        gradingSource: 'AUTO_ENGINE',
+        correctnessState: freeAnswered ? 'CORRECT' : 'UNANSWERED',
+        awardedPointsBp: 0,
+        maxPointsBp: 0,
+        requiresManualReview: false,
+        isFreeQuestion: true
+      };
+    }
 
     if (qType === 'SINGLE_CHOICE' || qType === 'TRUE_FALSE') {
       var selId = String(p.selectedOptionId || '').trim();
@@ -2157,10 +2346,11 @@
     var all = await Promise.all([
       sb().from('attempt_items').select('*').eq('attempt_id', att.attempt_id),
       sb().from('attempt_responses').select('*').eq('attempt_id', att.attempt_id),
-      sb().from('question_versions').select('*'),
       sb().from('result_revisions').select('revision_no').eq('attempt_id', att.attempt_id)
     ]);
-    var attItems = okPg(all[0]) || [], attResps = okPg(all[1]) || [], qvs = okPg(all[2]) || [], revs = okPg(all[3]) || [];
+    var attItems = okPg(all[0]) || [], attResps = okPg(all[1]) || [], revs = okPg(all[2]) || [];
+    var qvIds = attItems.map(function (i) { return i.question_version_id; }).filter(Boolean);
+    var qvs = await fetchRowsByInChunks('question_versions', '*', 'question_version_id', qvIds);
     var qvById = {}; qvs.forEach(function (q) { qvById[q.question_version_id] = q; });
     var respByItem = {}; attResps.forEach(function (r) { respByItem[r.attempt_item_id] = r; });
 
@@ -2171,7 +2361,7 @@
       var ati = attItems[i];
       if (ati.is_flagged) flagCnt += 1;
       var qv = qvById[ati.question_version_id];
-      var iMax = Number(ati.points_bp) || 100;
+      var iMax = resolvePointsBp(ati.points_bp, 100);
       maxBp += iMax;
       var resp = respByItem[ati.attempt_item_id];
       var rawP = resp ? asJsonObj(resp.response_payload_json, {}) : {};
@@ -2335,6 +2525,8 @@
       var isFlg = Boolean(ati.is_flagged);
       if (isAns) ansCnt += 1;
       if (isFlg) flagCnt += 1;
+      var wPtsBp = resolvePointsBp(ati.points_bp, 100);
+      var wNegBp = wPtsBp === 0 ? 0 : (Number(ati.negative_points_bp) || 0);
       return {
         attemptItemId: ati.attempt_item_id,
         displayNumber: Number(ati.display_number) || (idx + 1),
@@ -2342,10 +2534,11 @@
         sectionTitle: secById[ati.exam_section_id] ? secById[ati.exam_section_id].title : 'Section',
         questionId: ati.question_id,
         questionVersionId: ati.question_version_id,
-        pointsBp: Number(ati.points_bp) || 100,
-        pointsDisplay: formatPointsBp(ati.points_bp || 100),
-        negativePointsBp: Number(ati.negative_points_bp) || 0,
-        negativePointsDisplay: formatPointsBp(ati.negative_points_bp || 0),
+        isFreeQuestion: wPtsBp === 0 || Boolean(safeQ && safeQ.isFreeQuestion),
+        pointsBp: wPtsBp,
+        pointsDisplay: wPtsBp === 0 ? 'Free Question' : formatPointsBp(wPtsBp),
+        negativePointsBp: wNegBp,
+        negativePointsDisplay: formatPointsBp(wNegBp),
         isFlagged: isFlg,
         flagUpdatedAtUtc: ati.flag_updated_at_utc || '',
         isAnsweredServerSaved: isAns,
@@ -2560,7 +2753,7 @@
           question_version_id: it.question_version_id,
           stimulus_id: qv ? qv.stimulus_id || '' : '',
           option_order_json: opts.map(function (o) { return o.option_id; }),
-          points_bp: Number(it.points_bp) || 100,
+          points_bp: resolvePointsBp(it.points_bp, 100),
           negative_points_bp: Number(it.negative_points_bp) || 0,
           is_flagged: false,
           created_at_utc: now
@@ -2622,12 +2815,13 @@
     var itemsInput = Array.isArray(req.items) ? req.items : (req.attemptItemId ? [{ attemptItemId: req.attemptItemId, responsePayload: req.responsePayload, clientRevisionNo: req.clientRevisionNo }] : []);
     var all = await Promise.all([
       sb().from('attempt_items').select('*').eq('attempt_id', attemptId),
-      sb().from('attempt_responses').select('*').eq('attempt_id', attemptId),
-      sb().from('question_versions').select('*')
+      sb().from('attempt_responses').select('*').eq('attempt_id', attemptId)
     ]);
-    var atiById = {}; (okPg(all[0]) || []).forEach(function (i) { atiById[i.attempt_item_id] = i; });
+    var atiList = okPg(all[0]) || [];
+    var qvs = await fetchRowsByInChunks('question_versions', '*', 'question_version_id', atiList.map(function (i) { return i.question_version_id; }));
+    var atiById = {}; atiList.forEach(function (i) { atiById[i.attempt_item_id] = i; });
     var respByItemId = {}; (okPg(all[1]) || []).forEach(function (r) { respByItemId[r.attempt_item_id] = r; });
-    var qvById = {}; (okPg(all[2]) || []).forEach(function (q) { qvById[q.question_version_id] = q; });
+    var qvById = {}; qvs.forEach(function (q) { qvById[q.question_version_id] = q; });
 
     var now = nowIso(), nextRev = (Number(att.latest_revision_no) || 0) + 1;
     var savedByItemId = {};
@@ -2668,7 +2862,7 @@
           saved_at_utc: now,
           grading_source: 'UNGRADED',
           awarded_points_bp: 0,
-          max_points_bp: Number(ati.points_bp) || 100,
+          max_points_bp: resolvePointsBp(ati.points_bp, 100),
           correctness_state: 'UNGRADED',
           created_at_utc: now,
           updated_at_utc: now,
@@ -2857,9 +3051,10 @@
         questionCode: qb ? qb.question_code : '',
         questionType: qv ? qv.question_type : '',
         gradingMode: qv ? qv.grading_mode : 'AUTO',
-        maxPointsBp: Number(ati.points_bp) || 100,
-        maxPoints: (Number(ati.points_bp) || 100) / 100,
-        maxPointsDisplay: formatPointsBp(ati.points_bp || 100),
+        isFreeQuestion: resolvePointsBp(ati.points_bp, 100) === 0,
+        maxPointsBp: resolvePointsBp(ati.points_bp, 100),
+        maxPoints: resolvePointsBp(ati.points_bp, 100) / 100,
+        maxPointsDisplay: resolvePointsBp(ati.points_bp, 100) === 0 ? 'Free Question' : formatPointsBp(resolvePointsBp(ati.points_bp, 100)),
         questionAdminView: qAdmin,
         responseId: resp ? resp.response_id : '',
         responseVersion: resp ? Number(resp.version) || 1 : 1,
@@ -2926,10 +3121,10 @@
     for (var i = 0; i < grades.length; i++) {
       var g = grades[i] || {}, aid = clean(g.attemptItemId, 64), ati = atiMap[aid];
       if (!ati) continue;
-      var iMax = Number(ati.points_bp) || 100;
-      var awBp = Math.max(0, Math.min(iMax, Math.round((Number(g.awardedPoints !== undefined ? g.awardedPoints : g.awardedPointsBp / 100) || 0) * 100)));
-      var corrState = awBp >= iMax ? 'CORRECT' : (awBp > 0 ? 'PARTIAL' : 'INCORRECT');
+      var iMax = resolvePointsBp(ati.points_bp, 100);
       var r = respMap[aid];
+      var awBp = Math.max(0, Math.min(iMax, Math.round((Number(g.awardedPoints !== undefined ? g.awardedPoints : g.awardedPointsBp / 100) || 0) * 100)));
+      var corrState = iMax === 0 ? (r && r.is_answered ? 'CORRECT' : 'UNANSWERED') : (awBp >= iMax ? 'CORRECT' : (awBp > 0 ? 'PARTIAL' : 'INCORRECT'));
       if (r) {
         okPg(await sb().from('attempt_responses').update({
           grading_source: 'MANUAL_INSTRUCTOR',
@@ -2964,7 +3159,7 @@
     }
 
     var allResps = okPg(await sb().from('attempt_responses').select('*').eq('attempt_id', attemptId)) || [];
-    var qvs = okPg(await sb().from('question_versions').select('question_version_id,grading_mode')) || [];
+    var qvs = await fetchRowsByInChunks('question_versions', 'question_version_id,grading_mode', 'question_version_id', atis.map(function (i) { return i.question_version_id; }));
     var qvMode = {}; qvs.forEach(function (q) { qvMode[q.question_version_id] = q.grading_mode; });
     var autoBp = 0, manualBp = 0, pending = false;
     allResps.forEach(function (r) {
@@ -2972,7 +3167,7 @@
       if (r.grading_source === 'MANUAL_INSTRUCTOR' || qvMode[r.question_version_id] === 'MANUAL') manualBp += Number(r.awarded_points_bp) || 0;
       else autoBp += Number(r.awarded_points_bp) || 0;
     });
-    var totBp = Math.max(0, autoBp + manualBp), maxBp = Number(att.max_score_bp) || 100;
+    var totBp = Math.max(0, autoBp + manualBp), maxBp = (att.max_score_bp !== undefined && att.max_score_bp !== null) ? Number(att.max_score_bp) : 100;
     var pctBp = maxBp > 0 ? Math.round((totBp / maxBp) * 10000) : 0;
     var passed = (pctBp / 100) >= (Number(ex.pass_threshold_pct) || 60);
     var gradStatus = pending ? 'AUTO_GRADED_PENDING_MANUAL' : 'GRADED';
@@ -3134,7 +3329,7 @@
 
     var reviewItems = atiRows.map(function (ati, k) {
       var qb = qbB.qbById[ati.question_id], qv = qbB.qvById[ati.question_version_id], resp = respMap[ati.attempt_item_id];
-      var iMax = Number(ati.points_bp) || 100, iEarn = resp ? Number(resp.awarded_points_bp) || 0 : 0;
+      var iMax = resolvePointsBp(ati.points_bp, 100), iEarn = resp ? Number(resp.awarded_points_bp) || 0 : 0;
       if (secMap[ati.exam_section_id]) { secMap[ati.exam_section_id].questionCount += 1; secMap[ati.exam_section_id].maxBp += iMax; secMap[ati.exam_section_id].earnedBp += Math.max(0, iEarn); }
       var rawOpts = qbB.qoByQvId[ati.question_version_id] || [];
       var projQ = qb && qv ? projectQuestionVersionDto(qb, qv, rawOpts, qv.stimulus_id ? qbB.stById[qv.stimulus_id] : null, includeExp) : null;
@@ -3149,13 +3344,14 @@
         sectionTitle: secMap[ati.exam_section_id] ? secMap[ati.exam_section_id].title : 'Section',
         questionCode: qb ? qb.question_code : '',
         questionType: qv ? qv.question_type : '',
+        isFreeQuestion: iMax === 0 || Boolean(projQ && projQ.isFreeQuestion),
         isAnswered: Boolean(resp && resp.is_answered),
         studentResponse: resp ? asJsonObj(resp.response_payload_json, {}) : {},
         correctnessState: resp ? resp.correctness_state : 'UNANSWERED',
         awardedPointsBp: iEarn,
         awardedPointsDisplay: formatPointsBp(iEarn),
         maxPointsBp: iMax,
-        maxPointsDisplay: formatPointsBp(iMax),
+        maxPointsDisplay: iMax === 0 ? 'Free Question' : formatPointsBp(iMax),
         instructorFeedback: resp ? resp.instructor_feedback || '' : '',
         question: projQ
       };
@@ -3239,7 +3435,7 @@
     atis.forEach(function (ati) {
       if (!validIds[ati.attempt_id]) return;
       var qid = ati.question_id, qb = qbMap[qid];
-      if (!qStats[qid]) qStats[qid] = { questionId: qid, questionCode: qb ? qb.question_code : qid, title: qb ? qb.title : '', questionType: qb ? qb.question_type : '', deliveredCount: 0, answeredCount: 0, correctCount: 0, flaggedCount: 0, totalAwardedBp: 0, maxPointsBp: Number(ati.points_bp) || 100 };
+      if (!qStats[qid]) qStats[qid] = { questionId: qid, questionCode: qb ? qb.question_code : qid, title: qb ? qb.title : '', questionType: qb ? qb.question_type : '', deliveredCount: 0, answeredCount: 0, correctCount: 0, flaggedCount: 0, totalAwardedBp: 0, maxPointsBp: resolvePointsBp(ati.points_bp, 100) };
       var st = qStats[qid];
       st.deliveredCount += 1;
       if (ati.is_flagged) st.flaggedCount += 1;
@@ -3702,6 +3898,7 @@
     if (action === 'admin.exams.saveDraft') return await handleAdminSaveExamDraft(payload, token);
     if (action === 'admin.exams.validateForPublish') return await handleAdminValidateExam(payload, token);
     if (action === 'admin.exams.publish') return await handleAdminPublishExam(payload, token);
+    if (action === 'admin.exams.delete') return await handleAdminDeleteExam(payload, token);
     if (action === 'admin.exams.preview') return await handleStudentGetInstructions(Object.assign({}, payload || {}, { adminPreview: true }), token);
     if (action === 'admin.exams.assign') return await handleAdminAssignExam(payload, token);
     if (action === 'admin.exams.seedSampleExamSets') return await handleAdminSeedSampleExams(payload, token);
