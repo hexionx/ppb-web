@@ -29998,7 +29998,7 @@ var qrcode = (function() {
       if (dockEl) dockEl.classList.remove('is-floating-card-bar');
     }
 
-    function moveFormsWordToolbarAboveCard(cardElOrId) {
+    function moveFormsWordToolbarAboveCard(cardElOrId, opt_skipScrollCompensate) {
       ensureFormsWordToolbarMounted();
       var dockEl = document.getElementById('pb-forms-word-toolbar-dock');
       var container = document.getElementById('pb-forms-questions-container');
@@ -30012,9 +30012,25 @@ var qrcode = (function() {
         dockEl.classList.add('is-floating-card-bar');
         return;
       }
+      var prevTop = !opt_skipScrollCompensate && typeof cardEl.getBoundingClientRect === 'function'
+        ? cardEl.getBoundingClientRect().top
+        : null;
       activeFormsToolbarCardId = cid;
       dockEl.classList.add('is-floating-card-bar');
       container.insertBefore(dockEl, cardEl);
+      if (
+        prevTop !== null &&
+        typeof window !== 'undefined' &&
+        typeof window.scrollBy === 'function' &&
+        prevTop >= -200 &&
+        prevTop <= (window.innerHeight || 900) + 200
+      ) {
+        var nextTop = cardEl.getBoundingClientRect().top;
+        var delta = nextTop - prevTop;
+        if (Math.abs(delta) > 1) {
+          window.scrollBy(0, delta);
+        }
+      }
     }
 
     function createBlankFormsQuestionCardState(opt_overrides) {
@@ -30699,8 +30715,9 @@ var qrcode = (function() {
                 yesKeyBtn.textContent = 'Key: Yes';
                 yesKeyBtn.addEventListener('click', function () {
                   stmtObj.isCorrect = true;
-                  card.isDirty = true;
-                  renderFormsBuilderQuestionCards({ restoreScroll: true, focusCardId: card.localId, skipScrollIntoView: true });
+                  yesKeyBtn.classList.add('is-selected');
+                  noKeyBtn.classList.remove('is-selected');
+                  markFormsCardDirty(card);
                 });
                 tg.appendChild(yesKeyBtn);
 
@@ -30710,8 +30727,9 @@ var qrcode = (function() {
                 noKeyBtn.textContent = 'Key: No';
                 noKeyBtn.addEventListener('click', function () {
                   stmtObj.isCorrect = false;
-                  card.isDirty = true;
-                  renderFormsBuilderQuestionCards({ restoreScroll: true, focusCardId: card.localId, skipScrollIntoView: true });
+                  noKeyBtn.classList.add('is-selected');
+                  yesKeyBtn.classList.remove('is-selected');
+                  markFormsCardDirty(card);
                 });
                 tg.appendChild(noKeyBtn);
 
@@ -30770,6 +30788,40 @@ var qrcode = (function() {
 
             var optList = document.createElement('div');
             optList.className = 'pb-forms-options-list';
+            var optionRowRefs = [];
+
+            function syncOptionKeyIndicatorsInCard() {
+              for (var rIdx = 0; rIdx < optionRowRefs.length; rIdx++) {
+                var ref = optionRowRefs[rIdx];
+                var isCor = Boolean(ref.optObj && ref.optObj.isCorrect);
+                ref.row.classList.toggle('is-correct-option', isCor);
+                if (ref.selInp && ref.selInp.checked !== isCor) {
+                  ref.selInp.checked = isCor;
+                }
+                if (isCor && !ref.corBadge) {
+                  var corBadge = document.createElement('span');
+                  corBadge.className = 'badge badge-ok pb-vec-icon-btn pb-forms-opt-correct-badge';
+                  corBadge.style.fontSize = '0.7rem';
+                  setElementVectorIconLabel(
+                    corBadge,
+                    'check',
+                    qType === 'SINGLE_CHOICE' ? 'Accepted Key' : 'Correct Key',
+                    'pb-icon-xs'
+                  );
+                  if (ref.rmOpt && ref.rmOpt.parentNode === ref.row) {
+                    ref.row.insertBefore(corBadge, ref.rmOpt);
+                  } else {
+                    ref.row.appendChild(corBadge);
+                  }
+                  ref.corBadge = corBadge;
+                } else if (!isCor && ref.corBadge) {
+                  if (ref.corBadge.parentNode) {
+                    ref.corBadge.parentNode.removeChild(ref.corBadge);
+                  }
+                  ref.corBadge = null;
+                }
+              }
+            }
 
             for (var oIdx = 0; oIdx < card.options.length; oIdx++) {
               (function (optObj, optionIndex) {
@@ -30804,7 +30856,8 @@ var qrcode = (function() {
                     }
                   }
                   markFormsCardDirty(card);
-                  renderFormsBuilderQuestionCards({ restoreScroll: true, focusCardId: card.localId, skipScrollIntoView: true });
+                  syncOptionKeyIndicatorsInCard();
+                  updateFormsBuilderSummaryBadge();
                 });
                 row.appendChild(selInp);
 
@@ -30835,9 +30888,10 @@ var qrcode = (function() {
                   row.appendChild(optEd.element);
                 }
 
+                var corBadge = null;
                 if (optObj.isCorrect) {
-                  var corBadge = document.createElement('span');
-                  corBadge.className = 'badge badge-ok pb-vec-icon-btn';
+                  corBadge = document.createElement('span');
+                  corBadge.className = 'badge badge-ok pb-vec-icon-btn pb-forms-opt-correct-badge';
                   corBadge.style.fontSize = '0.7rem';
                   setElementVectorIconLabel(
                     corBadge,
@@ -30848,8 +30902,9 @@ var qrcode = (function() {
                   row.appendChild(corBadge);
                 }
 
+                var rmOpt = null;
                 if (qType !== 'TRUE_FALSE' && card.options.length > 2) {
-                  var rmOpt = document.createElement('button');
+                  rmOpt = document.createElement('button');
                   rmOpt.type = 'button';
                   rmOpt.className = 'btn btn-outline btn-sm';
                   rmOpt.style.padding = '2px 7px';
@@ -30866,6 +30921,13 @@ var qrcode = (function() {
                   row.appendChild(rmOpt);
                 }
 
+                optionRowRefs.push({
+                  row: row,
+                  optObj: optObj,
+                  selInp: selInp,
+                  corBadge: corBadge,
+                  rmOpt: rmOpt
+                });
                 optList.appendChild(row);
               })(card.options[oIdx], oIdx);
             }
@@ -31183,7 +31245,6 @@ var qrcode = (function() {
 
       while (container.firstChild) container.removeChild(container.firstChild);
       container.appendChild(frag);
-      container.style.minHeight = '';
 
       var preferredCardId = renderOpts.focusCardId || activeFormsToolbarCardId || (formsBuilderQuestionCards[0] && formsBuilderQuestionCards[0].localId) || '';
       var targetCardEl = preferredCardId
@@ -31193,10 +31254,11 @@ var qrcode = (function() {
         targetCardEl = container.querySelector('.pb-forms-q-card');
       }
       if (targetCardEl) {
-        moveFormsWordToolbarAboveCard(targetCardEl);
+        moveFormsWordToolbarAboveCard(targetCardEl, true);
       }
 
       if (renderOpts.focusCardId && targetCardEl && !renderOpts.skipScrollIntoView) {
+        container.style.minHeight = '';
         try {
           targetCardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } catch (scrollErr) {}
@@ -31210,8 +31272,11 @@ var qrcode = (function() {
             }
           }
         }
-      } else if (renderOpts.restoreScroll !== false && typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
-        window.scrollTo(prevScrollX, prevScrollY);
+      } else {
+        if (renderOpts.restoreScroll !== false && typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+          window.scrollTo(prevScrollX, prevScrollY);
+        }
+        container.style.minHeight = '';
       }
     }
 

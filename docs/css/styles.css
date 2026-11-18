@@ -13240,6 +13240,7 @@
   .pb-forms-builder-workspace {
     max-width: 920px;
     margin: 0 auto 32px auto;
+    overflow-anchor: none;
   }
 
   .pb-forms-sticky-toolbar {
@@ -13401,6 +13402,7 @@
     flex-direction: column;
     gap: 16px;
     margin-bottom: 18px;
+    overflow-anchor: none;
   }
 
   .pb-forms-q-card {
