@@ -3960,7 +3960,7 @@
             { label: 'Settings & Website', adminTab: 'settings', targetId: 'admin-panel-settings' },
             { label: 'Users & Enrollments', adminTab: 'users', targetId: 'admin-panel-users' },
             { label: 'Courses & Lessons', adminTab: 'courses', targetId: 'admin-panel-courses' },
-            { label: 'Announcements & Email', adminTab: 'announcements', targetId: 'admin-panel-announcements' },
+            { label: 'Announcements', adminTab: 'announcements', targetId: 'admin-panel-announcements' },
             { label: 'Billing & Payments', adminTab: 'invoices', targetId: 'admin-panel-invoices' },
             { label: 'Portal Overview', adminTab: 'overview', targetId: 'admin-panel-overview' },
             { label: 'Absence Requests', adminTab: 'unavailability', targetId: 'admin-panel-unavailability' }

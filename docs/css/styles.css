@@ -19653,3 +19653,35 @@
     font-size: 0.9rem;
     color: #92400E;
   }
+
+  /* Keep Admin Dashboard top section tabs on one single line */
+  #view-admin .admin-subnav[aria-label="Admin Dashboard Sections"] {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none !important;
+    gap: 6px !important;
+    padding: 8px 10px !important;
+  }
+  #view-admin .admin-subnav[aria-label="Admin Dashboard Sections"]::-webkit-scrollbar {
+    display: none !important;
+  }
+  #view-admin .admin-subnav[aria-label="Admin Dashboard Sections"] > .admin-subnav-btn:not(.hidden) {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+    font-size: 0.81rem !important;
+    padding: 7px 12px !important;
+    min-height: 36px !important;
+  }
+  @media (min-width: 768px) and (max-width: 1120px) {
+    #view-admin .admin-subnav[aria-label="Admin Dashboard Sections"] {
+      gap: 4px !important;
+      padding: 7px 8px !important;
+    }
+    #view-admin .admin-subnav[aria-label="Admin Dashboard Sections"] > .admin-subnav-btn:not(.hidden) {
+      font-size: 0.75rem !important;
+      padding: 6px 9px !important;
+      min-height: 34px !important;
+    }
+  }
