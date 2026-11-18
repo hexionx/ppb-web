@@ -3691,6 +3691,155 @@
       });
     })();
 
+    var PBConfirmModal = (function () {
+      var bound = false;
+      var activeResolver = null;
+      var activeOnConfirm = null;
+      var inFlight = false;
+
+      function getEls() {
+        return {
+          backdrop: document.getElementById('modal-admin-confirm-action'),
+          badge: document.getElementById('confirm-action-modal-badge'),
+          title: document.getElementById('confirm-action-modal-title'),
+          icon: document.getElementById('confirm-action-modal-icon'),
+          hiBox: document.getElementById('confirm-action-highlight-box'),
+          hiLbl: document.getElementById('confirm-action-highlight-label'),
+          hiVal: document.getElementById('confirm-action-highlight-value'),
+          msg: document.getElementById('confirm-action-modal-message'),
+          err: document.getElementById('confirm-action-modal-error'),
+          closeBtn: document.getElementById('btn-confirm-action-close'),
+          cancelBtn: document.getElementById('btn-confirm-action-cancel'),
+          submitBtn: document.getElementById('btn-confirm-action-submit')
+        };
+      }
+
+      function close(didConfirm) {
+        if (inFlight && !didConfirm) return;
+        var els = getEls();
+        if (els.backdrop) {
+          els.backdrop.classList.add('hidden');
+          els.backdrop.setAttribute('aria-hidden', 'true');
+        }
+        inFlight = false;
+        if (els.cancelBtn) els.cancelBtn.disabled = false;
+        if (els.submitBtn) els.submitBtn.disabled = false;
+        if (els.closeBtn) els.closeBtn.disabled = false;
+        var res = activeResolver;
+        activeResolver = null;
+        activeOnConfirm = null;
+        if (typeof res === 'function') res(Boolean(didConfirm));
+      }
+
+      function ensureBound() {
+        if (bound) return;
+        var els = getEls();
+        if (!els.backdrop) return;
+        bound = true;
+        if (els.closeBtn) {
+          els.closeBtn.addEventListener('click', function () {
+            close(false);
+          });
+        }
+        if (els.cancelBtn) {
+          els.cancelBtn.addEventListener('click', function () {
+            close(false);
+          });
+        }
+        els.backdrop.addEventListener('click', function (evt) {
+          if (evt.target === els.backdrop) close(false);
+        });
+        document.addEventListener('keydown', function (evt) {
+          if (evt.key === 'Escape' && els.backdrop && !els.backdrop.classList.contains('hidden')) {
+            close(false);
+          }
+        });
+        if (els.submitBtn) {
+          els.submitBtn.addEventListener('click', function () {
+            if (inFlight) return;
+            var handler = activeOnConfirm;
+            if (typeof handler !== 'function') {
+              close(true);
+              return;
+            }
+            inFlight = true;
+            var origText = els.submitBtn.textContent || 'Confirm';
+            if (els.err) els.err.textContent = '';
+            els.submitBtn.disabled = true;
+            els.submitBtn.textContent = els.submitBtn.getAttribute('data-loading-label') || 'Deleting...';
+            if (els.cancelBtn) els.cancelBtn.disabled = true;
+            if (els.closeBtn) els.closeBtn.disabled = true;
+            Promise.resolve()
+              .then(function () {
+                return handler();
+              })
+              .then(function () {
+                inFlight = false;
+                els.submitBtn.textContent = origText;
+                close(true);
+              })
+              .catch(function (err) {
+                inFlight = false;
+                els.submitBtn.disabled = false;
+                els.submitBtn.textContent = origText;
+                if (els.cancelBtn) els.cancelBtn.disabled = false;
+                if (els.closeBtn) els.closeBtn.disabled = false;
+                if (els.err) {
+                  els.err.textContent = (err && err.message) || 'Action failed. Please try again.';
+                }
+              });
+          });
+        }
+      }
+
+      function run(opts) {
+        opts = opts && typeof opts === 'object' ? opts : {};
+        if (window.__PB_AUTO_CONFIRM_DELETE__ === true) {
+          return typeof opts.onConfirm === 'function' ? Promise.resolve(opts.onConfirm()) : Promise.resolve(true);
+        }
+        ensureBound();
+        var els = getEls();
+        if (!els.backdrop) {
+          return typeof opts.onConfirm === 'function' ? Promise.resolve(opts.onConfirm()) : Promise.resolve(true);
+        }
+        activeOnConfirm = typeof opts.onConfirm === 'function' ? opts.onConfirm : null;
+        if (els.badge) {
+          els.badge.textContent = opts.badgeText || 'Confirm Permanent Action';
+          els.badge.className = opts.isWarning ? 'badge badge-incomplete' : 'badge badge-danger';
+        }
+        if (els.icon) {
+          els.icon.classList.toggle('is-warning', Boolean(opts.isWarning));
+        }
+        if (els.title) els.title.textContent = opts.title || 'Confirm Action';
+        if (els.msg) els.msg.textContent = opts.message || '';
+        if (els.err) els.err.textContent = '';
+        if (els.hiBox && els.hiLbl && els.hiVal) {
+          if (opts.targetDetail) {
+            els.hiLbl.textContent = opts.targetLabel || 'Target Item';
+            els.hiVal.textContent = opts.targetDetail;
+            els.hiBox.classList.remove('hidden');
+          } else {
+            els.hiBox.classList.add('hidden');
+          }
+        }
+        if (els.submitBtn) {
+          els.submitBtn.textContent = opts.confirmText || 'Delete Permanently';
+          els.submitBtn.setAttribute('data-loading-label', opts.loadingText || 'Deleting...');
+          els.submitBtn.disabled = false;
+        }
+        if (els.cancelBtn) els.cancelBtn.disabled = false;
+        if (els.closeBtn) els.closeBtn.disabled = false;
+        els.backdrop.classList.remove('hidden');
+        els.backdrop.setAttribute('aria-hidden', 'false');
+        if (els.cancelBtn) els.cancelBtn.focus();
+        return new Promise(function (resolve) {
+          activeResolver = resolve;
+        });
+      }
+
+      return Object.freeze({ run: run, close: close });
+    })();
+
     var PBFloatingToc = (function () {
       var isOpen = false;
 
@@ -14744,9 +14893,7 @@
           deleteCourseBtn.className = 'btn btn-outline btn-sm pb-btn-danger-outline';
           setBtnVectorIcon(deleteCourseBtn, 'delete', 'Delete', 'Delete course');
           deleteCourseBtn.addEventListener('click', function () {
-            withButtonAndAreaLoading(deleteCourseBtn, tr, function () {
-              return handleAdminDeleteCourseStep7(c);
-            });
+            handleAdminDeleteCourseStep7(c);
           });
           actWrap.appendChild(deleteCourseBtn);
 
@@ -16134,58 +16281,52 @@
         return Promise.resolve();
       }
       var label = '[' + (target.courseCode || target.courseId) + '] "' + (target.title || '') + '"';
-      if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
-        var confirmed = window.confirm(
-          'Delete course ' +
-            label +
-            '?\n\nThis will permanently remove the course along with its sections, cards, and student enrollments.'
-        );
-        if (!confirmed) {
-          return Promise.resolve();
+      return PBConfirmModal.run({
+        badgeText: 'Confirm Course Deletion',
+        title: 'Delete Course Permanently?',
+        targetLabel: 'Course to Delete',
+        targetDetail: label,
+        message: 'This will permanently remove the course along with its sections, cards, and student enrollments. This cannot be undone.',
+        confirmText: 'Delete Course',
+        loadingText: 'Deleting Course...',
+        onConfirm: function () {
+          hideUiErrorBanner();
+          return rpcCallEnvelope('admin.deleteCourse', { courseId: target.courseId })
+            .then(function (envelope) {
+              var d = envelope.data || {};
+              PBAdminActionModal.close();
+              if (adminCourseDetailCacheById && adminCourseDetailCacheById[target.courseId]) {
+                delete adminCourseDetailCacheById[target.courseId];
+              }
+              if (studentCourseDetailCacheById && studentCourseDetailCacheById[target.courseId]) {
+                delete studentCourseDetailCacheById[target.courseId];
+              }
+              if (
+                currentSelectedCourseDetail &&
+                currentSelectedCourseDetail.course &&
+                currentSelectedCourseDetail.course.courseId === target.courseId
+              ) {
+                currentSelectedCourseDetail = null;
+                populateCourseEditorForm(null);
+                var ws = document.getElementById('admin-selected-course-workspace');
+                if (ws) {
+                  ws.classList.add('hidden');
+                }
+              }
+              setAdminCoursesAlert(
+                'success',
+                'Course Deleted',
+                d.savedMessage || 'Deleted course ' + label + '.'
+              );
+              if (typeof PBNotify === 'object' && PBNotify && typeof PBNotify.toast === 'function') {
+                PBNotify.toast('success', 'Course Deleted', d.savedMessage || 'Deleted course ' + label + '.');
+              }
+              return loadAdminCoursesAndAssessmentsStep7().then(function () {
+                return refreshAdminDashboardSummary();
+              });
+            });
         }
-      }
-      hideUiErrorBanner();
-      return rpcCallEnvelope('admin.deleteCourse', { courseId: target.courseId })
-        .then(function (envelope) {
-          var d = envelope.data || {};
-          PBAdminActionModal.close();
-          if (adminCourseDetailCacheById && adminCourseDetailCacheById[target.courseId]) {
-            delete adminCourseDetailCacheById[target.courseId];
-          }
-          if (studentCourseDetailCacheById && studentCourseDetailCacheById[target.courseId]) {
-            delete studentCourseDetailCacheById[target.courseId];
-          }
-          if (
-            currentSelectedCourseDetail &&
-            currentSelectedCourseDetail.course &&
-            currentSelectedCourseDetail.course.courseId === target.courseId
-          ) {
-            currentSelectedCourseDetail = null;
-            populateCourseEditorForm(null);
-            var ws = document.getElementById('admin-selected-course-workspace');
-            if (ws) {
-              ws.classList.add('hidden');
-            }
-          }
-          setAdminCoursesAlert(
-            'success',
-            'Course Deleted',
-            d.savedMessage || 'Deleted course ' + label + '.'
-          );
-          if (typeof PBNotify === 'object' && PBNotify && typeof PBNotify.toast === 'function') {
-            PBNotify.toast('success', 'Course Deleted', d.savedMessage || 'Deleted course ' + label + '.');
-          }
-          return loadAdminCoursesAndAssessmentsStep7().then(function () {
-            return refreshAdminDashboardSummary();
-          });
-        })
-        .catch(function (err) {
-          setAdminCoursesAlert(
-            'danger',
-            'Course Deletion Failed (' + (err.code || 'ERR') + ')',
-            err.message || ''
-          );
-        });
+      });
     }
 
     function handleAdminSaveCourseSubmit(evt, opt_forceStaleVersion) {
@@ -16912,26 +17053,40 @@
         }
 
         var courseScoresList = Array.isArray(d.publishedScores) ? d.publishedScores : [];
+        var primaryAssessmentSection = null;
+        for (var asIdx = 0; asIdx < sections.length; asIdx++) {
+          if (sections[asIdx] && sections[asIdx].sectionType === 'ASSESSMENT') {
+            primaryAssessmentSection = sections[asIdx];
+            break;
+          }
+        }
+        if (activeStudentSectionFilter === 'SCORES' && primaryAssessmentSection) {
+          activeStudentSectionFilter = primaryAssessmentSection.sectionId;
+        }
+
         navHost.appendChild(
           createSectionSelectorCard(
             'ALL',
             'ALL SECTIONS (' + String(sections.length) + ')',
             'All Course Sections',
-            'Objectives, Scores, Assessment, Reading & Recordings',
+            'Assessment & Scores, Reading & Recordings',
             'ALL'
           )
         );
 
-        navHost.appendChild(
-          createSectionSelectorCard(
-            'SCORES',
-            'PUBLISHED SCORES (' + String(courseScoresList.length) + ')',
-            'My Published Assessment Scores',
-            String(courseScoresList.length) +
-              ' published score(s) verified for your account',
-            'SCORES'
-          )
-        );
+        // Only show a standalone Published Scores card when a course has no ASSESSMENT section;
+        // otherwise Assessment + Published Scores are unified inside the Course Assessment card.
+        if (!primaryAssessmentSection) {
+          navHost.appendChild(
+            createSectionSelectorCard(
+              'SCORES',
+              'ASSESSMENT & SCORES (' + String(courseScoresList.length) + ')',
+              'Course Assessment & Scores',
+              String(courseScoresList.length) + ' published score(s) verified for your account',
+              'SCORES'
+            )
+          );
+        }
 
         for (var nIdx = 0; nIdx < sections.length; nIdx++) {
           var sItem = sections[nIdx];
@@ -16944,37 +17099,44 @@
                 currentStudentCourseExamsCatalogPhase3.length > 0
               ? currentStudentCourseExamsCatalogPhase3.length
               : Number(course.publishedExamCount || d.publishedExamCount || 0);
-          var displayItemCnt =
-            sItem.sectionType === 'ASSESSMENT' ? cardCnt + nativeExamCntForCourse : cardCnt;
+          var isAsmSec = sItem.sectionType === 'ASSESSMENT';
+          var displayItemCnt = isAsmSec ? cardCnt + nativeExamCntForCourse : cardCnt;
           var sectionUpdLabel =
             sItem.updatedAtBangkok ||
-            (sItem.sectionType === 'ASSESSMENT'
+            (isAsmSec
               ? course.assessmentUpdatedAtBangkok
               : sItem.sectionType === 'READING'
               ? course.readingUpdatedAtBangkok
               : '') ||
             course.updatedAtBangkok ||
             '-';
+          var secCardTitle = (nIdx + 1) + '. ' + sItem.title;
+          if (isAsmSec && String(sItem.title || '').toLowerCase().indexOf('score') === -1) {
+            secCardTitle = (nIdx + 1) + '. ' + sItem.title + ' & Scores';
+          }
+          var secCardMeta = isAsmSec
+            ? String(displayItemCnt) + ' quiz/item(s) • ' + String(courseScoresList.length) + ' score(s)'
+            : String(displayItemCnt) + ' item(s) | Updated: ' + sectionUpdLabel;
           navHost.appendChild(
             createSectionSelectorCard(
               sItem.sectionId,
-              sItem.sectionType,
-              (nIdx + 1) + '. ' + sItem.title,
-              String(displayItemCnt) +
-                ' item(s) | Updated: ' +
-                sectionUpdLabel,
+              isAsmSec ? 'ASSESSMENT & SCORES' : sItem.sectionType,
+              secCardTitle,
+              secCardMeta,
               sItem.sectionType || 'CUSTOM'
             )
           );
           if (activeStudentSectionFilter === sItem.sectionId && activeBadge) {
-            activeBadge.textContent = 'Showing Section: ' + sItem.title;
+            activeBadge.textContent = isAsmSec
+              ? 'Showing: ' + sItem.title + ' & Published Scores'
+              : 'Showing Section: ' + sItem.title;
           }
         }
         if (activeStudentSectionFilter === 'ALL' && activeBadge) {
           activeBadge.textContent = 'Showing: All Course Sections (' + sections.length + ')';
         } else if (activeStudentSectionFilter === 'SCORES' && activeBadge) {
           activeBadge.textContent =
-            'Showing: My Published Assessment Scores (' + courseScoresList.length + ')';
+            'Showing: Course Assessment & Scores (' + courseScoresList.length + ')';
         }
       }
 
@@ -26085,30 +26247,29 @@ var qrcode = (function() {
             delQBtn.className = 'btn btn-outline btn-sm pb-btn-danger-outline';
             setBtnVectorIcon(delQBtn, 'trash', 'Delete', 'Permanently delete question');
             delQBtn.addEventListener('click', function () {
-              var qPrompt =
-                'Permanently delete question "' +
-                (q.questionCode || q.title || q.questionId) +
-                '"? This removes it from the Question Bank and detaches it from any exam set.';
-              if (typeof window.confirm === 'function' && window.__PB_AUTO_CONFIRM_DELETE__ !== true && !window.confirm(qPrompt)) {
-                return;
-              }
-              runButtonWithLoadingState(delQBtn, 'Deleting...', function () {
-                return rpcCallEnvelope('admin.questions.archive', {
-                  questionId: q.questionId,
-                  deletePermanently: true,
-                  forceDelete: true
-                })
-                  .then(function (env) {
+              var qLabel = q.questionCode || q.title || q.questionId;
+              PBConfirmModal.run({
+                badgeText: 'Confirm Question Deletion',
+                title: 'Delete Question Permanently?',
+                targetLabel: 'Question to Delete',
+                targetDetail: qLabel,
+                message: 'This permanently deletes the question from the Question Bank and removes it from any exam sets containing it. This cannot be undone.',
+                confirmText: 'Delete Question',
+                loadingText: 'Deleting Question...',
+                onConfirm: function () {
+                  return rpcCallEnvelope('admin.questions.archive', {
+                    questionId: q.questionId,
+                    deletePermanently: true,
+                    forceDelete: true
+                  }).then(function (env) {
                     invalidateQBankClientCachePhase2();
                     renderQuestionBankTablePhase2(env.data);
                     if (typeof loadAdminExamsCatalogPhase3 === 'function') {
                       loadAdminExamsCatalogPhase3();
                     }
-                    PBNotify.toast('success', 'Question Deleted', (q.questionCode || q.questionId) + ' permanently deleted.');
-                  })
-                  .catch(function (err) {
-                    PBNotify.toast('danger', 'Delete Failed', (err && err.message) || 'Could not delete question.');
+                    PBNotify.toast('success', 'Question Deleted', qLabel + ' permanently deleted.');
                   });
+                }
               });
             });
             actRow.appendChild(delQBtn);
@@ -27762,18 +27923,22 @@ var qrcode = (function() {
           setBtnVectorIcon(delExamBtn, 'trash', 'Delete', 'Delete question set and all contained questions');
           delExamBtn.addEventListener('click', function () {
             var qCnt = Number(ex.totalQuestionsCount || ex.questionCount || 0);
-            var confirmMsg =
-              'Permanently delete question set "' +
-              (ex.title || ex.examCode || ex.examSetId) +
-              '" and ALL ' +
-              String(qCnt) +
-              ' question(s) contained inside it? This cannot be undone.';
-            if (typeof window.confirm === 'function' && window.__PB_AUTO_CONFIRM_DELETE__ !== true && !window.confirm(confirmMsg)) {
-              return;
-            }
-            runButtonWithLoadingState(delExamBtn, 'Deleting...', function () {
-              return rpcCallEnvelope('admin.exams.delete', { examSetId: ex.examSetId })
-                .then(function (env) {
+            var setTitle = ex.title || ex.examCode || ex.examSetId;
+            PBConfirmModal.run({
+              badgeText: 'Confirm Question Set Deletion',
+              title: 'Delete Question Set & Contained Questions?',
+              targetLabel: 'Question Set (' + String(qCnt) + ' question(s))',
+              targetDetail: setTitle,
+              message:
+                'Permanently delete question set "' +
+                setTitle +
+                '" and ALL ' +
+                String(qCnt) +
+                ' question(s) contained inside it? This cannot be undone.',
+              confirmText: 'Delete Question Set',
+              loadingText: 'Deleting Set...',
+              onConfirm: function () {
+                return rpcCallEnvelope('admin.exams.delete', { examSetId: ex.examSetId }).then(function (env) {
                   renderAdminExamsTablePhase3(env.data);
                   invalidateQBankClientCachePhase2();
                   if (typeof loadQuestionBankListPhase2 === 'function') {
@@ -27784,11 +27949,8 @@ var qrcode = (function() {
                   }
                   setText('admin-exams-status-banner', 'Deleted question set "' + (ex.title || ex.examCode) + '" and its contained questions.');
                   PBNotify.toast('success', 'Question Set Deleted', 'Removed set and its contained questions.');
-                })
-                .catch(function (err) {
-                  setText('admin-exams-status-banner', 'Delete failed: ' + ((err && err.message) || 'Unknown error'));
-                  PBNotify.toast('danger', 'Delete Failed', (err && err.message) || 'Could not delete question set.');
                 });
+              }
             });
           });
           btnWrap.appendChild(delExamBtn);

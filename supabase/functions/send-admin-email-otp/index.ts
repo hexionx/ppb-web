@@ -147,20 +147,68 @@ Deno.serve(async (req: Request) => {
       }, 500);
     }
 
-    const emailSubject = `Pattanabhumi Biology — Email Verification Code (${otpCode})`;
-    const emailText = `Pattanabhumi Biology Portal\n\nAdministrator ${actorUsername} requested to verify ${newEmail}.\n\nYour 6-digit verification code is: ${otpCode}\n\nThis code expires in 10 minutes. If you did not request this email change, you can safely ignore this message.`;
+    const emailSubject = `Pattanabhumi Biology — Verify Your Administrator Email (${otpCode})`;
+    const emailText = `Pattanabhumi Biology\n\nVerify your administrator email change\n\nWe received a request from ${actorUsername} to verify ${newEmail}. Please enter the code below in the browser window where you started this update:\n\n${otpCode}\n\nIf you did not request this verification code, please disregard it. The code will remain active for 10 minutes.\n\n© 2026 Pattanabhumi Biology. All rights reserved.`;
     const emailHtml = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px; border: 1px solid #d1fae5; border-radius: 16px; background: #ffffff;">
-        <p style="margin: 0 0 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #059669;">Pattanabhumi Biology Portal</p>
-        <h2 style="margin: 0 0 12px; font-size: 20px; color: #064e3b;">Verify New Administrator Email</h2>
-        <p style="margin: 0 0 18px; font-size: 14px; line-height: 1.55; color: #374151;">
-          Administrator <strong>${escapeHtml(actorUsername)}</strong> requested to verify <strong>${escapeHtml(newEmail)}</strong>. Enter this 6-digit verification code in the portal within 10 minutes:
-        </p>
-        <div style="margin: 0 0 20px; padding: 16px; border-radius: 12px; background: #ecfdf5; border: 1px solid #a7f3d0; text-align: center;">
-          <span style="font-size: 32px; font-weight: 800; letter-spacing: 0.25em; color: #065f46;">${otpCode}</span>
-        </div>
-        <p style="margin: 0; font-size: 12px; color: #6b7280;">If you did not request this email change, you can safely ignore this message.</p>
-      </div>
+      <!DOCTYPE html>
+      <html>
+      <body style="margin: 0; padding: 0; background-color: #F4F5F7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F4F5F7; padding: 36px 16px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 560px; background-color: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; overflow: hidden;">
+                <tr>
+                  <td align="center" style="padding: 42px 36px 36px 36px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto 24px auto;">
+                      <tr>
+                        <td style="vertical-align: middle; padding-right: 10px;">
+                          <img src="https://hexionx.github.io/ppb-web/assets/logo.webp" alt="Pattanabhumi Biology" width="38" height="38" style="display: block; border-radius: 8px; border: 0;" />
+                        </td>
+                        <td style="vertical-align: middle; font-size: 20px; font-weight: 700; color: #111827; letter-spacing: -0.02em;">
+                          Pattanabhumi Biology
+                        </td>
+                      </tr>
+                    </table>
+
+                    <h1 style="margin: 0 0 14px 0; font-size: 22px; line-height: 1.3; font-weight: 700; color: #111827; text-align: center;">
+                      Verify your administrator email
+                    </h1>
+
+                    <p style="margin: 0 0 26px 0; font-size: 14px; line-height: 1.6; color: #374151; text-align: center;">
+                      We have received a request from <strong>${escapeHtml(actorUsername)}</strong> to verify <strong>${escapeHtml(newEmail)}</strong> with the following code. Please enter it in the browser window where you started editing the administrator account.
+                    </p>
+
+                    <div style="margin: 0 auto 24px auto; padding: 24px 20px; background-color: #EEF2F3; border-radius: 10px; text-align: center;">
+                      <span style="font-size: 32px; font-weight: 700; letter-spacing: 3px; color: #111827; line-height: 1.2;">${otpCode}</span>
+                    </div>
+
+                    <p style="margin: 0 0 28px 0; font-size: 13px; line-height: 1.55; color: #6B7280; text-align: center;">
+                      If you did not request this email verification but received this message, please disregard it. The code will remain active for 10 minutes.
+                    </p>
+
+                    <div style="border-top: 1px solid #E5E7EB; margin: 0 auto 22px auto; max-width: 440px;"></div>
+
+                    <p style="margin: 0 0 12px 0; font-size: 13px; line-height: 1.5; color: #6B7280; text-align: center;">
+                      Pattanabhumi Biology — Private Student &amp; Examination Portal
+                    </p>
+
+                    <p style="margin: 0 0 12px 0; font-size: 12px; color: #6B7280; text-align: center;">
+                      <a href="https://hexionx.github.io/ppb-web/" style="color: #6B7280; text-decoration: none;">Portal</a>
+                      &nbsp;&nbsp;&bull;&nbsp;&nbsp;
+                      <a href="mailto:${escapeHtml(gasFromEmail)}" style="color: #6B7280; text-decoration: none;">${escapeHtml(gasFromEmail)}</a>
+                    </p>
+
+                    <p style="margin: 0; font-size: 12px; color: #9CA3AF; text-align: center;">
+                      &copy; 2026 Pattanabhumi Biology. All rights reserved.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
     `;
 
     let sentFrom = "";
