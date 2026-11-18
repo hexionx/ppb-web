@@ -1244,38 +1244,42 @@
     if (!exRow.course_id) return exRow.assessment_id || '';
     var now = nowIso();
     var asmId = exRow.assessment_id || '';
-    var maxScore = verRow && verRow.max_points_bp !== undefined && verRow.max_points_bp !== null
-      ? Math.round((Number(verRow.max_points_bp) / 100) * 100) / 100
-      : 100;
+    var descDoc = exRow.description_richtext_json && Array.isArray(exRow.description_richtext_json.blocks) && exRow.description_richtext_json.blocks.length
+      ? exRow.description_richtext_json
+      : {
+          schemaVersion: 'pb-richtext-v1',
+          blocks: [{
+            type: 'paragraph',
+            runs: [{ text: 'Native online examination (' + exRow.exam_code + ') completed directly inside Pattanabhumi Biology.' }]
+          }]
+        };
+    var asmStatus = exRow.status === 'ARCHIVED' ? 'ARCHIVED' : 'ACTIVE';
     if (asmId) {
       var ex = okPg(await sb().from('assessments').select('assessment_id,version').eq('assessment_id', asmId).maybeSingle());
       if (ex) {
         okPg(await sb().from('assessments').update({
-          course_id: exRow.course_id,
           title: exRow.title,
-          max_score: maxScore,
-          status: exRow.status === 'ARCHIVED' ? 'ARCHIVED' : 'ACTIVE',
+          description_richtext_json: descDoc,
+          external_url: 'native-exam://' + exRow.exam_set_id,
+          status: asmStatus,
           updated_at_utc: now,
           version: (Number(ex.version) || 1) + 1
-        }).eq('assessment_id', asmId));
+        }).eq('assessment_id', asmId), 'Update linked assessment');
         return asmId;
       }
     }
     asmId = genId('asm_');
     okPg(await sb().from('assessments').insert({
       assessment_id: asmId,
-      course_id: exRow.course_id,
       title: exRow.title,
-      assessment_type: exRow.exam_mode === 'MOCK_EXAM' ? 'MOCK_EXAM' : (exRow.exam_mode === 'PRACTICE' ? 'PRACTICE_QUIZ' : 'ASSIGNED_TEST'),
-      max_score: maxScore,
+      description_richtext_json: descDoc,
       external_url: 'native-exam://' + exRow.exam_set_id,
-      instructions: 'Native online examination (' + exRow.exam_code + ') completed directly inside Pattanabhumi Biology.',
-      due_date_bkk: '',
-      status: 'ACTIVE',
+      pdf_file_id: '',
+      status: asmStatus,
       created_at_utc: now,
       updated_at_utc: now,
       version: 1
-    }));
+    }), 'Create linked assessment');
     return asmId;
   }
 
@@ -2333,9 +2337,9 @@
       score_points: scPts,
       max_points: maxPts,
       status: 'PUBLISHED',
-      grader_note: 'Auto-synced from Native Exam (' + exRow.exam_code + ', Attempt #' + chosen.attempt_number + ')',
-      graded_by_user_id: actorUserId || 'SYSTEM',
-      graded_at_utc: now,
+      feedback_text: 'Auto-synced from Native Exam (' + exRow.exam_code + ', Attempt #' + chosen.attempt_number + ')',
+      updated_by_user_id: actorUserId || 'SYSTEM',
+      published_at_utc: now,
       updated_at_utc: now
     };
     if (exScore) okPg(await sb().from('assessment_scores').update(Object.assign({}, fields, { version: (Number(exScore.version) || 1) + 1 })).eq('score_id', exScore.score_id));
@@ -2947,7 +2951,7 @@
       att = await gradeSubmittedAttempt(att, ex, 'SUBMIT_ATTEMPT', ses.userId);
     }
     var cnt = (okPg(await sb().from('attempt_items').select('attempt_item_id').eq('attempt_id', attemptId)) || []).length;
-    return buildReceiptBundle(att, ex, cnt);
+    return { submitted: true, receipt: buildReceiptBundle(att, ex, cnt) };
   }
 
   // ==================== ADMIN GRADING, RESULTS, REGRADE, ANALYTICS ====================

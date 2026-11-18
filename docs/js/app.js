@@ -3062,16 +3062,22 @@
     }
 
     /**
-     * Reads any previously saved "Remember me" bearer token from localStorage.
+     * Reads any previously saved bearer token from localStorage (Remember me)
+     * or sessionStorage (current browser tab across F5 refreshes).
      */
     function readPersistedTokenIfAvailable() {
-      if (!isLocalStorageAvailable()) {
-        return null;
-      }
       try {
-        var raw = window.localStorage.getItem(STORAGE_KEY_SESSION_TOKEN);
-        if (typeof raw === 'string' && /^[0-9a-f]{64}$/i.test(raw.trim())) {
-          return raw.trim().toLowerCase();
+        if (isLocalStorageAvailable()) {
+          var raw = window.localStorage.getItem(STORAGE_KEY_SESSION_TOKEN);
+          if (typeof raw === 'string' && /^[0-9a-f]{64}$/i.test(raw.trim())) {
+            return raw.trim().toLowerCase();
+          }
+        }
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+          var sRaw = window.sessionStorage.getItem(STORAGE_KEY_SESSION_TOKEN);
+          if (typeof sRaw === 'string' && /^[0-9a-f]{64}$/i.test(sRaw.trim())) {
+            return sRaw.trim().toLowerCase();
+          }
         }
       } catch (err) {
         return null;
@@ -3080,8 +3086,9 @@
     }
 
     /**
-     * Stores the bearer token in memory and, only if `rememberMe === true`, attempts
-     * to persist it to `localStorage`. Never stores a bearer token in `document.cookie`.
+     * Stores the bearer token in memory and either:
+     * - `localStorage` if `rememberMe === true` (7-day persistent login)
+     * - `sessionStorage` if `rememberMe === false` (tab-scoped, survives F5 reload, clears on tab close).
      */
     function storeSessionCredential(rawToken, rememberMe) {
       var cleanTok = typeof rawToken === 'string' ? rawToken.trim() : '';
@@ -3095,7 +3102,16 @@
             window.localStorage.removeItem(STORAGE_KEY_SESSION_TOKEN);
           } catch (ignoreErr) {}
         }
-        currentStorageMode = 'IN_MEMORY_ONLY (Cleared on tab close/refresh)';
+        var savedToSessionTab = false;
+        try {
+          if (typeof window !== 'undefined' && window.sessionStorage && cleanTok) {
+            window.sessionStorage.setItem(STORAGE_KEY_SESSION_TOKEN, cleanTok);
+            savedToSessionTab = true;
+          }
+        } catch (ignoreSesErr) {}
+        currentStorageMode = savedToSessionTab
+          ? 'SESSION_STORAGE (Cleared on tab close, preserved on refresh)'
+          : 'IN_MEMORY_ONLY (Cleared on tab close/refresh)';
         if (warningBanner) {
           warningBanner.classList.add('hidden');
         }
@@ -3104,6 +3120,12 @@
           fallbackWarningMessage: ''
         };
       }
+
+      try {
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+          window.sessionStorage.removeItem(STORAGE_KEY_SESSION_TOKEN);
+        }
+      } catch (ignoreSesRmErr) {}
 
       if (isLocalStorageAvailable()) {
         try {
@@ -3237,6 +3259,11 @@
           window.localStorage.removeItem(STORAGE_KEY_SESSION_TOKEN);
         } catch (ignoreErr) {}
       }
+      try {
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+          window.sessionStorage.removeItem(STORAGE_KEY_SESSION_TOKEN);
+        }
+      } catch (ignoreSesClearErr) {}
       resetAllPortalSessionState('CREDENTIAL_CLEARED');
     }
 
@@ -4430,8 +4457,293 @@
       if (typeof PBFloatingToc === 'object' && PBFloatingToc) {
         PBFloatingToc.syncForActiveView(viewName);
       }
+      if (typeof PBPortalRouter === 'object' && PBPortalRouter) {
+        PBPortalRouter.syncHashForCurrentState(false);
+      }
       scrollToTopOfActiveView(viewName);
     }
+
+    /**
+     * Hash-based Multi-Page Portal Router (`PBPortalRouter`).
+     * Supports bookmarkable hashes (#/profile, #/course/<id>, #/payments,
+     * #/calendar, #/contact, #/admin/<tab>, #/admin-exams/<tab>),
+     * Browser Back/Forward (`popstate`/`hashchange`), page refresh restoration,
+     * post-login/privacy intended route resume, and active-exam back protection.
+     */
+    var PBPortalRouter = (function () {
+      var isRestoringRoute = false;
+      var pendingPostAuthHash = '';
+      var initialized = false;
+
+      function parseHash(rawHash) {
+        var h = String(rawHash || '').trim();
+        if (!h || h === '#' || h === '#/') return null;
+        if (h.charAt(0) === '#') h = h.slice(1);
+        if (h.charAt(0) === '/') h = h.slice(1);
+        var parts = h.split('/').map(function (seg) {
+          try {
+            return decodeURIComponent(seg);
+          } catch (_) {
+            return seg;
+          }
+        });
+        var seg0 = String(parts[0] || '').toLowerCase();
+        var seg1 = parts[1] || '';
+        if (seg0 === 'landing' || seg0 === 'home') return { view: 'landing' };
+        if (seg0 === 'contact') return { view: 'contact' };
+        if (seg0 === 'profile') return { view: 'profile' };
+        if (seg0 === 'payments' || seg0 === 'billing') return { view: 'payments' };
+        if (seg0 === 'calendar') return { view: 'calendar' };
+        if (seg0 === 'course' && seg1) return { view: 'courseDetail', courseId: seg1 };
+        if (seg0 === 'admin') return { view: 'admin', adminTab: seg1 || 'settings' };
+        if (seg0 === 'admin-exams') return { view: 'admin-exams', studioTab: seg1 || 'builder' };
+        if (seg0 === 'exam' && seg1) return { view: 'examWorkspace', attemptId: seg1 };
+        if (seg0 === 'exam-preview' && seg1) return { view: 'examPreview', examSetId: seg1 };
+        return null;
+      }
+
+      function computeCurrentHash() {
+        var v = currentActiveViewName || 'landing';
+        if (v === 'landing' || v === 'loading' || v === 'fatalError') return '#/landing';
+        if (v === 'contact') return '#/contact';
+        if (v === 'profile') return '#/profile';
+        if (v === 'payments') return '#/payments';
+        if (v === 'calendar') return '#/calendar';
+        if (v === 'courseDetail' && currentStudentCourseId) {
+          return '#/course/' + encodeURIComponent(currentStudentCourseId);
+        }
+        if (v === 'admin') {
+          if (isExamStudioModeActive) {
+            return '#/admin-exams/' + encodeURIComponent(currentExamStudioTab || 'builder');
+          }
+          return '#/admin/' + encodeURIComponent(currentAdminTab || 'settings');
+        }
+        if (v === 'examWorkspace') {
+          var snap =
+            window.PBExamAutosaveEngine && typeof window.PBExamAutosaveEngine.getSnapshot === 'function'
+              ? window.PBExamAutosaveEngine.getSnapshot()
+              : null;
+          if (snap && snap.attempt && snap.attempt._isAdminPreview && snap.exam && snap.exam.examSetId) {
+            return '#/exam-preview/' + encodeURIComponent(snap.exam.examSetId);
+          }
+          if (snap && snap.attempt && snap.attempt.attemptId) {
+            return '#/exam/' + encodeURIComponent(snap.attempt.attemptId);
+          }
+        }
+        return '#/profile';
+      }
+
+      function syncHashForCurrentState(useReplace) {
+        if (isRestoringRoute || typeof window === 'undefined' || !window.location) return;
+        if (currentActiveViewName === 'loading' || currentActiveViewName === 'fatalError') return;
+        if (currentSessionMeta && currentSessionMeta.user && currentSessionMeta.user.requiresPrivacyAck) {
+          if (!pendingPostAuthHash && window.location.hash && window.location.hash !== '#/landing') {
+            pendingPostAuthHash = window.location.hash;
+          }
+          return;
+        }
+        var nextHash = computeCurrentHash();
+        if (window.location.hash === nextHash) return;
+        try {
+          if (window.history && typeof window.history.pushState === 'function') {
+            if (useReplace) {
+              window.history.replaceState({ pbHash: nextHash }, '', nextHash);
+            } else {
+              window.history.pushState({ pbHash: nextHash }, '', nextHash);
+            }
+          } else {
+            window.location.hash = nextHash;
+          }
+        } catch (_) {}
+      }
+
+      function setPendingHash(hashOrView) {
+        if (!hashOrView) return;
+        var parsed = parseHash(hashOrView);
+        if (parsed) {
+          pendingPostAuthHash = hashOrView.charAt(0) === '#' ? hashOrView : '#' + hashOrView;
+          return;
+        }
+        if (hashOrView === 'admin-exams') pendingPostAuthHash = '#/admin-exams/builder';
+        else if (hashOrView === 'admin') pendingPostAuthHash = '#/admin/settings';
+        else if (hashOrView === 'payments' || hashOrView === 'calendar' || hashOrView === 'profile' || hashOrView === 'contact') {
+          pendingPostAuthHash = '#/' + hashOrView;
+        }
+      }
+
+      function applyDescriptor(desc, user) {
+        if (!desc) return false;
+        if (desc.view === 'landing') {
+          if (!user) {
+            showSectionView('landing');
+            return true;
+          }
+          return false;
+        }
+        if (desc.view === 'contact') {
+          showSectionView('contact');
+          return true;
+        }
+        if (!user) {
+          setPendingHash(
+            desc.view === 'courseDetail'
+              ? '#/course/' + encodeURIComponent(desc.courseId)
+              : desc.view === 'admin-exams'
+              ? '#/admin-exams/' + encodeURIComponent(desc.studioTab || 'builder')
+              : desc.view === 'admin'
+              ? '#/admin/' + encodeURIComponent(desc.adminTab || 'settings')
+              : '#/' + desc.view
+          );
+          showSectionView('landing');
+          return true;
+        }
+        if (desc.view === 'courseDetail' && desc.courseId) {
+          openStudentCourseDetailView(desc.courseId, user.role === 'ADMIN' && Boolean(currentStudentCourseFromAdminPreview));
+          return true;
+        }
+        if (desc.view === 'payments' || desc.view === 'calendar' || desc.view === 'profile') {
+          handleNavigateToView(desc.view);
+          return true;
+        }
+        if (desc.view === 'admin-exams' && user.role === 'ADMIN') {
+          showSectionView('admin');
+          if (typeof enterAdminExamsStudioMode === 'function') {
+            enterAdminExamsStudioMode(desc.studioTab || 'builder');
+          }
+          return true;
+        }
+        if (desc.view === 'admin' && user.role === 'ADMIN') {
+          if (typeof exitAdminExamsStudioMode === 'function') {
+            exitAdminExamsStudioMode(true, { targetAdminTab: desc.adminTab || 'settings', skipDataLoad: false });
+          }
+          showSectionView('admin');
+          refreshAdminDashboardSummary();
+          return true;
+        }
+        if (desc.view === 'examWorkspace' && desc.attemptId) {
+          rpcCallEnvelope('exams.getAttempt', { attemptId: desc.attemptId, acquireLease: true }, { suppressErrorBanner: true })
+            .then(function (env) {
+              var b = env && env.data ? env.data : {};
+              if (b.attempt && b.attempt.attemptStatus === 'IN_PROGRESS' && typeof openStudentExamWorkspacePhase5 === 'function') {
+                openStudentExamWorkspacePhase5(b);
+              } else {
+                handleNavigateToView(user.role === 'ADMIN' ? 'admin' : 'profile');
+              }
+            })
+            .catch(function () {
+              handleNavigateToView(user.role === 'ADMIN' ? 'admin' : 'profile');
+            });
+          return true;
+        }
+        if (desc.view === 'examPreview' && desc.examSetId && user.role === 'ADMIN') {
+          if (typeof launchAdminInteractiveExamWorkspacePreview === 'function') {
+            launchAdminInteractiveExamWorkspacePreview({ examSetId: desc.examSetId, _isAdminPreview: true });
+            return true;
+          }
+        }
+        return false;
+      }
+
+      function restoreFromLocationOrPending(user, opt_restoreStatus) {
+        var raw = pendingPostAuthHash || (typeof window !== 'undefined' && window.location ? window.location.hash : '');
+        pendingPostAuthHash = '';
+        var desc = parseHash(raw);
+        if (!desc) return false;
+        // On fresh login without explicit deep-link, let role default route apply unless non-landing requested
+        if (opt_restoreStatus === 'FRESH_LOGIN' && desc.view === 'landing') {
+          return false;
+        }
+        isRestoringRoute = true;
+        var handled = false;
+        try {
+          handled = applyDescriptor(desc, user);
+        } finally {
+          isRestoringRoute = false;
+        }
+        if (handled) {
+          syncHashForCurrentState(true);
+        }
+        return handled;
+      }
+
+      function init() {
+        if (initialized || typeof window === 'undefined' || !window.addEventListener) return;
+        initialized = true;
+        // Capture any deep link passed before bootstrap overwrites location
+        if (window.location && window.location.hash) {
+          var initDesc = parseHash(window.location.hash);
+          if (initDesc && initDesc.view !== 'landing' && initDesc.view !== 'contact') {
+            pendingPostAuthHash = window.location.hash;
+          }
+        }
+        window.addEventListener('popstate', function () {
+          if (isRestoringRoute) return;
+          var snap =
+            window.PBExamAutosaveEngine && typeof window.PBExamAutosaveEngine.getSnapshot === 'function'
+              ? window.PBExamAutosaveEngine.getSnapshot()
+              : null;
+          if (currentActiveViewName === 'examWorkspace' && snap && snap.attempt) {
+            if (snap.attempt._isAdminPreview && isCurrentSessionAdminUser()) {
+              var exBtn = document.getElementById('btn-exam-ws-exit-course');
+              if (exBtn) {
+                isRestoringRoute = true;
+                try {
+                  exBtn.click();
+                } finally {
+                  isRestoringRoute = false;
+                  syncHashForCurrentState(true);
+                }
+                return;
+              }
+            } else {
+              // Guard live timed/practice exam attempt from accidental swipe-back/back-button loss
+              window.PBExamAutosaveEngine.flushPendingSaves(false).catch(function () {});
+              syncHashForCurrentState(true);
+              if (typeof PBNotify === 'object' && PBNotify && typeof PBNotify.toast === 'function') {
+                PBNotify.toast(
+                  'warning',
+                  'Active Examination Protected',
+                  'Your progress is protected. Use "Exit to Course" or "Review & Submit Exam" to leave cleanly.'
+                );
+              }
+              return;
+            }
+          }
+          if (
+            typeof confirmDiscardUnsavedChangesIfNeeded === 'function' &&
+            !confirmDiscardUnsavedChangesIfNeeded('navigating via browser history')
+          ) {
+            syncHashForCurrentState(true);
+            return;
+          }
+          var desc = parseHash(window.location.hash);
+          var usr = currentSessionMeta && currentSessionMeta.user ? currentSessionMeta.user : null;
+          if (!desc) {
+            desc = usr ? { view: usr.role === 'ADMIN' ? 'admin' : 'profile', adminTab: 'settings' } : { view: 'landing' };
+          }
+          isRestoringRoute = true;
+          try {
+            if (!applyDescriptor(desc, usr)) {
+              showSectionView(usr ? (usr.role === 'ADMIN' ? 'admin' : 'profile') : 'landing');
+            }
+          } finally {
+            isRestoringRoute = false;
+          }
+        });
+      }
+
+      return Object.freeze({
+        init: init,
+        parseHash: parseHash,
+        setPendingHash: setPendingHash,
+        clearPendingHash: function () {
+          pendingPostAuthHash = '';
+        },
+        syncHashForCurrentState: syncHashForCurrentState,
+        restoreFromLocationOrPending: restoreFromLocationOrPending
+      });
+    })();
+    PBPortalRouter.init();
 
     function scrollToTopOfActiveView(opt_viewName, opt_focusControlSection) {
       try {
@@ -5244,6 +5556,9 @@
         if (typeof PBSessionWatcher === 'object' && PBSessionWatcher) {
           PBSessionWatcher.stop();
         }
+        if (opt_restoreStatus === 'LOGGED_OUT' && typeof PBPortalRouter === 'object' && PBPortalRouter) {
+          PBPortalRouter.clearPendingHash();
+        }
         resetAllPortalSessionState('SESSION_ENDED');
         syncHeaderNavigation(null);
         showSectionView('landing');
@@ -5299,6 +5614,10 @@
 
       lastFocusedBeforeModal = null;
       closeModalDialog('modal-privacy-gate');
+
+      if (typeof PBPortalRouter === 'object' && PBPortalRouter && PBPortalRouter.restoreFromLocationOrPending(usr, opt_restoreStatus)) {
+        return;
+      }
 
       if (usr.role === 'ADMIN') {
         showSectionView('admin');
@@ -6977,6 +7296,9 @@
         if (targetView === 'landing') {
           showSectionView('landing');
         } else {
+          if (typeof PBPortalRouter === 'object' && PBPortalRouter) {
+            PBPortalRouter.setPendingHash(targetView);
+          }
           openModalDialog('modal-login', 'input-login-username');
           setLoginInlineAlert(
             'warning',
@@ -7427,6 +7749,9 @@
           var activePanelId = 'admin-panel-' + String(currentAdminTab);
           PBFloatingToc.jumpToTargetElement(activePanelId);
         }
+      }
+      if (typeof PBPortalRouter === 'object' && PBPortalRouter && currentActiveViewName === 'admin' && !isExamStudioModeActive) {
+        PBPortalRouter.syncHashForCurrentState(false);
       }
       return true;
     }
@@ -30102,6 +30427,9 @@ var qrcode = (function() {
         switchAdminSubTab('exam-integrity', true, false);
       }
       updateNavbarActiveForExamStudio(isExamStudioModeActive);
+      if (typeof PBPortalRouter === 'object' && PBPortalRouter && isExamStudioModeActive && currentActiveViewName === 'admin') {
+        PBPortalRouter.syncHashForCurrentState(false);
+      }
     }
 
     var activeFormsBlueprintSectionId = 'PART_1';
@@ -33818,6 +34146,9 @@ var qrcode = (function() {
     function openStudentExamWorkspacePhase5(workspaceBundle) {
       var snap = window.PBExamAutosaveEngine.loadFromWorkspaceBundle(workspaceBundle);
       if (!snap || !snap.attempt) return;
+      if (!currentStudentCourseId && ((snap.attempt && snap.attempt.courseId) || (snap.exam && snap.exam.courseId))) {
+        currentStudentCourseId = (snap.attempt && snap.attempt.courseId) || (snap.exam && snap.exam.courseId);
+      }
 
       currentExamWorkspaceQuestionIndexPhase5 = 0;
       currentExamNavigatorFilterPhase5 = 'ALL';
@@ -33828,8 +34159,8 @@ var qrcode = (function() {
           ? 'Practice Quiz'
           : snap.exam.examMode === 'MOCK_EXAM'
           ? 'Timed Mock Exam'
-          : snap.exam.examMode === 'ASSIGNED'
-          ? 'Assigned Exam'
+          : snap.exam.examMode === 'ASSIGNED' || snap.exam.examMode === 'ASSIGNED_ASSESSMENT'
+          ? 'Assigned Assessment'
           : formatFriendlyEnumStatus(snap.exam.examMode) || 'Examination');
       setText('exam-ws-mode-badge', friendlyWsMode);
       var wsModeBadge = document.getElementById('exam-ws-mode-badge');
@@ -34419,6 +34750,8 @@ var qrcode = (function() {
     // ========================================================================
     // EXAM PHASE 6: STUDENT SUBMISSION RECEIPT & ADMIN MANUAL RUBRIC GRADING
     // ========================================================================
+    var activeSubmissionReceiptMetaPhase6 = null;
+
     function openStudentSubmissionReceiptModalPhase6(receiptDto) {
       if (!receiptDto) return;
       var readyModal = document.getElementById('modal-exam-submit-readiness');
@@ -34430,6 +34763,26 @@ var qrcode = (function() {
       if (currentExamCountdownIntervalPhase5) {
         clearInterval(currentExamCountdownIntervalPhase5);
         currentExamCountdownIntervalPhase5 = null;
+      }
+
+      var snapForReceipt =
+        window.PBExamAutosaveEngine && typeof window.PBExamAutosaveEngine.getSnapshot === 'function'
+          ? window.PBExamAutosaveEngine.getSnapshot()
+          : null;
+      activeSubmissionReceiptMetaPhase6 = {
+        attemptId: receiptDto.attemptId || (snapForReceipt && snapForReceipt.attempt && snapForReceipt.attempt.attemptId) || '',
+        examSetId: receiptDto.examSetId || (snapForReceipt && snapForReceipt.exam && snapForReceipt.exam.examSetId) || '',
+        courseId: receiptDto.courseId || (snapForReceipt && snapForReceipt.attempt && snapForReceipt.attempt.courseId) || currentStudentCourseId || '',
+        canViewResult:
+          Boolean(receiptDto.publishedScoreResult) ||
+          String(receiptDto.publicationStatus || '').toUpperCase() === 'PUBLISHED'
+      };
+      var viewResBtn = document.getElementById('btn-exam-receipt-view-result');
+      if (viewResBtn) {
+        viewResBtn.classList.toggle(
+          'hidden',
+          !(activeSubmissionReceiptMetaPhase6.canViewResult && activeSubmissionReceiptMetaPhase6.examSetId)
+        );
       }
 
       setText('exam-receipt-status-badge', formatFriendlyEnumStatus(receiptDto.attemptStatus || 'SUBMITTED'));
@@ -34486,6 +34839,9 @@ var qrcode = (function() {
         receiptModal.classList.add('hidden');
         syncAllModalAccessibilityAndScrollLock();
       }
+      if (typeof clearRpcReadCache === 'function') {
+        clearRpcReadCache();
+      }
       if (currentStudentCourseId) {
         showSectionView('courseDetail');
         openStudentCourseDetailView(
@@ -34494,6 +34850,7 @@ var qrcode = (function() {
         );
       } else {
         showSectionView(isCurrentSessionAdminUser() ? 'admin' : 'profile');
+        refreshStudentProfileCourses();
       }
     }
 
@@ -34539,6 +34896,9 @@ var qrcode = (function() {
               snap.attempt.studentUserId,
               snap.attempt.attemptId
             );
+          }
+          if (typeof clearRpcReadCache === 'function') {
+            clearRpcReadCache();
           }
           if (d.receipt) {
             openStudentSubmissionReceiptModalPhase6(d.receipt);
@@ -34852,8 +35212,21 @@ var qrcode = (function() {
     function initExamPhase6SubmissionAndGradingBindings() {
       var closeReceiptBtn = document.getElementById('btn-exam-receipt-header-close');
       var returnCourseBtn = document.getElementById('btn-exam-receipt-return-course');
+      var viewResultBtn = document.getElementById('btn-exam-receipt-view-result');
       if (closeReceiptBtn) closeReceiptBtn.addEventListener('click', closeStudentSubmissionReceiptAndReturnPhase6);
       if (returnCourseBtn) returnCourseBtn.addEventListener('click', closeStudentSubmissionReceiptAndReturnPhase6);
+      if (viewResultBtn) {
+        viewResultBtn.addEventListener('click', function () {
+          var meta = activeSubmissionReceiptMetaPhase6;
+          if (!meta || !meta.examSetId) return;
+          closeStudentSubmissionReceiptAndReturnPhase6();
+          setTimeout(function () {
+            if (typeof openStudentPublishedExamResultModalPhase7 === 'function') {
+              openStudentPublishedExamResultModalPhase7(meta.examSetId, meta.attemptId || '');
+            }
+          }, 90);
+        });
+      }
 
       bindActionButton('btn-admin-refresh-attempts-list', function () {
         return loadAdminAttemptsQueuePhase6();
