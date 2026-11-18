@@ -3825,6 +3825,9 @@
         if (els.submitBtn) {
           els.submitBtn.textContent = opts.confirmText || 'Delete Permanently';
           els.submitBtn.setAttribute('data-loading-label', opts.loadingText || 'Deleting...');
+          var usePrimaryBtn = opts.confirmVariant === 'primary';
+          els.submitBtn.classList.toggle('btn-danger', !usePrimaryBtn);
+          els.submitBtn.classList.toggle('btn-primary', usePrimaryBtn);
           els.submitBtn.disabled = false;
         }
         if (els.cancelBtn) els.cancelBtn.disabled = false;
@@ -4337,6 +4340,30 @@
       if (typeof PBAdminActionModal === 'object' && PBAdminActionModal && currentActiveViewName !== viewName) {
         PBAdminActionModal.close();
       }
+      if (currentActiveViewName !== viewName) {
+        var transientModalIds = [
+          'modal-student-exam-instructions',
+          'modal-student-exam-result',
+          'modal-pb-pdf-viewer',
+          'modal-pb-image-zoom',
+          'modal-recording-detail',
+          'modal-admin-assigned-assessment-preview',
+          'modal-admin-receipt-viewer',
+          'modal-report-unavailability'
+        ];
+        var anyModalClosed = false;
+        for (var tm = 0; tm < transientModalIds.length; tm++) {
+          var tmEl = document.getElementById(transientModalIds[tm]);
+          if (tmEl && !tmEl.classList.contains('hidden')) {
+            tmEl.classList.add('hidden');
+            tmEl.setAttribute('aria-hidden', 'true');
+            anyModalClosed = true;
+          }
+        }
+        if (anyModalClosed && typeof syncAllModalAccessibilityAndScrollLock === 'function') {
+          syncAllModalAccessibilityAndScrollLock();
+        }
+      }
       currentActiveViewName = viewName;
       if (document.body && typeof document.body.setAttribute === 'function') {
         document.body.setAttribute('data-active-view', viewName);
@@ -4749,7 +4776,17 @@
           tr.appendChild(tdScore);
 
           var tdPct = document.createElement('td');
-          var pctVal = Number(scr.percentageValue || 0);
+          var rawPctNum =
+            scr.percentageValue !== undefined && scr.percentageValue !== null
+              ? Number(scr.percentageValue)
+              : Number(scr.maxPoints) > 0 && scr.scorePoints !== undefined
+              ? (Number(scr.scorePoints) / Number(scr.maxPoints)) * 100
+              : NaN;
+          var pctVal = isFinite(rawPctNum) ? rawPctNum : 0;
+          var pctText =
+            scr.percentageFormatted ||
+            scr.percentageDisplay ||
+            (isFinite(rawPctNum) ? String(Math.round(pctVal * 10) / 10) + '%' : '-');
           var pillClass =
             pctVal >= 80
               ? 'pb-score-pill pb-score-pill-high'
@@ -4758,7 +4795,7 @@
               : 'pb-score-pill pb-score-pill-low';
           var pctSpan = document.createElement('span');
           pctSpan.className = pillClass;
-          pctSpan.textContent = scr.percentageFormatted || '-';
+          pctSpan.textContent = pctText;
           tdPct.appendChild(pctSpan);
           tr.appendChild(tdPct);
 
@@ -4772,13 +4809,13 @@
             '-';
           tr.appendChild(tdDate);
 
+          var resolvedFeedback = String(scr.feedbackText || scr.feedback || scr.comment || '').trim();
           var tdFb = document.createElement('td');
           tdFb.style.fontSize = '0.88rem';
-          tdFb.style.color = scr.feedbackText
+          tdFb.style.color = resolvedFeedback
             ? 'var(--color-text-primary)'
             : 'var(--color-text-muted)';
-          tdFb.textContent =
-            scr.feedbackText || 'No additional written feedback.';
+          tdFb.textContent = resolvedFeedback || 'No additional written feedback.';
           tr.appendChild(tdFb);
 
           tbody.appendChild(tr);
@@ -8725,34 +8762,30 @@
         (function (u) {
           var tr = document.createElement('tr');
 
-          /* Col 1: User / Normalized Username / Email */
+          /* Col 1: User / Normalized Username / Email (compact 2-line layout fits 1440px cleanly) */
           var tdUser = document.createElement('td');
+          tdUser.className = 'pb-users-primary-cell';
+          var userTopRow = document.createElement('div');
+          userTopRow.className = 'pb-users-primary-top';
           var strongName = document.createElement('strong');
           strongName.style.color = 'var(--color-brand-deep)';
-          strongName.textContent = u.username + ' ';
-          tdUser.appendChild(strongName);
+          strongName.textContent = u.username || '-';
+          userTopRow.appendChild(strongName);
 
           if (u.isMinorFlag) {
             var minorBadge = document.createElement('span');
             minorBadge.className = 'badge badge-incomplete';
             minorBadge.style.fontSize = '0.7rem';
             minorBadge.textContent = 'Minor Flag';
-            tdUser.appendChild(minorBadge);
+            userTopRow.appendChild(minorBadge);
           }
+          tdUser.appendChild(userTopRow);
 
-          var nameSpan = document.createElement('span');
-          nameSpan.style.marginLeft = '6px';
-          nameSpan.style.color = 'var(--color-text-primary)';
-          nameSpan.textContent = '— ' + (u.fullName || '-');
-          tdUser.appendChild(nameSpan);
-
-          var emailSpan = document.createElement('span');
-          emailSpan.style.marginLeft = '8px';
-          emailSpan.style.fontSize = '0.78rem';
-          emailSpan.style.color = 'var(--color-text-muted)';
-          emailSpan.textContent = '(' + u.email + ')';
-          tdUser.appendChild(emailSpan);
-          tdUser.style.whiteSpace = 'nowrap';
+          var userSubRow = document.createElement('div');
+          userSubRow.className = 'pb-users-primary-sub';
+          userSubRow.textContent =
+            (u.fullName || '-') + (u.email ? ' • ' + u.email : '');
+          tdUser.appendChild(userSubRow);
 
           /* Col 2: Role & Status (Kept on same horizontal row) */
           var tdRole = document.createElement('td');
@@ -14924,7 +14957,7 @@
         var tr = document.createElement('tr');
         var td = document.createElement('td');
         td.colSpan = 5;
-        td.textContent = 'No assessments in library yet. Use the form below or seed the sample course.';
+        td.textContent = 'No assessments in library yet. Click "+ New Assessment" above or seed the sample course.';
         tr.appendChild(td);
         tbody.appendChild(tr);
         return;
@@ -15519,27 +15552,28 @@
           typeBadge.textContent =
             sec.sectionType + (sec.isDefaultSection ? ' (Default Section)' : ' (Custom Section)');
 
+          var secStatusVal = String(sec.status || 'PUBLISHED').toUpperCase();
           var stBadge = document.createElement('span');
-          stBadge.className = sec.status === 'PUBLISHED' ? 'badge badge-ok' : 'badge badge-danger';
+          stBadge.className = secStatusVal === 'ARCHIVED' ? 'badge badge-danger' : 'badge badge-ok';
           stBadge.style.marginLeft = '6px';
-          stBadge.textContent = sec.status;
+          stBadge.textContent = secStatusVal;
 
           var h4 = document.createElement('h4');
           h4.style.margin = '6px 0 2px 0';
           h4.style.fontSize = '1.08rem';
           h4.style.color = 'var(--color-brand-deep)';
-          h4.textContent = (secIndex + 1) + '. ' + sec.title;
+          h4.textContent = (secIndex + 1) + '. ' + (sec.title || 'Course Section');
 
           var metaLine = document.createElement('div');
           metaLine.style.fontSize = '0.8rem';
           metaLine.style.color = 'var(--color-text-muted)';
           metaLine.textContent =
             'Sort Order: ' +
-            sec.sortOrder +
+            String(sec.sortOrder !== undefined && sec.sortOrder !== null ? sec.sortOrder : (secIndex + 1) * 10) +
             ' | Updated: ' +
             (sec.updatedAtBangkok || sec.updatedAtUtc || '-') +
             ' | v' +
-            sec.version;
+            String(sec.version !== undefined && sec.version !== null ? sec.version : 1);
 
           titleGroup.appendChild(typeBadge);
           titleGroup.appendChild(stBadge);
@@ -15737,11 +15771,12 @@
                     : crd.cardType;
                 cardInfo.appendChild(cTypeBadge);
 
+                var cardStatusVal = String(crd.status || 'PUBLISHED').toUpperCase();
                 var cStatusBadge = document.createElement('span');
                 cStatusBadge.className =
-                  crd.status === 'PUBLISHED' ? 'badge badge-ok' : 'badge badge-incomplete';
+                  cardStatusVal === 'PUBLISHED' ? 'badge badge-ok' : 'badge badge-incomplete';
                 cStatusBadge.style.marginLeft = '6px';
-                cStatusBadge.textContent = crd.status === 'PUBLISHED' ? 'Published' : crd.status;
+                cStatusBadge.textContent = cardStatusVal === 'PUBLISHED' ? 'Published' : cardStatusVal;
                 cardInfo.appendChild(cStatusBadge);
 
                 if (crd.assessmentArchivedWarning) {
@@ -15756,7 +15791,8 @@
                 cTitle.style.fontWeight = '700';
                 cTitle.style.marginTop = '6px';
                 cTitle.style.color = 'var(--color-brand-deep)';
-                cTitle.textContent = crd.title + ' (v' + crd.version + ')';
+                var cardVer = crd.version !== undefined && crd.version !== null ? crd.version : 1;
+                cTitle.textContent = (crd.title || 'Untitled Card') + ' (v' + cardVer + ')';
                 cardInfo.appendChild(cTitle);
 
                 if (crd.subtitle) {
@@ -17128,7 +17164,7 @@
           );
           if (activeStudentSectionFilter === sItem.sectionId && activeBadge) {
             activeBadge.textContent = isAsmSec
-              ? 'Showing: ' + sItem.title + ' & Published Scores'
+              ? 'Showing: ' + sItem.title + ' & Scores'
               : 'Showing Section: ' + sItem.title;
           }
         }
@@ -20511,9 +20547,25 @@ var qrcode = (function() {
             String(totals.eligibleUnpaidCount || 0) +
               (totals.eligibleUnpaidCount === 1 ? ' installment' : ' installments')
           );
+          var resolvedClockBkk = d.serverNowBangkok || d.serverNow;
+          if (!resolvedClockBkk) {
+            try {
+              resolvedClockBkk = new Intl.DateTimeFormat('en-GB', {
+                timeZone: 'Asia/Bangkok',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+              }).format(new Date());
+            } catch (_) {
+              resolvedClockBkk = 'Bangkok (ICT)';
+            }
+          }
           setText(
             'student-payment-server-clock-bkk',
-            'Server Clock (BKK): ' + (d.serverNowBangkok || d.serverNow || '-')
+            'Server Clock (BKK): ' + resolvedClockBkk
           );
           setText(
             'student-payment-awaiting-total',
@@ -22465,12 +22517,21 @@ var qrcode = (function() {
             'calendar-summary-month-label',
             r.monthDisplayName || r.monthKey || targetMonth
           );
+          var calStartFallback = r.startDateBkk;
+          var calEndFallback = r.endDateBkk;
+          if (!calStartFallback || !calEndFallback) {
+            var mKey = String(r.monthKey || targetMonth || '').match(/^(\d{4})-(\d{2})$/);
+            if (mKey) {
+              var mLastDay = new Date(Number(mKey[1]), Number(mKey[2]), 0).getDate();
+              calStartFallback = mKey[1] + '-' + mKey[2] + '-01';
+              calEndFallback = mKey[1] + '-' + mKey[2] + '-' + (mLastDay < 10 ? '0' : '') + mLastDay;
+            }
+          }
           setText(
             'calendar-summary-range-dates',
-            (r.startDateBkk || '') +
-              ' to ' +
-              (r.endDateBkk || '') +
-              ' (Asia/Bangkok)'
+            calStartFallback && calEndFallback
+              ? calStartFallback + ' to ' + calEndFallback + ' (Asia/Bangkok)'
+              : 'Asia/Bangkok (GMT+7)'
           );
           setText(
             'calendar-summary-total-events',
@@ -24237,6 +24298,55 @@ var qrcode = (function() {
           } catch (renderErr) {
             console.error('Non-fatal course section render error:', renderErr);
           }
+          var statJumpBtns = document.querySelectorAll('[data-course-stat-jump]');
+          for (var sj = 0; sj < statJumpBtns.length; sj++) {
+            (function (btn) {
+              if (btn.dataset && btn.dataset.boundStatJump) return;
+              if (btn.dataset) btn.dataset.boundStatJump = '1';
+              btn.addEventListener('click', function () {
+                if (!currentStudentCourseDetailBundle) return;
+                var kind = btn.getAttribute('data-course-stat-jump');
+                var bundleSecs = Array.isArray(currentStudentCourseDetailBundle.sections)
+                  ? currentStudentCourseDetailBundle.sections
+                  : [];
+                if (kind === 'sections') {
+                  renderStudentCourseSectionsFiltered(currentStudentCourseDetailBundle, 'ALL');
+                  var navSec = document.getElementById('student-course-section-cards-nav');
+                  if (navSec) navSec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else if (kind === 'lessons') {
+                  var readSec = bundleSecs.find(function (s) {
+                    return s && (s.sectionType === 'READING' || s.sectionType === 'RECORDING');
+                  });
+                  renderStudentCourseSectionsFiltered(
+                    currentStudentCourseDetailBundle,
+                    readSec ? readSec.sectionId : 'ALL'
+                  );
+                  var host = document.getElementById('student-course-sections-container');
+                  if (host) host.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } else if (kind === 'exams') {
+                  var asmSecForEx = bundleSecs.find(function (s) {
+                    return s && s.sectionType === 'ASSESSMENT';
+                  });
+                  renderStudentCourseSectionsFiltered(
+                    currentStudentCourseDetailBundle,
+                    asmSecForEx ? asmSecForEx.sectionId : 'ALL'
+                  );
+                  var exCard = document.getElementById('student-course-native-exams-card');
+                  if (exCard) exCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } else if (kind === 'scores') {
+                  var asmSec = bundleSecs.find(function (s) {
+                    return s && s.sectionType === 'ASSESSMENT';
+                  });
+                  renderStudentCourseSectionsFiltered(
+                    currentStudentCourseDetailBundle,
+                    asmSec ? asmSec.sectionId : 'SCORES'
+                  );
+                  var scCard = document.getElementById('student-course-published-scores-card');
+                  if (scCard) scCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              });
+            })(statJumpBtns[sj]);
+          }
           showSectionView('courseDetail');
           if (typeof PBFloatingToc === 'object' && PBFloatingToc) {
             PBFloatingToc.syncForActiveView('courseDetail');
@@ -25995,11 +26105,35 @@ var qrcode = (function() {
       currentQBankStimuliCachePhase2 = stimuli;
 
       var cStatus = summary.countsByStatus || {};
-      setText('qbank-kpi-total', String(summary.totalQuestionsInBank || 0));
-      setText('qbank-kpi-published', String(cStatus.PUBLISHED || 0));
+      var totalQCount =
+        summary.totalQuestionsInBank !== undefined &&
+        summary.totalQuestionsInBank !== null &&
+        (Number(summary.totalQuestionsInBank) > 0 || list.length === 0)
+          ? Number(summary.totalQuestionsInBank)
+          : list.length;
+      var pubQCount =
+        cStatus.PUBLISHED !== undefined && (Number(cStatus.PUBLISHED) > 0 || list.length === 0)
+          ? Number(cStatus.PUBLISHED)
+          : list.filter(function (item) {
+              return String(item.status || 'PUBLISHED').toUpperCase() === 'PUBLISHED';
+            }).length;
+      var draftQCount =
+        cStatus.DRAFT !== undefined
+          ? Number(cStatus.DRAFT)
+          : list.filter(function (item) {
+              return String(item.status || '').toUpperCase() === 'DRAFT';
+            }).length;
+      var archQCount =
+        cStatus.ARCHIVED !== undefined
+          ? Number(cStatus.ARCHIVED)
+          : list.filter(function (item) {
+              return String(item.status || '').toUpperCase() === 'ARCHIVED';
+            }).length;
+      setText('qbank-kpi-total', String(totalQCount));
+      setText('qbank-kpi-published', String(pubQCount));
       setText(
         'qbank-kpi-draft',
-        String(cStatus.DRAFT || 0) + ' Draft / ' + String(cStatus.ARCHIVED || 0) + ' Archived'
+        String(draftQCount) + ' Draft / ' + String(archQCount) + ' Archived'
       );
       setText('qbank-kpi-stimuli', String(stimuli.length));
 
@@ -26160,8 +26294,17 @@ var qrcode = (function() {
             var verDiv = document.createElement('div');
             verDiv.style.fontSize = '0.76rem';
             verDiv.style.color = 'var(--color-text-secondary)';
-            verDiv.textContent =
-              'v' + q.versionNo + ' (' + q.usedInAttemptsCount + ' attempts)';
+            var qVerNum =
+              q.versionNo !== undefined && q.versionNo !== null
+                ? q.versionNo
+                : q.version !== undefined && q.version !== null
+                ? q.version
+                : 1;
+            var qAttCnt =
+              q.usedInAttemptsCount !== undefined && q.usedInAttemptsCount !== null
+                ? Number(q.usedInAttemptsCount)
+                : Number(q.attemptsCount || 0);
+            verDiv.textContent = 'v' + qVerNum + ' (' + qAttCnt + ' attempts)';
             td4.appendChild(verDiv);
 
             /* Col 5: Status */
@@ -27784,7 +27927,13 @@ var qrcode = (function() {
           structWrap.className = 'pb-table-stat-group';
           var secSt = document.createElement('span');
           secSt.className = 'pb-table-stat-chip';
-          secSt.textContent = String(ex.sectionCount || 0) + ' sec · ' + String(ex.totalQuestionsCount || 0) + ' Qs';
+          var effectiveSecCount =
+            Number(ex.sectionCount) > 0
+              ? Number(ex.sectionCount)
+              : Number(ex.totalQuestionsCount || 0) > 0
+              ? 1
+              : 0;
+          secSt.textContent = String(effectiveSecCount) + ' sec · ' + String(ex.totalQuestionsCount || 0) + ' Qs';
           var ptsSt = document.createElement('span');
           ptsSt.className = 'pb-table-stat-chip';
           ptsSt.textContent = ex.maxPointsDisplay || '0 pts';
@@ -28715,10 +28864,14 @@ var qrcode = (function() {
           }
         );
 
+        var secCardWrap = document.getElementById('exam-inst-sections-card');
         var secTbody = document.getElementById('exam-inst-sections-tbody');
+        var secs = Array.isArray(ex.sectionsOverview) ? ex.sectionsOverview : [];
+        if (secCardWrap) {
+          secCardWrap.classList.toggle('hidden', secs.length === 0);
+        }
         if (secTbody) {
           while (secTbody.firstChild) secTbody.removeChild(secTbody.firstChild);
-          var secs = Array.isArray(ex.sectionsOverview) ? ex.sectionsOverview : [];
           for (var s = 0; s < secs.length; s++) {
             var tr = document.createElement('tr');
             var td1 = document.createElement('td');
@@ -28743,10 +28896,14 @@ var qrcode = (function() {
           }
         }
 
+        var rulesCardWrap = document.getElementById('exam-inst-guidelines-card');
         var rulesUl = document.getElementById('exam-inst-rules-list');
+        var rules = Array.isArray(data.rulesChecklist) ? data.rulesChecklist : [];
+        if (rulesCardWrap) {
+          rulesCardWrap.classList.toggle('hidden', rules.length === 0);
+        }
         if (rulesUl) {
           while (rulesUl.firstChild) rulesUl.removeChild(rulesUl.firstChild);
-          var rules = Array.isArray(data.rulesChecklist) ? data.rulesChecklist : [];
           for (var r = 0; r < rules.length; r++) {
             var li = document.createElement('li');
             li.className = 'pb-inst-rule-item';
@@ -29018,10 +29175,14 @@ var qrcode = (function() {
       }
 
       function getRemainingSeconds() {
-        if (!state.attempt || !state.attempt.effectiveDeadlineUtc) {
+        if (!state.attempt) {
           return null;
         }
-        var deadMs = Date.parse(state.attempt.effectiveDeadlineUtc);
+        var deadlineStr = state.attempt.effectiveDeadlineUtc || state.attempt.serverDeadlineUtc || '';
+        if (!deadlineStr) {
+          return null;
+        }
+        var deadMs = Date.parse(deadlineStr);
         if (isNaN(deadMs)) return null;
         return Math.max(0, Math.floor((deadMs - getAuthoritativeNowMs()) / 1000));
       }
@@ -29035,6 +29196,16 @@ var qrcode = (function() {
 
         syncServerClockOffset(bundle.serverNowUtc);
         state.attempt = bundle.attempt;
+        if (
+          !state.attempt.effectiveDeadlineUtc &&
+          !state.attempt.serverDeadlineUtc &&
+          typeof state.attempt.remainingSeconds === 'number' &&
+          state.attempt.remainingSeconds > 0
+        ) {
+          state.attempt.effectiveDeadlineUtc = new Date(
+            getAuthoritativeNowMs() + state.attempt.remainingSeconds * 1000
+          ).toISOString();
+        }
         state.exam = bundle.exam || {};
         state.sections = Array.isArray(bundle.sections) ? bundle.sections : [];
         state.items = Array.isArray(bundle.items) ? bundle.items : [];
@@ -33651,7 +33822,16 @@ var qrcode = (function() {
       currentExamWorkspaceQuestionIndexPhase5 = 0;
       currentExamNavigatorFilterPhase5 = 'ALL';
 
-      setText('exam-ws-mode-badge', snap.exam.examModeLabel || snap.exam.examMode || 'Examination');
+      var friendlyWsMode =
+        snap.exam.examModeLabel ||
+        (snap.exam.examMode === 'PRACTICE'
+          ? 'Practice Quiz'
+          : snap.exam.examMode === 'MOCK_EXAM'
+          ? 'Timed Mock Exam'
+          : snap.exam.examMode === 'ASSIGNED'
+          ? 'Assigned Exam'
+          : formatFriendlyEnumStatus(snap.exam.examMode) || 'Examination');
+      setText('exam-ws-mode-badge', friendlyWsMode);
       var wsModeBadge = document.getElementById('exam-ws-mode-badge');
       if (wsModeBadge) {
         wsModeBadge.className =
@@ -33873,6 +34053,48 @@ var qrcode = (function() {
             navigateExamQuestionByIndexPhase5(currentExamWorkspaceQuestionIndexPhase5 + 1);
           } else {
             openExamSubmitReadinessModalPhase5();
+          }
+        });
+      }
+
+      if (!window.__pbExamWsKeyboardBound) {
+        window.__pbExamWsKeyboardBound = true;
+        document.addEventListener('keydown', function (evt) {
+          if (currentActiveViewName !== 'examWorkspace') return;
+          if (evt.altKey || evt.ctrlKey || evt.metaKey) return;
+          var anyModal = document.querySelector('.modal-backdrop:not(.hidden)');
+          if (anyModal) return;
+          var t = evt.target;
+          var tag = t && t.tagName ? t.tagName.toUpperCase() : '';
+          if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) {
+            return;
+          }
+          var snap = window.PBExamAutosaveEngine.getSnapshot();
+          if (!snap || !snap.attempt || !Array.isArray(snap.items) || snap.items.length === 0) return;
+
+          if (evt.key === 'ArrowLeft') {
+            if (currentExamWorkspaceQuestionIndexPhase5 > 0) {
+              evt.preventDefault();
+              navigateExamQuestionByIndexPhase5(currentExamWorkspaceQuestionIndexPhase5 - 1);
+            }
+          } else if (evt.key === 'ArrowRight') {
+            if (currentExamWorkspaceQuestionIndexPhase5 < snap.items.length - 1) {
+              evt.preventDefault();
+              navigateExamQuestionByIndexPhase5(currentExamWorkspaceQuestionIndexPhase5 + 1);
+            }
+          } else if (evt.key === 'f' || evt.key === 'F') {
+            var fb = document.getElementById('btn-exam-ws-toggle-flag');
+            if (fb && !fb.disabled) {
+              evt.preventDefault();
+              fb.click();
+            }
+          } else if (/^[1-5]$/.test(evt.key)) {
+            var idxOpt = Number(evt.key) - 1;
+            var optCards = document.querySelectorAll('#exam-ws-options-list .pb-exam-option-card');
+            if (optCards && optCards[idxOpt]) {
+              evt.preventDefault();
+              optCards[idxOpt].click();
+            }
           }
         });
       }
@@ -36020,7 +36242,6 @@ var qrcode = (function() {
       var profTbody = document.getElementById('admin-integrity-profiles-tbody');
       if (profTbody) {
         while (profTbody.firstChild) profTbody.removeChild(profTbody.firstChild);
-        profTbody.children = [];
         var profs = Array.isArray(d.studentProfiles) ? d.studentProfiles : [];
         if (profs.length === 0) {
           var trEmptyP = document.createElement('tr');
@@ -36100,7 +36321,6 @@ var qrcode = (function() {
       var evTbody = document.getElementById('admin-integrity-events-tbody');
       if (evTbody) {
         while (evTbody.firstChild) evTbody.removeChild(evTbody.firstChild);
-        evTbody.children = [];
         var evs = Array.isArray(d.events) ? d.events : [];
         if (evs.length === 0) {
           var trEmptyE = document.createElement('tr');
@@ -36948,7 +37168,7 @@ var qrcode = (function() {
           if (tBtn && !(tBtn.dataset && tBtn.dataset.boundTab)) {
             if (tBtn.dataset) tBtn.dataset.boundTab = '1';
             tBtn.addEventListener('click', function () {
-              switchAdminSubTab(tKey, false, true);
+              switchAdminSubTab(tKey, false, false);
             });
           }
         })(adminTabKeys[tIdx]);

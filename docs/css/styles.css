@@ -3555,8 +3555,10 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 8px 10px;
     min-width: 0;
+    min-height: 76px;
     padding: 10px 12px;
     border-radius: 14px;
     background: #F8FAFC;
@@ -3581,11 +3583,11 @@
   }
 
   .pb-contact-handle-value {
-    font-size: 0.88rem;
+    font-size: 0.81rem;
     font-weight: 700;
     color: #0F172A;
-    overflow-wrap: anywhere;
-    word-break: break-word;
+    overflow-wrap: break-word;
+    word-break: normal;
     line-height: 1.35;
   }
 
@@ -4827,10 +4829,15 @@
   }
 
   .pb-footer-contact-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 3px 0;
     color: #F8FAFC;
     font-size: 0.94rem;
     font-weight: 600;
     text-decoration: none;
+    transition: color 180ms ease;
   }
 
   .pb-footer-contact-link:hover {
@@ -5973,17 +5980,17 @@
   @keyframes pbViewFadeSlideIn {
     0% {
       opacity: 0;
-      transform: translateY(10px);
+      transform: translate3d(0, 8px, 0);
     }
     100% {
       opacity: 1;
-      transform: translateY(0);
+      transform: translate3d(0, 0, 0);
     }
   }
 
   main > section:not(.hidden),
   #view-admin [role="tabpanel"]:not(.hidden) {
-    animation: pbViewFadeSlideIn 320ms var(--pb-ease-smooth);
+    animation: pbViewFadeSlideIn 280ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .card,
@@ -8742,7 +8749,10 @@
   .pb-auth-ref-forgot-trigger {
     background: none;
     border: none;
-    padding: 2px 4px;
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 4px 6px;
     font-family: var(--pb-font-sans);
     font-size: 0.82rem;
     font-weight: 700;
@@ -11378,19 +11388,46 @@
     display: block !important;
   }
 
-  #admin-panel-users .data-table th,
-  #admin-panel-users .data-table td {
+  #admin-panel-users .data-table th {
     white-space: nowrap !important;
+    font-size: 0.74rem !important;
+    padding: 10px 10px !important;
     vertical-align: middle !important;
+  }
+
+  #admin-panel-users .data-table td {
+    padding: 10px !important;
+    vertical-align: middle !important;
+  }
+
+  .pb-users-primary-cell {
+    min-width: 190px;
+    max-width: 260px;
+    white-space: normal !important;
+  }
+
+  .pb-users-primary-top {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    line-height: 1.25;
+  }
+
+  .pb-users-primary-sub {
+    margin-top: 2px;
+    font-size: 0.78rem;
+    color: var(--color-text-secondary);
+    line-height: 1.3;
+    overflow-wrap: anywhere;
   }
 
   .pb-users-inline-row,
   .pb-users-actions-inline-row {
     display: inline-flex !important;
     align-items: center !important;
-    flex-wrap: nowrap !important;
-    gap: 6px !important;
-    white-space: nowrap !important;
+    flex-wrap: wrap !important;
+    gap: 5px !important;
   }
 
   .pb-users-meta-chip {
@@ -13721,7 +13758,16 @@
     border-radius: 12px !important;
     display: flex !important;
     align-items: center !important;
-    justify-content: flex-end !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+  }
+  .pb-calendar-toolbar-caption {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #475569;
   }
   #view-calendar .calendar-controls-toolbar > div:first-child {
     display: none !important;
@@ -15661,8 +15707,13 @@
 
   .pb-course-card-stats-row {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 6px;
+  }
+  @media (max-width: 440px) {
+    .pb-course-card-stats-row {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   .pb-course-card-stat-pill {
@@ -19041,6 +19092,25 @@
     background: rgba(255, 255, 255, 0.9);
     border: 1px solid #D1FAE5;
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+    font-family: inherit;
+    text-align: left;
+  }
+  .pb-course-stat-btn {
+    cursor: pointer;
+    transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  }
+  .pb-course-stat-btn:hover {
+    transform: translateY(-2px);
+    background: #FFFFFF;
+    border-color: #10B981;
+    box-shadow: 0 8px 16px -6px rgba(16, 185, 129, 0.22);
+  }
+  .pb-course-stat-btn:active {
+    transform: translateY(0) scale(0.985);
+  }
+  .pb-course-stat-btn:focus-visible {
+    outline: 3px solid rgba(16, 185, 129, 0.35);
+    outline-offset: 2px;
   }
   .pb-course-stat-label {
     font-size: 0.78rem;
@@ -19180,4 +19250,88 @@
     flex-wrap: wrap;
     padding-top: 12px;
     border-top: 1px solid #E2E8F0;
+  }
+
+  /* ==========================================================================
+     POLISH: EXAM INTEGRITY COMPACT TABLES, WORKSPACE MOBILE HEADER & KBD HINTS
+     ========================================================================== */
+  table[aria-label="Student integrity profiles and account locks"] th,
+  table[aria-label="Detected copy events and invalidated attempts"] th {
+    white-space: normal;
+    font-size: 0.72rem;
+    line-height: 1.3;
+    padding: 10px;
+    min-width: 96px;
+  }
+  table[aria-label="Student integrity profiles and account locks"] td,
+  table[aria-label="Detected copy events and invalidated attempts"] td {
+    padding: 10px;
+    font-size: 0.84rem;
+  }
+
+  @keyframes pbExamChoicePulse {
+    0% { transform: scale(0.992); }
+    60% { transform: scale(1.004); }
+    100% { transform: scale(1); }
+  }
+  .pb-exam-option-card.is-selected {
+    animation: pbExamChoicePulse 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .pb-exam-kbd-hint {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+  }
+  .pb-exam-kbd-hint kbd {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 5px;
+    border: 1px solid #CBD5E1;
+    background: #F8FAFC;
+    font-family: var(--pb-font-mono, monospace);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #334155;
+  }
+  @media (hover: none) and (pointer: coarse) {
+    .pb-exam-kbd-hint {
+      display: none;
+    }
+  }
+  @media (max-width: 640px) {
+    .pb-exam-ws-header-card {
+      top: 56px;
+      padding: 10px 12px;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    #exam-ws-title {
+      font-size: 1rem !important;
+      margin-top: 4px !important;
+    }
+    .pb-exam-ws-header-right {
+      gap: 6px;
+    }
+    .pb-exam-timer-pill,
+    .pb-exam-save-pill {
+      padding: 4px 10px;
+      font-size: 0.74rem;
+    }
+    .pb-exam-ws-header-right .btn-sm {
+      padding: 6px 10px;
+      min-height: 32px;
+      font-size: 0.78rem;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pb-exam-option-card.is-selected,
+    .pb-course-stat-btn {
+      animation: none !important;
+      transition: none !important;
+    }
   }

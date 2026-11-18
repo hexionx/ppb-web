@@ -1383,23 +1383,23 @@
     </h1>
     <div id="student-course-subtitle" class="pb-course-hero-subtitle"></div>
 
-    <div class="pb-course-quickstats-strip" id="student-course-quickstats-strip">
-      <div class="pb-course-stat-pill">
+    <div class="pb-course-quickstats-strip" id="student-course-quickstats-strip" role="group" aria-label="Course Quick Jump Statistics">
+      <button type="button" class="pb-course-stat-pill pb-course-stat-btn" data-course-stat-jump="sections" title="Show all course sections">
         <span class="pb-course-stat-label">Sections</span>
         <strong class="pb-course-stat-val" id="student-course-stat-sections">0</strong>
-      </div>
-      <div class="pb-course-stat-pill">
+      </button>
+      <button type="button" class="pb-course-stat-pill pb-course-stat-btn" data-course-stat-jump="lessons" title="Jump to reading materials &amp; lessons">
         <span class="pb-course-stat-label">Materials &amp; Lessons</span>
         <strong class="pb-course-stat-val" id="student-course-stat-lessons">0</strong>
-      </div>
-      <div class="pb-course-stat-pill">
+      </button>
+      <button type="button" class="pb-course-stat-pill pb-course-stat-btn" data-course-stat-jump="exams" title="Jump to practice quizzes &amp; timed exams">
         <span class="pb-course-stat-label">Quizzes &amp; Exams</span>
         <strong class="pb-course-stat-val" id="student-course-stat-exams">0</strong>
-      </div>
-      <div class="pb-course-stat-pill">
+      </button>
+      <button type="button" class="pb-course-stat-pill pb-course-stat-btn" data-course-stat-jump="scores" title="Jump to published assessment scores">
         <span class="pb-course-stat-label">Published Scores</span>
         <strong class="pb-course-stat-val" id="student-course-stat-scores">0</strong>
-      </div>
+      </button>
     </div>
 
     <div class="banner banner-warning hidden pb-public-launch-hidden" style="display: none !important;" aria-hidden="true">
@@ -1822,6 +1822,11 @@
         <button type="button" class="btn btn-primary btn-sm" id="btn-exam-ws-next-question">
           Next Question
         </button>
+      </div>
+      <div class="pb-exam-kbd-hint" aria-hidden="true">
+        <span>Shortcuts: <kbd>&larr;</kbd>/<kbd>&rarr;</kbd> Navigate</span>
+        <span>&middot; <kbd>1</kbd>-<kbd>5</kbd> Select Option</span>
+        <span>&middot; <kbd>F</kbd> Flag Question</span>
       </div>
     </div>
 
@@ -3931,6 +3936,8 @@
           <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="9 18 15 12 9 6"></polyline></svg>
         </button>
       </div>
+
+      <span class="pb-calendar-toolbar-caption">Quick Jump to Month &amp; Year</span>
 
       <form
         id="form-calendar-month-selector"
@@ -11252,7 +11259,7 @@
         <div id="exam-inst-pdf-box" class="pb-student-pdf-resources-box hidden" style="margin-top: 10px;"></div>
       </div>
 
-      <div class="pb-inst-section-card">
+      <div class="pb-inst-section-card" id="exam-inst-sections-card">
         <div class="pb-inst-section-heading">Section Breakdown</div>
         <div class="pb-scores-table-wrap pb-inst-table-wrap">
           <table class="pb-scores-table pb-inst-breakdown-table" aria-label="Examination sections breakdown">
@@ -11269,7 +11276,7 @@
         </div>
       </div>
 
-      <div class="pb-inst-section-card">
+      <div class="pb-inst-section-card" id="exam-inst-guidelines-card">
         <div class="pb-inst-section-heading">Assessment Guidelines</div>
         <ul id="exam-inst-rules-list" class="pb-inst-rules-checklist"></ul>
       </div>
@@ -11597,7 +11604,7 @@
       <button type="button" class="btn btn-outline btn-sm" id="btn-confirm-action-cancel">
         Cancel
       </button>
-      <button type="button" class="btn btn-primary btn-sm" id="btn-confirm-action-submit" style="background: #DC2626; border-color: #B91C1C;">
+      <button type="button" class="btn btn-danger btn-sm" id="btn-confirm-action-submit">
         Delete Permanently
       </button>
     </div>
