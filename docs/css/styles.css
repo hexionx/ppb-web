@@ -20171,18 +20171,39 @@
       word-break: break-word !important;
       overflow-wrap: break-word !important;
     }
+    table.data-table:has(tbody > tr:only-child > td[colspan]),
+    table.pb-scores-table:has(tbody > tr:only-child > td[colspan]) {
+      min-width: 0 !important;
+      width: 100% !important;
+      table-layout: fixed !important;
+    }
+    table.data-table:has(tbody > tr:only-child > td[colspan]) thead {
+      display: none !important;
+    }
   }
 
   /* 6. Student Class Calendar — Compact Empty Pill, Soft Overflow Borders & Mobile Touch Targets */
+  #calendar-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
   #calendar-empty-state .badge,
   .calendar-empty-state .badge {
     display: inline-flex !important;
+    align-self: center !important;
     width: auto !important;
     max-width: 100% !important;
   }
+  #view-calendar .calendar-day-cell.is-outside-month,
+  #view-calendar .calendar-day-cell.is-pad,
   .calendar-day-cell.is-outside-month {
-    border-color: #E2E8F0 !important;
+    border: none !important;
+    border-right: 1px solid #DADCE0 !important;
+    border-bottom: 1px solid #DADCE0 !important;
     outline: none !important;
+    box-shadow: none !important;
   }
   .unavail-policy-callout {
     border: 1.5px solid #FDE68A !important;
@@ -20192,11 +20213,13 @@
     overflow: hidden;
   }
   @media (max-width: 767px) {
-    #btn-calendar-open-unavailability-modal,
-    #btn-calendar-refresh,
+    #view-calendar #btn-calendar-open-unavailability-modal,
+    #view-calendar #btn-calendar-refresh,
     #btn-student-unavail-open-modal-secondary,
     #btn-student-unavail-refresh {
       min-height: 38px !important;
+      padding: 7px 12px !important;
+      font-size: 0.8rem !important;
     }
     .pb-gcal-appbar .btn,
     .pb-gcal-appbar button,
