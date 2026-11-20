@@ -25,13 +25,25 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function formatCategoryBadge(cat: string): { label: string; bg: string; fg: string } {
+function formatCategoryBadge(cat: string): { label: string; bg: string; fg: string; border: string } {
   const key = String(cat || "GENERAL").toUpperCase();
-  if (key === "GRADES") return { label: "Scores & Grades Update", bg: "#DCFCE7", fg: "#166534" };
-  if (key === "NEW_COURSE") return { label: "New Course & Content", bg: "#E0F2FE", fg: "#0369A1" };
-  if (key === "STUDY_LINK") return { label: "Study Resource Link", bg: "#F3E8FF", fg: "#6B21A8" };
-  if (key === "BILLING") return { label: "Tuition & Billing Update", bg: "#FEF3C7", fg: "#92400E" };
-  return { label: "School Announcement", bg: "#EEF2F3", fg: "#111827" };
+  if (key === "GRADES") return { label: "Scores & Grades Update", bg: "#E6F6EC", fg: "#0D6832", border: "#86EFAC" };
+  if (key === "NEW_COURSE") return { label: "New Course & Content", bg: "#ECFEFF", fg: "#0E7490", border: "#A5F3FC" };
+  if (key === "STUDY_LINK") return { label: "Study Resource Link", bg: "#F3E8FF", fg: "#6B21A8", border: "#D8B4FE" };
+  if (key === "BILLING") return { label: "Tuition & Billing Update", bg: "#FEF4E6", fg: "#8A4B08", border: "#FCD34D" };
+  return { label: "School Announcement", bg: "#ECFDF5", fg: "#0F6E43", border: "#A7F3D0" };
+}
+
+function resolveAnnouncementActionLink(linkUrl: string, linkLabel: string): { url: string; label: string } {
+  const portalUrl = "https://hexionx.github.io/ppb-web/";
+  const raw = String(linkUrl || "").trim();
+  const isHttps = /^https:\/\//i.test(raw);
+  const isPortalHash = /^#\/[a-z0-9/_-]+$/i.test(raw);
+  const url = isHttps ? raw : isPortalHash ? `${portalUrl}${raw}` : portalUrl;
+  const label = isHttps || isPortalHash
+    ? String(linkLabel || "").trim() || (isPortalHash ? "Open Section in Portal" : "Open Resource Link")
+    : "Open Student Portal";
+  return { url, label };
 }
 
 function buildAnnouncementEmailHtml(params: {
@@ -46,67 +58,83 @@ function buildAnnouncementEmailHtml(params: {
 }): string {
   const badge = formatCategoryBadge(params.category);
   const safeBodyHtml = escapeHtml(params.bodyText).replace(/\r?\n/g, "<br />");
-  const hasSafeLink = /^https:\/\//i.test(params.linkUrl);
   const portalUrl = "https://hexionx.github.io/ppb-web/";
-  const ctaUrl = hasSafeLink ? params.linkUrl : portalUrl;
-  const ctaText = hasSafeLink
-    ? params.linkLabel || "Open Resource Link"
-    : "Open Student Portal";
+  const actionLink = resolveAnnouncementActionLink(params.linkUrl, params.linkLabel);
+  const logoUrl = "https://hexionx.github.io/ppb-web/assets/email-logo.png";
+  const pillSubtitle = params.schoolName && params.schoolName !== "Pattanabhumi Biology"
+    ? `${params.schoolName} — Student Portal`
+    : "Private Student & Examination Portal";
 
   return `
     <!DOCTYPE html>
     <html>
-    <body style="margin: 0; padding: 0; background-color: #F4F5F7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F4F5F7; padding: 32px 16px;">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #F4FAF7; font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0F2419;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F4FAF7; padding: 28px 14px;">
         <tr>
           <td align="center">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 580px; background-color: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; overflow: hidden;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 580px; background-color: #FFFFFF; border: 1.5px solid #B7E4C7; border-radius: 20px; overflow: hidden; box-shadow: 0 16px 36px -14px rgba(15, 36, 25, 0.10);">
+              <!-- Website Signature Cyan-to-Emerald Top Accent Bar -->
               <tr>
-                <td style="padding: 36px 32px 30px 32px;">
-                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto 20px auto;">
-                    <tr>
-                      <td style="vertical-align: middle; padding-right: 10px;">
-                        <img src="https://hexionx.github.io/ppb-web/assets/logo.webp" alt="${escapeHtml(params.schoolName)}" width="36" height="36" style="display: block; border-radius: 8px; border: 0;" />
-                      </td>
-                      <td style="vertical-align: middle; font-size: 19px; font-weight: 700; color: #111827; letter-spacing: -0.02em;">
-                        ${escapeHtml(params.schoolName)}
-                      </td>
-                    </tr>
-                  </table>
+                <td height="5" style="height: 5px; line-height: 5px; font-size: 0; background-color: #0891B2; background-image: linear-gradient(90deg, #06B6D4 0%, #10B981 100%);">&nbsp;</td>
+              </tr>
 
+              <!-- Brand Masthead Header (Crisp Official Wordmark on Opaque White Pill) -->
+              <tr>
+                <td align="center" style="padding: 24px 28px 18px 28px; background-color: #F0FDFA; background-image: linear-gradient(135deg, #F0FDFA 0%, #ECFDF5 100%); border-bottom: 1px solid #D1FAE5;">
+                  <div style="display: inline-block; background-color: #FFFFFF; border: 1.5px solid #B7E4C7; border-radius: 14px; padding: 6px 14px; box-shadow: 0 6px 16px -8px rgba(15, 110, 67, 0.16);">
+                    <img src="${logoUrl}" alt="${escapeHtml(params.schoolName)}" width="220" height="66" style="display: block; width: 220px; max-width: 100%; height: auto; border: 0;" />
+                  </div>
+                  <div style="margin-top: 12px;">
+                    <span style="display: inline-block; padding: 4px 12px; border-radius: 9999px; background-color: #FFFFFF; border: 1px solid #A5F3FC; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: #0E7490; text-transform: uppercase;">
+                      <span style="color: #10B981;">&#9679;&nbsp;</span>${escapeHtml(pillSubtitle)}
+                    </span>
+                  </div>
+                </td>
+              </tr>
+
+              <!-- Main Announcement Card Body -->
+              <tr>
+                <td style="padding: 28px 30px 26px 30px;">
                   <div style="text-align: center; margin-bottom: 12px;">
-                    <span style="display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; background-color: ${badge.bg}; color: ${badge.fg};">
+                    <span style="display: inline-block; padding: 5px 14px; border-radius: 9999px; font-size: 12px; font-weight: 700; background-color: ${badge.bg}; color: ${badge.fg}; border: 1px solid ${badge.border};">
                       ${escapeHtml(badge.label)}
                     </span>
                   </div>
 
-                  <h1 style="margin: 0 0 12px 0; font-size: 21px; line-height: 1.35; font-weight: 700; color: #111827; text-align: center;">
+                  <h1 style="margin: 0 0 18px 0; font-size: 22px; line-height: 1.35; font-weight: 800; color: #1B4332; text-align: center;">
                     ${escapeHtml(params.title)}
                   </h1>
 
-                  <p style="margin: 0 0 14px 0; font-size: 14px; line-height: 1.6; color: #374151;">
+                  <p style="margin: 0 0 12px 0; font-size: 15px; font-weight: 600; line-height: 1.6; color: #0F2419;">
                     Hello ${escapeHtml(params.recipientName || "Student")},
                   </p>
 
-                  <div style="margin: 0 0 22px 0; padding: 18px 20px; background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; font-size: 14px; line-height: 1.65; color: #1F2937;">
+                  <div style="margin: 0 0 24px 0; padding: 18px 20px; background-color: #F7FCFA; border: 1.5px solid #B7E4C7; border-radius: 14px; font-size: 14.5px; line-height: 1.65; color: #1E3A2F; word-break: break-word; overflow-wrap: anywhere;">
                     ${safeBodyHtml}
                   </div>
 
-                  <div style="text-align: center; margin: 0 0 24px 0;">
-                    <a href="${escapeHtml(ctaUrl)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 12px 24px; background-color: #0D5C75; color: #FFFFFF; font-size: 14px; font-weight: 700; text-decoration: none; border-radius: 10px;">
-                      ${escapeHtml(ctaText)}
+                  <div style="text-align: center; margin: 0 0 6px 0;">
+                    <a href="${escapeHtml(actionLink.url)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 13px 28px; background-color: #0891B2; background-image: linear-gradient(90deg, #06B6D4 0%, #10B981 100%); color: #FFFFFF; font-size: 14.5px; font-weight: 700; text-decoration: none; border-radius: 9999px; box-shadow: 0 10px 22px -8px rgba(6, 182, 212, 0.42);">
+                      ${escapeHtml(actionLink.label)} &nbsp;&rarr;
                     </a>
                   </div>
+                </td>
+              </tr>
 
-                  <div style="border-top: 1px solid #E5E7EB; margin: 0 auto 18px auto; max-width: 460px;"></div>
-
-                  <p style="margin: 0 0 8px 0; font-size: 12px; color: #6B7280; text-align: center;">
-                    ${escapeHtml(params.schoolName)} — Private Student &amp; Examination Portal
+              <!-- Website-Matched Footer Strip -->
+              <tr>
+                <td align="center" style="padding: 18px 28px 20px 28px; background-color: #F6FBF8; border-top: 1px solid #D5E2DA;">
+                  <p style="margin: 0 0 6px 0; font-size: 12.5px; font-weight: 600; color: #355243; text-align: center;">
+                    ${escapeHtml(params.schoolName)} &mdash; Biology Tutoring &amp; Learning Portal
                   </p>
-                  <p style="margin: 0; font-size: 12px; color: #9CA3AF; text-align: center;">
-                    <a href="${portalUrl}" style="color: #6B7280; text-decoration: none;">Portal</a>
+                  <p style="margin: 0; font-size: 12px; color: #526E5F; text-align: center;">
+                    <a href="${portalUrl}" style="color: #0F6E43; font-weight: 700; text-decoration: none;">Open Portal</a>
                     &nbsp;&nbsp;&bull;&nbsp;&nbsp;
-                    <a href="mailto:${escapeHtml(params.fromEmail)}" style="color: #6B7280; text-decoration: none;">${escapeHtml(params.fromEmail)}</a>
+                    <a href="mailto:${escapeHtml(params.fromEmail)}" style="color: #0E7490; font-weight: 600; text-decoration: none;">${escapeHtml(params.fromEmail)}</a>
                   </p>
                 </td>
               </tr>
@@ -238,7 +266,8 @@ Deno.serve(async (req: Request) => {
       const chunk = sendTargets.slice(i, i + chunkSize);
       await Promise.all(
         chunk.map(async (target) => {
-          const textBody = `${schoolName} (${badge.label})\n\n${title}\n\nHello ${target.fullName},\n\n${bodyText}${linkUrl ? `\n\nLink: ${linkUrl}` : ""}\n\nPortal: https://hexionx.github.io/ppb-web/`;
+          const resolvedLink = resolveAnnouncementActionLink(linkUrl, linkLabel);
+          const textBody = `${schoolName} (${badge.label})\n\n${title}\n\nHello ${target.fullName},\n\n${bodyText}\n\n${resolvedLink.label}: ${resolvedLink.url}`;
           const htmlBody = buildAnnouncementEmailHtml({
             recipientName: target.fullName,
             title,
