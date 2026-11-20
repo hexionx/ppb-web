@@ -7249,7 +7249,7 @@
     }
   }
 
-  /* Side-by-Side Arrangement for My Profile Cards on Desktop & iPad (900px+) */
+  /* Full-Width Clean Grid Arrangement for My Profile Cards on Desktop & iPad (900px+) */
   @media (min-width: 900px) {
     #view-profile:not(.hidden) {
       display: grid !important;
@@ -7259,19 +7259,16 @@
     }
     #view-profile > #profile-inpage-toc-bar,
     #view-profile > #profile-overview-card,
+    #view-profile > #profile-admin-quick-links-card,
+    #view-profile > #profile-announcements-card,
+    #view-profile > #profile-assigned-courses-card,
     #view-profile > #profile-published-scores-card {
       grid-column: 1 / -1;
       margin-bottom: 0 !important;
     }
     #view-profile > #profile-marketing-card {
-      grid-column: 1 / 6;
+      grid-column: 1 / -1;
       margin-bottom: 0 !important;
-      height: 100%;
-    }
-    #view-profile > #profile-assigned-courses-card {
-      grid-column: 6 / -1;
-      margin-bottom: 0 !important;
-      height: 100%;
     }
   }
 
@@ -19996,6 +19993,266 @@
 
   .card + .card {
     margin-top: 0;
+  }
+
+  /* ==========================================================================
+     STUDENT PORTAL UX/UI POLISH PASS (PROFILE, COURSES, PAYMENTS, CALENDAR, MODALS)
+     ========================================================================== */
+  /* 1. Desktop Header Comfort & No Right-Edge Logout Clipping */
+  @media (min-width: 901px) {
+    .site-header .header-inner {
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+    .site-header .desktop-nav {
+      gap: 8px !important;
+      padding-right: 2px;
+    }
+    .site-header .desktop-nav .nav-link,
+    .site-header .desktop-nav .btn-sm {
+      min-height: 38px !important;
+    }
+    .site-header .desktop-nav #btn-header-logout {
+      margin-left: 10px !important;
+    }
+  }
+
+  /* 2. Contact Page Desktop Email Wrapping & Mobile Device Advisory Alignment */
+  .pb-contact-handle-box {
+    min-height: 68px;
+  }
+  .pb-contact-handle-value {
+    font-size: 0.78rem;
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+  .pb-contact-copy-btn {
+    padding: 5px 9px !important;
+  }
+  @media (max-width: 560px) {
+    .btn.pb-mobile-device-dismiss-btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  /* 3. Student Enrolled Course Cards — Clean Single Border & Unified Stat Pills */
+  .student-course-card {
+    border: 1.5px solid #E2E8F0 !important;
+    box-shadow: 0 10px 26px -14px rgba(15, 23, 42, 0.1) !important;
+    cursor: pointer;
+  }
+  .student-course-card:hover {
+    border-color: #99F6E4 !important;
+    box-shadow: 0 18px 34px -14px rgba(6, 182, 212, 0.18) !important;
+  }
+  .pb-course-card-stat-pill {
+    background: #F8FAFC !important;
+    border: 1px solid #E2E8F0 !important;
+  }
+
+  /* 4. Course Detail Exam Filter Bar Alignment & Mobile Bottom Safe Space */
+  .pb-exam-catalog-filter-bar {
+    align-items: end !important;
+  }
+  .pb-exam-filter-actions-col {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+  #btn-student-exam-apply-filter,
+  #btn-student-exam-clear-filter {
+    min-height: 42px !important;
+  }
+  @media (max-width: 680px) {
+    .pb-exam-mode-tab {
+      justify-content: flex-start !important;
+      text-align: left !important;
+      align-items: center !important;
+      line-height: 1.25 !important;
+      padding: 8px 10px !important;
+    }
+    .pb-exam-mode-tab .pb-cat-dot {
+      flex-shrink: 0 !important;
+      margin-top: 0 !important;
+    }
+    .pb-exam-filter-actions-col {
+      width: 100% !important;
+      gap: 10px !important;
+    }
+    #btn-student-exam-apply-filter,
+    #btn-student-exam-clear-filter {
+      flex: 1 1 0 !important;
+      justify-content: center !important;
+    }
+    .main-container {
+      padding-bottom: 84px !important;
+    }
+  }
+
+  /* 5. Student Payments — Equal KPI Heights, Header Row, Non-Jammed Stepper & Mobile Tabs */
+  .pb-pay-kpi-card {
+    height: 100%;
+    align-items: flex-start;
+  }
+  .pb-pay-card-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+    margin-bottom: 14px;
+  }
+  .pb-pay-card-header-row > div:first-child {
+    flex: 1 1 260px;
+    min-width: 0;
+  }
+  .pb-pay-card-header-row > .btn {
+    flex-shrink: 0;
+  }
+  #student-payment-stepper.payment-stepper {
+    gap: 8px !important;
+  }
+  #student-payment-stepper.payment-stepper > li:not(:last-child)::after {
+    top: 48px !important;
+    bottom: -12px !important;
+  }
+  @media (max-width: 767px) {
+    #student-payment-stepper.payment-stepper {
+      display: flex !important;
+      flex-direction: row !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      gap: 8px !important;
+      padding: 4px 2px 8px 2px !important;
+      scrollbar-width: none !important;
+      -webkit-overflow-scrolling: touch;
+    }
+    #student-payment-stepper.payment-stepper::-webkit-scrollbar {
+      display: none !important;
+    }
+    #student-payment-stepper.payment-stepper > li {
+      flex: 0 0 auto !important;
+      min-width: 108px !important;
+    }
+    #student-payment-stepper.payment-stepper > li:not(:last-child)::after {
+      display: none !important;
+    }
+    #student-payment-stepper .payment-stepper-step {
+      padding: 8px 10px !important;
+      min-height: 54px !important;
+      gap: 4px !important;
+      border: 1px solid #E2E8F0 !important;
+      background: #F8FAFC !important;
+    }
+    #student-payment-stepper .payment-stepper-step.is-active {
+      background: #FFFFFF !important;
+      border-color: #38BDF8 !important;
+    }
+    #student-payment-stepper .payment-stepper-title {
+      font-size: 0.72rem !important;
+      white-space: nowrap !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+    }
+    .pb-pay-subview-tabs {
+      flex-direction: column !important;
+      align-items: stretch !important;
+      gap: 6px !important;
+    }
+    .pb-pay-subview-tab {
+      width: 100% !important;
+      justify-content: flex-start !important;
+      min-height: 40px !important;
+      padding: 8px 14px !important;
+    }
+    .data-table td[colspan],
+    .pb-scores-table td[colspan] {
+      white-space: normal !important;
+      word-break: break-word !important;
+      overflow-wrap: break-word !important;
+    }
+  }
+
+  /* 6. Student Class Calendar — Compact Empty Pill, Soft Overflow Borders & Mobile Touch Targets */
+  #calendar-empty-state .badge,
+  .calendar-empty-state .badge {
+    display: inline-flex !important;
+    width: auto !important;
+    max-width: 100% !important;
+  }
+  .calendar-day-cell.is-outside-month {
+    border-color: #E2E8F0 !important;
+    outline: none !important;
+  }
+  .unavail-policy-callout {
+    border: 1.5px solid #FDE68A !important;
+    border-left: 1.5px solid #FDE68A !important;
+    box-shadow: inset 3.5px 0 0 0 #D97706 !important;
+    border-radius: 12px !important;
+    overflow: hidden;
+  }
+  @media (max-width: 767px) {
+    #btn-calendar-open-unavailability-modal,
+    #btn-calendar-refresh,
+    #btn-student-unavail-open-modal-secondary,
+    #btn-student-unavail-refresh {
+      min-height: 38px !important;
+    }
+    .pb-gcal-appbar .btn,
+    .pb-gcal-appbar button,
+    .pb-cal-view-switch-btn {
+      min-height: 36px !important;
+      min-width: 36px !important;
+    }
+    .pb-gcal-appbar-left {
+      gap: 8px !important;
+    }
+  }
+
+  /* 7. Modals — Crisp Footer Alignment, Single-Scroll Mobile Dialog & Unblocked Exam Close */
+  .pb-modal-footer-actions-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .pb-modal-footer-actions-row.is-space-between {
+    justify-content: space-between;
+  }
+  .pb-modal-footer-primary-group {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .pb-modal-footer-actions-row .btn {
+    min-height: 44px;
+  }
+  #btn-exam-inst-header-close {
+    position: relative;
+    z-index: 30;
+  }
+  @media (max-width: 640px) {
+    #modal-privacy-gate-dialog,
+    #modal-report-unavailability-dialog,
+    #modal-student-exam-instructions-dialog {
+      max-height: calc(100dvh - 24px) !important;
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch;
+    }
+    .pb-modal-footer-actions-row,
+    .pb-modal-footer-primary-group {
+      flex-direction: column;
+      align-items: stretch;
+      width: 100%;
+    }
+    .pb-modal-footer-actions-row .btn,
+    .pb-modal-footer-primary-group .btn {
+      width: 100% !important;
+      justify-content: center !important;
+    }
   }
 
 </style>

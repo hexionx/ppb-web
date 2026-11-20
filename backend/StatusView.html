@@ -1271,8 +1271,8 @@
 
   <!-- Student & User School Announcements Inbox (#profile-announcements-card) -->
   <div class="card hidden" id="profile-announcements-card">
-    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;">
-      <div>
+    <div class="pb-card-header-bar" style="margin-bottom: 10px;">
+      <div style="flex: 1 1 280px; min-width: 0;">
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <span class="badge badge-ok" id="profile-announcements-unread-badge">0 Unread Notices</span>
         </div>
@@ -1280,7 +1280,7 @@
           School Announcements &amp; Personal Updates
         </h2>
       </div>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <div class="pb-header-actions-group">
         <button type="button" class="btn btn-outline btn-sm" id="btn-student-mark-all-ann-read">
           Mark All Read
         </button>
@@ -1300,9 +1300,9 @@
     </h2>
     <p
       id="profile-courses-summary-note"
-      style="margin: 0 0 12px 0; font-size: 0.93rem; color: var(--color-text-secondary);"
+      style="margin: 0 0 14px 0; font-size: 0.93rem; color: var(--color-text-secondary);"
     >
-      Courses assigned to your account appear below. Click <strong>Open Course Materials</strong> on any course to view learning objectives, reading materials, and class recordings.
+      Courses assigned to your account appear below. Click <strong>Open Course</strong> on any course to view learning objectives, reading materials, quizzes, and class recordings.
     </p>
     <div id="profile-enrolled-courses-list" class="student-course-grid">
       <div class="status-item">
@@ -2202,13 +2202,13 @@
         <div class="status-item" style="margin-bottom: 12px;">
           <div class="status-label">Administrator Review &amp; Support Contact</div>
           <p style="margin: 6px 0 0 0; font-size: 0.85rem; color: var(--color-text-secondary); line-height: 1.45;">
-            If you believe this detection occurred in error or due to assistive software, please contact Pattanabhumi Biology Support (<a href="mailto:biology@pattanabhumi.ac.th" id="link-exam-invalidated-contact-support" class="pb-exam-allow-copy">biology@pattanabhumi.ac.th</a>) and quote your Attempt Reference above.
+            If you believe this detection occurred in error or due to assistive software, please contact Pattanabhumi Biology Support (<a href="mailto:pattanabhumi.biology@gmail.com" id="link-exam-invalidated-contact-support" class="pb-exam-allow-copy">pattanabhumi.biology@gmail.com</a>) and quote your Attempt Reference above.
           </p>
         </div>
       </div>
 
       <div class="pb-modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--color-border);">
-        <a href="mailto:biology@pattanabhumi.ac.th" class="btn btn-outline btn-sm" id="btn-exam-invalidated-contact-admin">
+        <a href="mailto:pattanabhumi.biology@gmail.com" class="btn btn-outline btn-sm" id="btn-exam-invalidated-contact-admin">
           Contact Administrator
         </a>
         <button type="button" class="btn btn-primary btn-sm" id="btn-exam-invalidated-return-dashboard">
@@ -3895,8 +3895,8 @@
 
   <!-- Top Header & Bangkok Timezone / Privacy Guarantee Card -->
   <div class="card" id="calendar-controls-overview-card">
-    <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
-      <div>
+    <div class="pb-card-header-bar" style="margin-bottom: 14px;">
+      <div style="flex: 1 1 320px; min-width: 0;">
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <span class="badge badge-ok">Class Schedule</span>
           <span class="badge badge-ok" id="calendar-timezone-badge">
@@ -3914,7 +3914,7 @@
           View your scheduled biology classes and school-wide academic dates in <strong>Bangkok Time (ICT)</strong>.
         </p>
       </div>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+      <div class="pb-header-actions-group">
         <button
           type="button"
           class="btn btn-primary btn-sm"
@@ -4477,19 +4477,19 @@
 
   <!-- Step 14 Student Unavailability Reports & Email Delivery Status Card -->
   <div class="card" id="calendar-student-unavailability-card" style="margin-bottom: 18px;">
-    <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
-      <div>
+    <div class="pb-card-header-bar" style="margin-bottom: 14px;">
+      <div style="flex: 1 1 320px; min-width: 0;">
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <span class="badge badge-ok">Absence &amp; Unavailability History</span>
         </div>
         <h2 style="margin: 8px 0 4px 0; font-size: 1.24rem; color: var(--color-brand-deep);">
-          My Submitted Unavailability Reports (<code id="student-unavail-total-count">0</code> recorded)
+          My Submitted Absence Reports (<code id="student-unavail-total-count">0</code> recorded)
         </h2>
         <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">
-          Need to miss an upcoming class session? Click <strong>Report Unavailability / Planned Absence</strong> to notify the school in advance.
+          Need to miss an upcoming class session? Click <strong>Report Absence</strong> to notify the school in advance.
         </p>
       </div>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <div class="pb-header-actions-group">
         <button
           type="button"
           class="btn btn-primary btn-sm"
@@ -4497,7 +4497,7 @@
           aria-haspopup="dialog"
           aria-controls="modal-report-unavailability"
         >
-          + Report Unavailability
+          + Report Absence
         </button>
         <button
           type="button"
@@ -10650,35 +10650,37 @@
     >
       <div
         id="privacy-gate-document-text"
-        style="white-space: pre-line; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px dashed var(--color-brand-border); color: var(--color-text-primary); font-weight: 500;"
+        style="white-space: pre-line; margin-bottom: 4px; color: var(--color-text-primary); font-weight: 500;"
       ></div>
-      <h3>1. Information We Collect to Support Your Learning</h3>
-      <p>
-        Pattanabhumi Biology collects your student profile (username, full name, and email address), course enrollments, assessment progress, tuition payment records, uploaded transfer slips, and class absence notices so we can deliver your biology courses, verify tuition payments, and keep your class schedule up to date.
-      </p>
+      <div id="privacy-gate-static-fallback">
+        <h3>1. Information We Collect to Support Your Learning</h3>
+        <p>
+          Pattanabhumi Biology collects your student profile (username, full name, and email address), course enrollments, assessment progress, tuition payment records, uploaded transfer slips, and class absence notices so we can deliver your biology courses, verify tuition payments, and keep your class schedule up to date.
+        </p>
 
-      <h3>2. How Your Information Is Stored</h3>
-      <p>
-        Your student records, uploaded course handouts, and payment slips are stored securely in the school’s private cloud storage and are accessible only to you and authorized school instructors and administrators.
-      </p>
+        <h3>2. How Your Information Is Stored</h3>
+        <p>
+          Your student records, uploaded course handouts, and payment slips are stored securely in the school’s private cloud storage and are accessible only to you and authorized school instructors and administrators.
+        </p>
 
-      <h3>3. Sign-In Sessions &amp; Browser Storage</h3>
-      <ul>
-        <li>
-          <strong>Standard Sign-In:</strong> When you sign in without checking "Remember me", your session stays active only while your browser tab is open.
-        </li>
-        <li>
-          <strong>"Remember Me" (Optional):</strong> If you check "Remember me", your browser securely saves your sign-in session for up to 7 days on this device so you do not have to sign in every time.
-        </li>
-        <li>
-          <strong>No Advertising or Tracking Cookies:</strong> This learning portal does not use advertising cookies or third-party trackers, and never stores your password or banking details in browser cookies.
-        </li>
-      </ul>
+        <h3>3. Sign-In Sessions &amp; Browser Storage</h3>
+        <ul>
+          <li>
+            <strong>Standard Sign-In:</strong> When you sign in without checking "Remember me", your session stays active only while your browser tab is open.
+          </li>
+          <li>
+            <strong>"Remember Me" (Optional):</strong> If you check "Remember me", your browser securely saves your sign-in session for up to 7 days on this device so you do not have to sign in every time.
+          </li>
+          <li>
+            <strong>No Advertising or Tracking Cookies:</strong> This learning portal does not use advertising cookies or third-party trackers, and never stores your password or banking details in browser cookies.
+          </li>
+        </ul>
 
-      <h3>4. Students Under 20 &amp; Parent/Guardian Consent</h3>
-      <p>
-        If you are under 20 years of age, please review this notice together with your parent or legal guardian in accordance with school enrollment policies and the Thai Personal Data Protection Act (PDPA).
-      </p>
+        <h3>4. Students Under 20 &amp; Parent/Guardian Consent</h3>
+        <p>
+          If you are under 20 years of age, please review this notice together with your parent or legal guardian in accordance with school enrollment policies and the Thai Personal Data Protection Act (PDPA).
+        </p>
+      </div>
     </div>
 
     <!-- Legal & Minor Review Callout Banner -->
@@ -10739,18 +10741,16 @@
         <p class="banner-text" id="privacy-gate-inline-alert-message"></p>
       </div>
 
-      <div
-        style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 16px;"
-      >
-        <button type="submit" class="btn btn-primary" id="btn-privacy-ack-submit">
-          Acknowledge &amp; Continue to Portal
-        </button>
+      <div class="pb-modal-footer-actions-row" style="margin-top: 16px;">
         <button
           type="button"
           class="btn btn-outline"
           id="btn-privacy-decline-logout"
         >
           Decline &amp; Log Out
+        </button>
+        <button type="submit" class="btn btn-primary" id="btn-privacy-ack-submit">
+          Acknowledge &amp; Continue to Portal
         </button>
       </div>
     </form>
@@ -11156,14 +11156,14 @@
         <strong>How It Works:</strong> Your absence notice is saved to your student record and emailed automatically to your instructor and the school office.
       </div>
 
-      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+      <div class="pb-modal-footer-actions-row is-space-between">
+        <div class="pb-modal-footer-primary-group">
           <button type="submit" class="btn btn-primary" id="btn-unavail-submit">
-            Submit Unavailability Report
+            Submit Absence Report
           </button>
           <button
             type="button"
-            class="btn btn-secondary btn-sm"
+            class="btn btn-secondary"
             id="btn-unavail-reset-new-form"
             title="Clears the form and generates a new idempotency key seed so you can submit a distinct request"
           >
@@ -11289,7 +11289,7 @@
       <div class="status-item" style="margin-bottom: 12px;">
         <div class="status-label">Preserved Account &amp; Financial Records</div>
         <p style="margin: 6px 0 0 0; font-size: 0.84rem; color: var(--color-text-secondary); line-height: 1.45;">
-          Your account record, course enrollments, tuition payments, receipts, published scores, and submitted examination answers are preserved. Please contact <a href="mailto:biology@pattanabhumi.ac.th" id="integrity-locked-support-email" class="pb-exam-allow-copy">biology@pattanabhumi.ac.th</a> for administrator review.
+          Your account record, course enrollments, tuition payments, receipts, published scores, and submitted examination answers are preserved. Please contact <a href="mailto:pattanabhumi.biology@gmail.com" id="integrity-locked-support-email" class="pb-exam-allow-copy">pattanabhumi.biology@gmail.com</a> for administrator review.
         </p>
       </div>
     </div>
@@ -11587,7 +11587,7 @@
           The examination timer continues during these temporary pauses.
         </p>
         <p id="exam-inst-integrity-support-text" class="pb-inst-integrity-support">
-          Copying your own typed responses or support contact details (<span id="exam-integrity-support-contact" class="pb-exam-allow-copy">biology@pattanabhumi.ac.th</span>) is always permitted.
+          Copying your own typed responses or support contact details (<span id="exam-integrity-support-contact" class="pb-exam-allow-copy">pattanabhumi.biology@gmail.com</span>) is always permitted.
         </p>
         <div id="exam-inst-integrity-ack-wrap" class="pb-inst-integrity-ack-wrap">
           <label for="chk-exam-inst-integrity-ack" class="pb-inst-integrity-ack-label">

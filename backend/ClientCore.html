@@ -310,6 +310,15 @@
           toggleBtn.textContent = collapsed ? moreLbl + ' ▾' : lessLbl + ' ▴';
         });
         wrap.appendChild(toggleBtn);
+        if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+          window.requestAnimationFrame(function () {
+            if (!p.isConnected) return;
+            if (p.classList.contains('is-collapsed') && p.scrollHeight <= p.clientHeight + 2) {
+              p.classList.remove('is-collapsed');
+              toggleBtn.classList.add('hidden');
+            }
+          });
+        }
       }
 
       return wrap;
@@ -5225,13 +5234,7 @@
         (function (c) {
           var card = document.createElement('article');
           card.className = 'student-course-card card-hoverable';
-          card.setAttribute('tabindex', '0');
-          card.setAttribute('role', 'button');
           card.setAttribute('data-course-card-id', c.courseId);
-          card.setAttribute(
-            'aria-label',
-            'Open course ' + (c.title || c.courseCode) + ' (' + (c.courseCode || c.courseId) + ')'
-          );
 
           /* Cover Banner with Authorized Private Drive Cover Image + Biology Fallback */
           var coverDiv = document.createElement('div');
@@ -5319,22 +5322,26 @@
           var statSpecs = [
             {
               val: c.publishedSectionCount !== undefined ? c.publishedSectionCount : 3,
-              lbl: 'Sections',
+              singular: 'Section',
+              plural: 'Sections',
               accent: false
             },
             {
               val: c.publishedCardCount !== undefined ? c.publishedCardCount : 0,
-              lbl: 'Cards',
-              accent: true
+              singular: 'Card',
+              plural: 'Cards',
+              accent: false
             },
             {
               val: c.publishedExamCount !== undefined ? c.publishedExamCount : 0,
-              lbl: 'Exams',
+              singular: 'Exam',
+              plural: 'Exams',
               accent: false
             },
             {
               val: c.publishedScoreCount !== undefined ? c.publishedScoreCount : 0,
-              lbl: 'Scores',
+              singular: 'Score',
+              plural: 'Scores',
               accent: false
             }
           ];
@@ -5350,7 +5357,7 @@
             valEl.textContent = String(sp.val);
             var lblEl = document.createElement('span');
             lblEl.className = 'stat-lbl';
-            lblEl.textContent = sp.lbl;
+            lblEl.textContent = Number(sp.val) === 1 ? sp.singular : sp.plural;
             pill.appendChild(valEl);
             pill.appendChild(lblEl);
             statsRow.appendChild(pill);
@@ -5393,14 +5400,11 @@
 
           card.appendChild(bodyDiv);
 
-          card.addEventListener('click', function () {
-            openStudentCourseDetailView(c.courseId, false);
-          });
-          card.addEventListener('keydown', function (evt) {
-            if (evt.key === 'Enter' || evt.key === ' ') {
-              evt.preventDefault();
-              openStudentCourseDetailView(c.courseId, false);
+          card.addEventListener('click', function (evt) {
+            if (evt && evt.target && evt.target.closest && evt.target.closest('button, a')) {
+              return;
             }
+            openStudentCourseDetailView(c.courseId, false);
           });
 
           container.appendChild(card);
@@ -5496,6 +5500,7 @@
       setText('privacy-gate-ack-version-label', reqVer);
 
       var docTextEl = document.getElementById('privacy-gate-document-text');
+      var staticFallbackEl = document.getElementById('privacy-gate-static-fallback');
       if (docTextEl) {
         var customDoc =
           currentBootstrapData &&
@@ -5505,8 +5510,10 @@
         if (customDoc) {
           docTextEl.textContent = customDoc;
           docTextEl.classList.remove('hidden');
+          if (staticFallbackEl) staticFallbackEl.classList.add('hidden');
         } else {
           docTextEl.classList.add('hidden');
+          if (staticFallbackEl) staticFallbackEl.classList.remove('hidden');
         }
       }
 
@@ -5863,6 +5870,24 @@
         if (!emailConfigured) {
           emailFallback.textContent =
             'School contact email has not been configured by the administrator yet.';
+        }
+      }
+      if (emailConfigured) {
+        var examSupTxt = document.getElementById('exam-integrity-support-contact');
+        if (examSupTxt) examSupTxt.textContent = effectiveEmail;
+        var lockSupLink = document.getElementById('integrity-locked-support-email');
+        if (lockSupLink) {
+          lockSupLink.textContent = effectiveEmail;
+          lockSupLink.setAttribute('href', 'mailto:' + effectiveEmail);
+        }
+        var invSupLink = document.getElementById('link-exam-invalidated-contact-support');
+        if (invSupLink) {
+          invSupLink.textContent = effectiveEmail;
+          invSupLink.setAttribute('href', 'mailto:' + effectiveEmail);
+        }
+        var invAdminBtn = document.getElementById('btn-exam-invalidated-contact-admin');
+        if (invAdminBtn) {
+          invAdminBtn.setAttribute('href', 'mailto:' + effectiveEmail);
         }
       }
     }
@@ -7485,7 +7510,7 @@
     function setPaymentsViewRoleMode(isAdminStudioMode, opt_studentPreview) {
       var adminStudio = document.getElementById('admin-panel-invoices');
       var studentWs = document.getElementById('student-payments-workspace');
-      var previewBanner = document.getElementById('admin-student-pay-preview-banner');
+      var previewBanner = document.getElementById('admin-previewing-student-pay-banner');
       var showAdmin = Boolean(isAdminStudioMode && !opt_studentPreview);
       if (adminStudio) {
         adminStudio.classList.toggle('hidden', !showAdmin);
@@ -22366,7 +22391,7 @@ var qrcode = (function() {
         opt_defaultDateYmd ||
         (currentCalendarSelectedDayFilterStep13
           ? currentCalendarSelectedDayFilterStep13
-          : (currentCalendarMonthKeyStep13 || getCurrentBangkokYearMonthStep13()) + '-15');
+          : getCurrentBangkokDateYmdStep13());
       setInputValue('input-cal-event-title', '');
       setInputValue('input-cal-event-start-date', dateDefault);
       setInputValue('input-cal-event-end-date', dateDefault);
@@ -23211,7 +23236,7 @@ var qrcode = (function() {
           : currentCalendarSelectedDayFilterStep13 &&
             /^\d{4}-\d{2}-\d{2}$/.test(currentCalendarSelectedDayFilterStep13)
           ? currentCalendarSelectedDayFilterStep13
-          : (currentCalendarMonthKeyStep13 || getCurrentBangkokYearMonthStep13()) + '-15';
+          : getCurrentBangkokDateYmdStep13();
 
       if (startInp && !startInp.value) {
         startInp.value = defaultDate;
@@ -29164,7 +29189,7 @@ var qrcode = (function() {
       }
       var closeBtnFooter = document.getElementById('btn-exam-inst-close');
       if (closeBtnFooter) {
-        closeBtnFooter.textContent = isAdminPrev ? 'Close Preview' : 'Back to Course Catalog';
+        closeBtnFooter.textContent = isAdminPrev ? 'Close Preview' : 'Back to Course';
       }
       var availBadgeInit = document.getElementById('exam-inst-availability-badge');
       if (availBadgeInit) {
@@ -29256,7 +29281,7 @@ var qrcode = (function() {
         currentSelectedInstructionExamPhase3 = ex;
 
         if (closeBtnFooter) {
-          closeBtnFooter.textContent = effectiveAdminPrev ? 'Close Preview' : 'Back to Course Catalog';
+          closeBtnFooter.textContent = effectiveAdminPrev ? 'Close Preview' : 'Back to Course';
         }
 
         var modeClass = ex.examMode === 'PRACTICE'
@@ -42702,11 +42727,18 @@ var qrcode = (function() {
             showSectionView('admin');
             switchAdminSubTab('announcements', true, true);
           } else {
+            var hdrAnnBtnEl = document.getElementById('btn-header-announcements');
+            if (hdrAnnBtnEl && typeof hdrAnnBtnEl.blur === 'function') hdrAnnBtnEl.blur();
             showSectionView('profile');
             refreshStudentProfileCourses();
             setTimeout(function () {
               var card = document.getElementById('profile-announcements-card');
-              if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              if (card) {
+                card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                card.classList.remove('pb-section-focus-pulse');
+                void card.offsetWidth;
+                card.classList.add('pb-section-focus-pulse');
+              }
             }, 80);
           }
         };
