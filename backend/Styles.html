@@ -674,26 +674,30 @@
   /* Banners */
   .banner {
     border-radius: var(--radius-md);
-    padding: 16px 20px;
+    padding: 15px 18px 15px 20px;
     margin-bottom: 20px;
-    border-left: 6px solid;
+    border: 1.5px solid;
+    overflow: hidden;
   }
 
   .banner-warning {
     background-color: var(--color-warning-bg);
-    border-color: var(--color-warning-border);
+    border-color: #FCD34D;
+    box-shadow: inset 3.5px 0 0 0 #D97706;
     color: var(--color-warning-text);
   }
 
   .banner-danger {
     background-color: var(--color-danger-bg);
-    border-color: var(--color-danger-border);
+    border-color: #FCA5A5;
+    box-shadow: inset 3.5px 0 0 0 #DC2626;
     color: var(--color-danger-text);
   }
 
   .banner-success {
     background-color: var(--color-success-bg);
-    border-color: var(--color-success-border);
+    border-color: #6EE7B7;
+    box-shadow: inset 3.5px 0 0 0 #059669;
     color: var(--color-success-text);
   }
 
@@ -3455,12 +3459,12 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 4px;
+    height: 3px;
     background: linear-gradient(90deg, #06B6D4 0%, #10B981 100%);
   }
 
   .pb-contact-channel-card.is-phone::before {
-    background: linear-gradient(90deg, #0891B2 0%, #06B6D4 100%);
+    background: linear-gradient(90deg, #0891B2 0%, #0D9488 100%);
   }
 
   .pb-contact-channel-card.is-line::before {
@@ -3468,7 +3472,7 @@
   }
 
   .pb-contact-channel-card.is-email::before {
-    background: linear-gradient(90deg, #0F766E 0%, #0284C7 100%);
+    background: linear-gradient(90deg, #0E7490 0%, #0891B2 100%);
   }
 
   .pb-contact-channel-card:hover {
@@ -3487,9 +3491,15 @@
 
   .pb-contact-channel-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 10px;
+  }
+
+  .pb-contact-channel-header .badge {
+    flex-shrink: 0;
+    white-space: nowrap !important;
+    margin-top: 2px;
   }
 
   .pb-contact-channel-title-group {
@@ -3556,10 +3566,10 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px 10px;
+    flex-wrap: nowrap;
+    gap: 10px;
     min-width: 0;
-    min-height: 76px;
+    min-height: 64px;
     padding: 10px 12px;
     border-radius: 14px;
     background: #F8FAFC;
@@ -3584,17 +3594,17 @@
   }
 
   .pb-contact-handle-value {
-    font-size: 0.81rem;
+    font-size: 0.82rem;
     font-weight: 700;
     color: #0F172A;
-    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
     word-break: normal;
     line-height: 1.35;
   }
 
   .pb-contact-copy-btn {
     flex-shrink: 0;
-    padding: 6px 10px !important;
+    padding: 6px 11px !important;
     min-height: 32px !important;
     border-radius: 10px !important;
     font-size: 0.78rem !important;
@@ -3623,28 +3633,35 @@
     justify-content: center;
     gap: 8px;
     text-decoration: none;
+    transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease !important;
   }
 
-  .pb-contact-cta-btn.is-phone {
-    background: linear-gradient(135deg, #0891B2 0%, #0D9488 100%) !important;
-    border-color: transparent !important;
-    color: #FFFFFF !important;
+  .pb-contact-cta-btn.is-phone,
+  .pb-contact-cta-btn.is-email {
+    background: #FFFFFF !important;
+    border: 1.5px solid #CBD5E1 !important;
+    color: #0F172A !important;
+    box-shadow: 0 2px 8px -4px rgba(15, 23, 42, 0.08) !important;
+  }
+
+  .pb-contact-cta-btn.is-phone:hover,
+  .pb-contact-cta-btn.is-email:hover {
+    background: #F0FDFA !important;
+    border-color: #14B8A6 !important;
+    color: #0F766E !important;
+    transform: translateY(-1px);
   }
 
   .pb-contact-cta-btn.is-line {
-    background: linear-gradient(135deg, #059669 0%, #10B981 100%) !important;
+    background: linear-gradient(135deg, #06B6D4 0%, #10B981 100%) !important;
     border-color: transparent !important;
     color: #FFFFFF !important;
+    box-shadow: 0 10px 22px -10px rgba(16, 185, 129, 0.55) !important;
   }
 
-  .pb-contact-cta-btn.is-email {
-    background: linear-gradient(135deg, #0F766E 0%, #0284C7 100%) !important;
-    border-color: transparent !important;
-    color: #FFFFFF !important;
-  }
-
-  .pb-contact-cta-btn:hover {
-    filter: brightness(1.05);
+  .pb-contact-cta-btn.is-line:hover {
+    filter: brightness(1.04);
+    transform: translateY(-1px);
   }
 
   .pb-contact-support-strip {
@@ -4282,7 +4299,7 @@
     display: grid;
     grid-template-columns: 1fr;
     gap: 28px;
-    align-items: stretch;
+    align-items: start;
   }
 
   @media (min-width: 980px) {
@@ -4976,14 +4993,15 @@
   .pb-hero-card-deck {
     position: relative;
     width: 100%;
-    min-height: 410px;
-    padding: 22px 26px 34px 22px;
-    border-radius: 36px;
+    min-height: 416px;
+    padding: 20px 38px 38px 20px;
+    border-radius: 32px;
     background: linear-gradient(135deg, #E0F7FA 0%, #D1FAE5 55%, #CCFBF1 100%);
     box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.85), 0 24px 48px -16px rgba(6, 182, 212, 0.22);
     cursor: pointer;
     user-select: none;
     outline: none;
+    overflow: hidden;
   }
 
   .pb-hero-card-deck:focus-visible {
@@ -4992,15 +5010,15 @@
 
   .pb-hero-shuffle-card {
     position: absolute;
-    top: 22px;
-    left: 22px;
-    right: 30px;
-    bottom: 30px;
+    top: 20px;
+    left: 20px;
+    right: 42px;
+    bottom: 42px;
     background: #FFFFFF;
-    border-radius: 24px;
-    border: 3px solid #FFFFFF;
+    border-radius: 22px;
+    border: 2px solid #FFFFFF;
     padding: 18px;
-    box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.18);
+    box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.16);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -5017,16 +5035,16 @@
 
   .pb-hero-shuffle-card.card-pos-1 {
     z-index: 20;
-    transform: translate(5.5%, 5.5%) scale(0.95);
+    transform: translate(4.5%, 4.5%) scale(0.955);
     opacity: 0.86;
-    filter: brightness(0.9);
+    filter: brightness(0.92);
   }
 
   .pb-hero-shuffle-card.card-pos-2 {
     z-index: 10;
-    transform: translate(11%, 11%) scale(0.9);
-    opacity: 0.65;
-    filter: brightness(0.78);
+    transform: translate(9%, 9%) scale(0.91);
+    opacity: 0.68;
+    filter: brightness(0.82);
   }
 
   .pb-hero-shuffle-card.cycle-out {
@@ -14692,16 +14710,26 @@
    * ======================================================================== */
   .pb-toast-region {
     position: fixed !important;
-    top: 20px !important;
+    top: auto !important;
     right: 20px !important;
-    bottom: auto !important;
+    bottom: 76px !important;
     z-index: 12000 !important;
     display: flex !important;
-    flex-direction: column !important;
-    gap: 12px !important;
-    max-width: 410px !important;
+    flex-direction: column-reverse !important;
+    gap: 10px !important;
+    max-width: 400px !important;
     width: calc(100vw - 32px) !important;
     pointer-events: none !important;
+  }
+
+  @media (max-width: 680px) {
+    .pb-toast-region {
+      left: 12px !important;
+      right: 12px !important;
+      bottom: 16px !important;
+      width: auto !important;
+      max-width: none !important;
+    }
   }
 
   .pb-toast-stack-bar {
@@ -17338,7 +17366,7 @@
       align-items: center;
       justify-content: safe flex-end;
       flex-wrap: nowrap;
-      gap: 4px;
+      gap: 8px;
       overflow-x: auto;
       scrollbar-width: none;
       -ms-overflow-style: none;
@@ -17351,15 +17379,27 @@
     .site-header .desktop-nav .nav-link {
       white-space: nowrap;
       flex-shrink: 0;
-      padding: 7px 10px;
-      font-size: 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      min-height: 36px;
+      padding: 7px 12px;
+      font-size: 0.86rem;
+      border-radius: 10px;
     }
 
     .site-header .desktop-nav .btn-sm {
       white-space: nowrap;
       flex-shrink: 0;
-      padding: 7px 12px;
-      font-size: 0.84rem;
+      display: inline-flex;
+      align-items: center;
+      min-height: 36px;
+      padding: 7px 14px;
+      font-size: 0.85rem;
+    }
+
+    .site-header .desktop-nav #btn-header-open-login,
+    .site-header .desktop-nav #btn-header-logout {
+      margin-left: 8px;
     }
   }
 
@@ -17378,29 +17418,40 @@
     }
 
     .site-header .desktop-nav {
-      gap: 2px;
+      gap: 6px;
     }
 
     .site-header .desktop-nav .nav-link {
-      padding: 6px 8px;
+      min-height: 34px;
+      padding: 6px 9px;
       font-size: 0.82rem;
     }
 
     .site-header .desktop-nav .btn-sm {
-      padding: 6px 10px;
+      min-height: 34px;
+      padding: 6px 11px;
       font-size: 0.81rem;
+    }
+
+    .site-header .desktop-nav #btn-header-open-login,
+    .site-header .desktop-nav #btn-header-logout {
+      margin-left: 6px;
     }
   }
 
   @media (max-width: 1080px) and (min-width: 901px) {
+    .site-header .desktop-nav {
+      gap: 4px;
+    }
+
     .site-header .desktop-nav .nav-link {
-      padding: 5px 6px;
-      font-size: 0.76rem;
+      padding: 5px 7px;
+      font-size: 0.78rem;
     }
 
     .site-header .desktop-nav .btn-sm {
-      padding: 5px 8px;
-      font-size: 0.76rem;
+      padding: 5px 9px;
+      font-size: 0.78rem;
     }
   }
 
@@ -19685,6 +19736,245 @@
       padding: 6px 9px !important;
       min-height: 34px !important;
     }
+  }
+
+  /* ==========================================================================
+     GLOBAL UX/UI SPACING, SURFACE PRECISION & ACTION BAR POLISH PASS
+     ========================================================================== */
+  /* 1. Consistent Card Header Action Bars (Profile, Settings, Announcements, Unavailability, Billing) */
+  .pb-card-header-bar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px 16px;
+  }
+
+  .pb-header-actions-group,
+  .pb-profile-header-actions,
+  .pb-settings-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  @media (min-width: 960px) {
+    .pb-profile-header-actions,
+    .pb-settings-header-actions {
+      flex-wrap: nowrap;
+    }
+  }
+
+  .pb-toolbar-divider {
+    display: inline-block;
+    width: 1px;
+    height: 24px;
+    background: #CBD5E1;
+    margin: 0 2px;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 680px) {
+    .pb-toolbar-divider {
+      display: none;
+    }
+  }
+
+  /* Clear visual distinction for destructive outline actions (e.g. System Reset, Delete) */
+  .pb-btn-danger-outline {
+    color: #B91C1C !important;
+    border-color: #FCA5A5 !important;
+    background: #FEF2F2 !important;
+  }
+
+  .pb-btn-danger-outline:hover,
+  .pb-btn-danger-outline:focus-visible {
+    background: #FEE2E2 !important;
+    border-color: #EF4444 !important;
+    color: #991B1B !important;
+  }
+
+  /* 2. Billing & Payments Studio Header Alignment (missing rules fix) */
+  .pb-pay-studio-top-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+
+  .pb-pay-studio-top-row > div:first-child {
+    flex: 1 1 320px;
+    min-width: 0;
+  }
+
+  .pb-pay-studio-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  /* 3. Public Landing: Balanced How-to-Log-In CTA Row & Mobile Instructor Breathing Room */
+  .pb-howto-cta-row {
+    display: flex;
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 22px;
+  }
+
+  .pb-howto-cta-row > .btn {
+    flex: 1 1 200px;
+    min-height: 46px;
+    justify-content: center;
+    text-align: center;
+  }
+
+  /* 4. CMS Action Bar Uniform Heights & Gaps */
+  .pb-admin-cms-actions-bar {
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+    margin-top: 18px !important;
+  }
+
+  .pb-admin-cms-actions-bar > .btn {
+    min-height: 44px !important;
+  }
+
+  /* 5. Crisp Non-Clipping Surface Accents (Linear / Brilliant Hairline Geometry) */
+  .status-item {
+    border: 1px solid #CCFBF1 !important;
+    box-shadow: 0 2px 10px -4px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.03) !important;
+  }
+
+  .status-item::before {
+    height: 2.5px !important;
+    opacity: 0.78 !important;
+  }
+
+  .pb-cal-inspector-panel {
+    border: 1.5px solid #CBD5E1 !important;
+    border-left: 1.5px solid #CBD5E1 !important;
+    box-shadow: inset 3.5px 0 0 0 #0D9488, 0 4px 12px rgba(15, 23, 42, 0.05) !important;
+    overflow: hidden;
+  }
+
+  .pb-exam-integrity-policy-box {
+    border: 1.5px solid #FCD34D !important;
+    border-left: 1.5px solid #FCD34D !important;
+    box-shadow: inset 3.5px 0 0 0 #B45309 !important;
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .pb-exam-integrity-policy-box.is-unrestricted {
+    border-color: #86EFAC !important;
+    border-left-color: #86EFAC !important;
+    box-shadow: inset 3.5px 0 0 0 #0D5C3A !important;
+  }
+
+  #admin-manual-grading-items-container > .pb-grading-item-card {
+    border: 1.5px solid #CBD5E1 !important;
+    border-left: 1.5px solid #CBD5E1 !important;
+    box-shadow: inset 3.5px 0 0 0 #94A3B8, 0 3px 12px rgba(15, 23, 42, 0.05) !important;
+    overflow: hidden !important;
+  }
+
+  #admin-manual-grading-items-container > .pb-grading-item-card.is-grade-pending {
+    border-color: #FDE68A !important;
+    box-shadow: inset 3.5px 0 0 0 #F59E0B, 0 3px 12px rgba(15, 23, 42, 0.05) !important;
+  }
+
+  #admin-manual-grading-items-container > .pb-grading-item-card.is-grade-correct {
+    border-color: #A7F3D0 !important;
+    box-shadow: inset 3.5px 0 0 0 #10B981, 0 3px 12px rgba(15, 23, 42, 0.05) !important;
+  }
+
+  #admin-manual-grading-items-container > .pb-grading-item-card.is-grade-incorrect {
+    border-color: #FECACA !important;
+    box-shadow: inset 3.5px 0 0 0 #EF4444, 0 3px 12px rgba(15, 23, 42, 0.05) !important;
+  }
+
+  #admin-manual-grading-items-container > .pb-grading-item-card.is-grade-partial {
+    border-color: #BAE6FD !important;
+    box-shadow: inset 3.5px 0 0 0 #0EA5E9, 0 3px 12px rgba(15, 23, 42, 0.05) !important;
+  }
+
+  /* 6. Users Table & Exam Studio Action Grid Spacing Polish */
+  .pb-users-primary-sub {
+    overflow-wrap: break-word !important;
+    word-break: normal !important;
+  }
+
+  .pb-users-actions-inline-row {
+    gap: 6px !important;
+  }
+
+  .pb-users-ver-chip {
+    color: #475569 !important;
+    background: #F1F5F9 !important;
+    border-color: #CBD5E1 !important;
+    font-weight: 700 !important;
+  }
+
+  table[aria-label="Native examination sets"] .pb-table-actions-grid {
+    min-width: 174px !important;
+    max-width: 224px !important;
+    gap: 6px !important;
+  }
+
+  table[aria-label="Native examination sets"] .pb-table-actions-grid .btn,
+  table[aria-label="Native examination sets"] .pb-table-actions-grid .btn-sm {
+    padding: 5px 8px !important;
+    min-height: 32px !important;
+  }
+
+  /* 7. Mobile Navigation & Small Viewport Polish */
+  @media (max-width: 900px) {
+    /* Contact button already sits pinned beside the hamburger icon; hide duplicate inside drawer */
+    #nav-mobile-contact {
+      display: none !important;
+    }
+
+    .mobile-controls {
+      gap: 8px !important;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .pb-revision-white-card {
+      padding: 20px 16px !important;
+      border-radius: 22px !important;
+    }
+
+    #landing-section-instructor .card,
+    #landing-section-instructor .pb-instructor-card {
+      padding-left: 16px !important;
+      padding-right: 16px !important;
+    }
+
+    .pb-pay-studio-actions {
+      width: 100%;
+      justify-content: flex-start;
+    }
+  }
+
+  /* 8. Global Panel Vertical Rhythm & Subtle Hairline Polish */
+  .card {
+    margin-bottom: 20px;
+  }
+
+  .card + .card {
+    margin-top: 0;
   }
 
 </style>

@@ -4421,6 +4421,9 @@
       }
 
       /* Update active state on desktop and mobile navigation buttons across all views */
+      if (typeof setMobileMenuOpen === 'function') {
+        setMobileMenuOpen(false);
+      }
       if (typeof PBEnhancedSelect === 'object' && PBEnhancedSelect) {
         PBEnhancedSelect.closeActive(true, false);
       }
@@ -4430,6 +4433,10 @@
             ? 'admin'
             : 'profile'
           : viewName;
+      var isAdminNoticesActive =
+        effectiveNavView === 'admin' &&
+        !isExamStudioModeActive &&
+        currentAdminTab === 'announcements';
       var navBtns = document.querySelectorAll('[data-nav-view]');
       for (var j = 0; j < navBtns.length; j++) {
         var btn = navBtns[j];
@@ -4439,7 +4446,10 @@
           btn.classList.contains('mobile-nav-link') ||
           btn.classList.contains('mobile-contact-btn')
         ) {
-          if (targetView === effectiveNavView) {
+          var shouldActivate =
+            targetView === effectiveNavView &&
+            !(targetView === 'admin' && isAdminNoticesActive);
+          if (shouldActivate) {
             btn.classList.add('is-active');
             btn.setAttribute('aria-current', 'page');
           } else {
@@ -4447,6 +4457,18 @@
             btn.removeAttribute('aria-current');
           }
         }
+      }
+      var annDeskNav = document.getElementById('btn-header-announcements');
+      var annMobNav = document.getElementById('nav-mobile-announcements');
+      if (annDeskNav) {
+        annDeskNav.classList.toggle('is-active', isAdminNoticesActive);
+        if (isAdminNoticesActive) annDeskNav.setAttribute('aria-current', 'page');
+        else annDeskNav.removeAttribute('aria-current');
+      }
+      if (annMobNav) {
+        annMobNav.classList.toggle('is-active', isAdminNoticesActive);
+        if (isAdminNoticesActive) annMobNav.setAttribute('aria-current', 'page');
+        else annMobNav.removeAttribute('aria-current');
       }
       if (
         effectiveNavView === 'admin' &&
@@ -4683,6 +4705,9 @@
           }
         }
         window.addEventListener('popstate', function () {
+          if (typeof setMobileMenuOpen === 'function') {
+            setMobileMenuOpen(false);
+          }
           if (isRestoringRoute) return;
           var snap =
             window.PBExamAutosaveEngine && typeof window.PBExamAutosaveEngine.getSnapshot === 'function'
@@ -4890,6 +4915,23 @@
       var base = String(rawBkk || fallbackUtc || '').trim();
       if (!base) {
         return 'First session (Asia/Bangkok, UTC+07:00)';
+      }
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(base)) {
+        try {
+          var parsedIso = new Date(base);
+          if (!isNaN(parsedIso.getTime()) && typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
+            var formatted = new Intl.DateTimeFormat('en-US', {
+              timeZone: 'Asia/Bangkok',
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false
+            }).format(parsedIso);
+            return formatted + ' ICT (Asia/Bangkok, UTC+07:00)';
+          }
+        } catch (_eIso) {}
       }
       if (base.indexOf('Asia/Bangkok') !== -1) {
         return base;
@@ -7804,6 +7846,36 @@
         }
       } else if (currentAdminTab === 'unavailability') {
         loadAdminUnavailabilityRequestsStep14();
+      }
+      if (typeof PBAdminConfigAdvisor === 'object' && PBAdminConfigAdvisor && typeof PBAdminConfigAdvisor.syncOverviewPromptVisibility === 'function') {
+        PBAdminConfigAdvisor.syncOverviewPromptVisibility();
+      }
+      if (currentActiveViewName === 'admin' && !isExamStudioModeActive) {
+        var isAnnTab = currentAdminTab === 'announcements';
+        var admDeskNav = document.getElementById('nav-desktop-admin');
+        var admMobNav = document.getElementById('nav-mobile-admin');
+        var annDeskNav2 = document.getElementById('btn-header-announcements');
+        var annMobNav2 = document.getElementById('nav-mobile-announcements');
+        if (admDeskNav) {
+          admDeskNav.classList.toggle('is-active', !isAnnTab);
+          if (!isAnnTab) admDeskNav.setAttribute('aria-current', 'page');
+          else admDeskNav.removeAttribute('aria-current');
+        }
+        if (admMobNav) {
+          admMobNav.classList.toggle('is-active', !isAnnTab);
+          if (!isAnnTab) admMobNav.setAttribute('aria-current', 'page');
+          else admMobNav.removeAttribute('aria-current');
+        }
+        if (annDeskNav2) {
+          annDeskNav2.classList.toggle('is-active', isAnnTab);
+          if (isAnnTab) annDeskNav2.setAttribute('aria-current', 'page');
+          else annDeskNav2.removeAttribute('aria-current');
+        }
+        if (annMobNav2) {
+          annMobNav2.classList.toggle('is-active', isAnnTab);
+          if (isAnnTab) annMobNav2.setAttribute('aria-current', 'page');
+          else annMobNav2.removeAttribute('aria-current');
+        }
       }
       if (typeof PBFloatingToc === 'object' && PBFloatingToc) {
         PBFloatingToc.syncForActiveView('admin', currentAdminTab);
@@ -23915,10 +23987,19 @@ var qrcode = (function() {
             'admin-unavail-count-uncertain',
             String((c.uncertainCount || 0) + (c.pendingCount || 0))
           );
+          var recipientVal = String(d.configuredNotificationRecipient || '').trim();
+          var hasConfiguredRecipient = Boolean(recipientVal && recipientVal.toUpperCase() !== 'UNCONFIGURED');
           setText(
             'admin-unavail-configured-recipient',
-            d.configuredNotificationRecipient || 'UNCONFIGURED'
+            hasConfiguredRecipient ? recipientVal : 'UNCONFIGURED'
           );
+          var unavailEmailBadge = document.getElementById('admin-unavail-email-status-badge');
+          if (unavailEmailBadge) {
+            unavailEmailBadge.className = hasConfiguredRecipient ? 'badge badge-ok' : 'badge badge-incomplete';
+            unavailEmailBadge.textContent = hasConfiguredRecipient
+              ? 'Email Notifications Active'
+              : 'Email Recipient Unconfigured';
+          }
           return d;
         })
         .catch(function (err) {
@@ -28385,12 +28466,18 @@ var qrcode = (function() {
             var valDiv = document.createElement('div');
             valDiv.style.fontSize = '0.75rem';
             valDiv.style.marginTop = '4px';
-            if (!ex.validationReport.valid) {
+            var blockingCount = Array.isArray(ex.validationReport.blockingErrors)
+              ? ex.validationReport.blockingErrors.length
+              : 0;
+            var warningCount = Array.isArray(ex.validationReport.warnings)
+              ? ex.validationReport.warnings.length
+              : 0;
+            if (blockingCount > 0) {
               valDiv.style.color = 'var(--color-danger-text)';
-              valDiv.textContent = ex.validationReport.blockingErrors.length + ' blocking issue(s)';
-            } else if (ex.validationReport.warnings && ex.validationReport.warnings.length > 0) {
+              valDiv.textContent = blockingCount + ' blocking issue(s)';
+            } else if (warningCount > 0) {
               valDiv.style.color = '#8A4B08';
-              valDiv.textContent = 'Valid (' + ex.validationReport.warnings.length + ' warning(s))';
+              valDiv.textContent = 'Valid (' + warningCount + ' warning(s))';
             } else {
               valDiv.style.color = 'var(--color-brand-primary)';
               valDiv.textContent = 'Ready / Verified';
@@ -41977,7 +42064,7 @@ var qrcode = (function() {
           try {
             promptDismissed = Boolean(window.sessionStorage && window.sessionStorage.getItem(PROMPT_DISMISS_KEY) === '1');
           } catch (_eD) {}
-          if (report.incompleteCount === 0 || promptDismissed) {
+          if (report.incompleteCount === 0 || promptDismissed || currentAdminTab === 'settings') {
             overviewPrompt.classList.add('hidden');
           } else {
             var missingNames = report.sections
@@ -42000,6 +42087,15 @@ var qrcode = (function() {
             });
             overviewPrompt.classList.remove('hidden');
           }
+        }
+      }
+
+      function syncOverviewPromptVisibility() {
+        if (lastReport) {
+          renderReport(lastReport);
+        } else {
+          var p = document.getElementById('admin-overview-config-prompt');
+          if (p && currentAdminTab === 'settings') p.classList.add('hidden');
         }
       }
 
@@ -42057,6 +42153,7 @@ var qrcode = (function() {
       return Object.freeze({
         bind: bind,
         checkAdminSettingsPrompt: checkAdminSettingsPrompt,
+        syncOverviewPromptVisibility: syncOverviewPromptVisibility,
         updateFromSettingsPayload: function (d) {
           if (d) renderReport(evaluatePayload(d));
         },

@@ -8,7 +8,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <meta name="pb-build-version" content="a229b45e" />
+    <meta name="pb-build-version" content="1b7fc910" />
     <base target="_self" />
     <title>Pattanabhumi Biology — Learning Portal</title>
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
@@ -19,7 +19,7 @@
       href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/styles.css?v=6b0f0f59" />
+    <link rel="stylesheet" href="css/styles.css?v=c3078fdd" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -1081,7 +1081,7 @@
           </div>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 22px;">
+        <div class="pb-howto-cta-row">
           <button
             type="button"
             class="btn btn-primary pb-btn-pill-gradient"
@@ -1443,8 +1443,8 @@
   </nav>
 
   <div class="card" id="profile-overview-card">
-    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
-      <div class="portal-header-brand-row">
+    <div class="pb-card-header-bar" style="margin-bottom: 18px;">
+      <div class="portal-header-brand-row" style="flex: 1 1 320px; min-width: 0;">
         <img
           id="profile-header-logo-img"
           class="portal-section-logo-img hidden"
@@ -1457,7 +1457,7 @@
         >
           PB
         </div>
-        <div>
+        <div style="min-width: 0;">
           <span class="badge badge-ok" id="profile-role-badge">STUDENT PORTAL</span>
           <h1
             id="profile-view-heading"
@@ -1470,7 +1470,7 @@
           </p>
         </div>
       </div>
-      <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+      <div class="pb-profile-header-actions">
         <button type="button" class="btn btn-outline btn-sm" id="btn-profile-open-release-notes">
           <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
           <span>What&apos;s New</span>
@@ -5331,8 +5331,8 @@
        ====================================================================== -->
   <div id="admin-panel-settings" role="tabpanel" aria-labelledby="btn-admin-tab-settings">
     <div class="card">
-      <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
-        <div>
+      <div class="pb-card-header-bar" style="margin-bottom: 16px;">
+        <div style="flex: 1 1 320px; min-width: 0;">
           <span class="badge badge-ok">School &amp; Portal Configuration</span>
           <h2 style="margin: 8px 0 4px 0; font-size: 1.3rem; color: var(--color-brand-deep);">
             School Settings &amp; Website Configuration
@@ -5341,13 +5341,14 @@
             Update your school’s public contact details, payment account information, homepage content, and privacy notice.
           </p>
         </div>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <div class="pb-settings-header-actions">
           <button type="button" class="btn btn-secondary btn-sm" id="btn-admin-reload-settings">
             Reload Settings
           </button>
           <button type="button" class="btn btn-outline btn-sm" id="btn-admin-jump-cms">
             Homepage &amp; Hero CMS
           </button>
+          <span class="pb-toolbar-divider" aria-hidden="true"></span>
           <button type="button" class="btn btn-outline btn-sm pb-btn-danger-outline" id="btn-admin-open-factory-reset-modal">
             <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
             <span>System Reset</span>
@@ -6172,7 +6173,7 @@
           </button>
           <button
             type="button"
-            class="btn btn-outline btn-sm"
+            class="btn btn-outline"
             id="btn-admin-cms-reset-default"
           >
             Reset to Default Owner Copy
@@ -7687,8 +7688,8 @@
     aria-labelledby="btn-admin-tab-announcements"
   >
     <div class="card">
-      <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
-        <div>
+      <div class="pb-card-header-bar" style="margin-bottom: 16px;">
+        <div style="flex: 1 1 320px; min-width: 0;">
           <span class="badge badge-ok">Multi-Recipient Broadcasts &amp; Gmail Dispatch</span>
           <h2 style="margin: 8px 0 4px 0; font-size: 1.3rem; color: var(--color-brand-deep);">
             Student Announcements &amp; Email Updates
@@ -7697,9 +7698,11 @@
             Send portal announcements about posted grades, new courses, study resource links, or billing updates to multiple students at once — with optional Gmail delivery.
           </p>
         </div>
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-admin-ann-refresh">
-          Refresh Recipients &amp; History
-        </button>
+        <div class="pb-header-actions-group">
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-admin-ann-refresh">
+            Refresh Recipients &amp; History
+          </button>
+        </div>
       </div>
 
       <div id="admin-ann-status-banner" class="banner banner-info hidden" role="status" aria-live="polite">
@@ -10140,11 +10143,11 @@
     aria-labelledby="btn-admin-tab-unavailability"
   >
     <div class="card">
-      <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
-        <div>
+      <div class="pb-card-header-bar" style="margin-bottom: 16px;">
+        <div style="flex: 1 1 320px; min-width: 0;">
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <span class="badge badge-ok">Student Unavailability Queue</span>
-            <span class="badge badge-ok">Email Notifications Active</span>
+            <span class="badge badge-incomplete" id="admin-unavail-email-status-badge">Checking Email Status</span>
           </div>
           <h2 style="margin: 8px 0 4px 0; font-size: 1.32rem; color: var(--color-brand-deep);">
             Student Unavailability Reports &amp; Email Delivery Status Queue
@@ -10154,7 +10157,7 @@
           </p>
         </div>
 
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <div class="pb-header-actions-group">
           <button
             type="button"
             class="btn btn-secondary btn-sm"
@@ -10231,7 +10234,7 @@
         novalidate
         style="padding: 14px 16px; background: var(--color-bg-subtle); border: 1px solid var(--color-brand-border); border-radius: var(--radius-md); margin-bottom: 16px;"
       >
-        <div class="form-grid-2col" style="margin-bottom: 10px;">
+        <div class="form-grid-2col" style="margin-bottom: 12px; align-items: end;">
           <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" for="select-admin-unavail-filter-student">
               Filter by Student
@@ -10581,9 +10584,9 @@
         class="modal-close-btn pb-auth-ref-circle-btn"
         id="btn-close-login-modal"
         aria-label="Close login modal"
-        title="Back to page"
+        title="Close sign-in modal"
       >
-        <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
 
       <div class="portal-header-brand-row pb-auth-ref-brand-pill">
@@ -11079,7 +11082,7 @@
     <div class="banner banner-warning" style="margin-bottom: 14px;">
       <p class="banner-title">Parent / Guardian Notice for Students Under 20</p>
       <p class="banner-text">
-        Students under 20 should review this Privacy Notice with a parent or legal guardian. Optional school news emails are completely separate—you do not need to opt into marketing emails to access your courses or exams.
+        Students under 20 should review this Privacy Notice with a parent or legal guardian. Optional school news emails remain off by default and can be changed anytime in <strong>My Profile</strong>.
       </p>
     </div>
 
@@ -12516,6 +12519,6 @@
     <script src="js/supabase-backend.js?v=d9675b37"></script>
     <script src="js/supabase-exams.js?v=b296f731"></script>
     <script src="js/api.js?v=afd08d1a"></script>
-    <script src="js/app.js?v=5999f2f8"></script>
+    <script src="js/app.js?v=93774877"></script>
   </body>
 </html>
