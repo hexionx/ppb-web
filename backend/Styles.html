@@ -19759,12 +19759,33 @@
     flex-wrap: wrap;
     gap: 10px;
     flex-shrink: 0;
+    max-width: 100%;
   }
 
   @media (min-width: 960px) {
     .pb-profile-header-actions,
     .pb-settings-header-actions {
       flex-wrap: nowrap;
+    }
+  }
+
+  @media (max-width: 959px) {
+    .pb-header-actions-group,
+    .pb-profile-header-actions,
+    .pb-settings-header-actions,
+    .pb-pay-studio-actions {
+      flex: 1 1 100%;
+      width: 100%;
+      max-width: 100%;
+      justify-content: flex-start;
+      flex-wrap: wrap !important;
+    }
+
+    .pb-header-actions-group > .btn,
+    .pb-profile-header-actions > .btn,
+    .pb-settings-header-actions > .btn,
+    .pb-pay-studio-actions > .btn {
+      max-width: 100%;
     }
   }
 

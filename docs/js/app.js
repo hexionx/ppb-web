@@ -28597,7 +28597,7 @@ var qrcode = (function() {
 
           var anlBtn = document.createElement('button');
           anlBtn.type = 'button';
-          anlBtn.className = 'btn btn-outline btn-sm';
+          anlBtn.className = 'btn btn-outline btn-sm pb-action-full';
           setBtnVectorIcon(anlBtn, 'chart', 'Analytics', 'Analytics & regrade');
           anlBtn.addEventListener('click', function () {
             openAdminExamRegradeAndAnalyticsModalPhase7(ex);
