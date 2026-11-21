@@ -84,23 +84,67 @@
     return Math.abs(v - Math.round(v)) < 1e-6 ? String(Math.round(v)) : v.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
   }
 
+  function computeExactTotalPointsBp(examDto) {
+    var sections = Array.isArray(examDto && examDto.sections) ? examDto.sections : [];
+    var sumBp = 0;
+    var countedItems = 0;
+    sections.forEach(function (sec) {
+      var items = Array.isArray(sec && sec.items) ? sec.items : [];
+      items.forEach(function (it) {
+        if (!it) return;
+        countedItems += 1;
+        var bp = Number(it.pointsBp);
+        if (isFinite(bp) && bp >= 0) sumBp += Math.round(bp);
+      });
+    });
+    if (countedItems > 0 && sumBp > 0) return sumBp;
+    var fallbackBp = Number(examDto && examDto.maxPointsBp);
+    return isFinite(fallbackBp) && fallbackBp >= 0 ? Math.round(fallbackBp) : 0;
+  }
+
+  function formatExactBp(bp) {
+    var intBp = Math.round(Number(bp) || 0);
+    if (intBp % 100 === 0) return String(intBp / 100);
+    return (intBp / 100).toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+  }
+
   function getThaiBuddhistDateDefaults() {
     var months = [
       'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
       'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+    ];
+    var shortMonths = [
+      'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+      'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
     ];
     var days = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
     var d = new Date(Date.now() + 7 * 3600 * 1000);
     var beYear = d.getUTCFullYear() + 543;
     var shortYear = String(beYear).slice(-2);
     var dayName = days[d.getUTCDay()];
-    var monthName = months[d.getUTCMonth()];
+    var mIdx = d.getUTCMonth();
+    var monthName = months[mIdx];
+    var monthAbbr = shortMonths[mIdx] || 'พ.ย.';
     return {
       beYear: String(beYear),
       shortYear: shortYear,
       fullDateTh: 'วัน' + dayName + 'ที่ ' + d.getUTCDate() + ' ' + monthName + ' พ.ศ. ' + beYear,
-      shortMonthYearTh: monthName.slice(0, 3) + '. ' + shortYear
+      shortMonthYearTh: monthAbbr + ' ' + shortYear
     };
+  }
+
+  function buildCleanPdfFilename(examDto, cfg) {
+    var tplPrefix = cfg && cfg.template === 'posn' ? 'POSN' : 'A-Level';
+    var codePart = String((cfg && cfg.subjectCode) || (examDto && examDto.examCode) || 'Exam').trim();
+    var titlePart = String((examDto && examDto.title) || (cfg && cfg.subjectName) || 'Biology').trim();
+    var raw = [tplPrefix, codePart, titlePart].filter(Boolean).join('_');
+    var cleaned = raw
+      .replace(/[\\/:*?"<>|\x00-\x1F]+/g, '_')
+      .replace(/\s+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 110);
+    return cleaned || (tplPrefix + '_Exam');
   }
 
   function getDefaultAlevelCoverRules() {
@@ -168,6 +212,7 @@
       bannerBadgeTop: 'TCAS',
       bannerBadgeNum: dt.shortYear,
       bannerRoundText: 'A-Level  |  รอบสอบ ' + dt.shortMonthYearTh,
+      posnEmblemShape: 'auto',
       watermarkEnabled: true,
       watermarkUrl: '',
       watermarkText: schoolName,
@@ -181,7 +226,7 @@
       includeQuestionZero: !isPosnHint,
       // Slot 3: Author / Program Subtitle
       authorText: schoolName,
-      posnObjectiveBox: 'เพื่อคัดเลือกนักเรียนเข้ารับการอบรมค่าย 1 สอวน. ปีการศึกษา ' + dt.beYear,
+      posnObjectiveBox: 'แบบทดสอบจำลองเตรียมความพร้อมค่าย 1 (Pre-POSN) ปีการศึกษา ' + dt.beYear,
       // Slot 4: Structure & Rules
       setNumber: '1',
       durationMinutesOverride: '',
@@ -203,6 +248,10 @@
     var merged = Object.assign({}, defaults, saved);
     if (merged.template !== 'alevel' && merged.template !== 'posn') {
       merged.template = defaults.template;
+    }
+    // Normalize any legacy malformed "พฤศ." month abbreviation saved in old pdf_config
+    if (merged.bannerRoundText && merged.bannerRoundText.indexOf('พฤศ.') !== -1) {
+      merged.bannerRoundText = merged.bannerRoundText.replace(/พฤศ\./g, 'พ.ย.');
     }
     var op = Number(merged.watermarkOpacity);
     merged.watermarkOpacity = isFinite(op) ? Math.max(4, Math.min(25, Math.round(op))) : 10;
@@ -791,7 +840,7 @@
 
     // Measure exact rendered heights in active template typography
     var host = createMeasurementHost(cfg);
-    var usableHeightMm = cfg.template === 'alevel' ? 228 : 242;
+    var usableHeightMm = cfg.template === 'alevel' ? 238 : 248;
     var maxPagePx = mmToPx(usableHeightMm);
 
     var measured = blocks.map(function (blk) {
@@ -903,13 +952,18 @@
   function buildWatermarkHtml(cfg, watermarkSrc) {
     if (!cfg.watermarkEnabled) return '';
     var opacity = (Math.max(4, Math.min(25, Number(cfg.watermarkOpacity) || 10)) / 100).toFixed(2);
-    var inner = watermarkSrc
-      ? '<img class="pb-pdf-wm-img" src="' + escHtml(watermarkSrc) + '" alt="" referrerpolicy="no-referrer"/>'
-      : '';
+    // When a watermark logo image is present, show ONLY the faint translucent logo (no duplicate text underneath)
+    if (watermarkSrc) {
+      return (
+        '<div class="pb-pdf-watermark" style="opacity:' + opacity + ';" aria-hidden="true">' +
+        '<img class="pb-pdf-wm-img" src="' + escHtml(watermarkSrc) + '" alt="" referrerpolicy="no-referrer"/>' +
+        '</div>'
+      );
+    }
     var txt = cfg.watermarkText
       ? '<div class="pb-pdf-wm-text">' + escHtml(cfg.watermarkText) + '</div>'
       : '';
-    return '<div class="pb-pdf-watermark" style="opacity:' + opacity + ';" aria-hidden="true">' + inner + txt + '</div>';
+    return txt ? '<div class="pb-pdf-watermark" style="opacity:' + opacity + ';" aria-hidden="true">' + txt + '</div>' : '';
   }
 
   // ---- TEMPLATE 1: A-LEVEL (TCAS / ทปอ.) ----
@@ -919,7 +973,8 @@
     var baseContentPages = paged.questionPages.length;
     var totalExamPages = 2 + baseContentPages; // Page 1 Cover + Page 2 Instructions + Page 3+ Questions
     var totalQuestions = paged.totalQuestions || Number(examDto.totalQuestionsCount) || 0;
-    var fullScoreStr = fmtNum((Number(examDto.maxPointsBp) || 0) / 100);
+    var exactTotalBp = computeExactTotalPointsBp(examDto);
+    var fullScoreStr = formatExactBp(exactTotalBp);
     var durationMin = Number(cfg.durationMinutesOverride) > 0
       ? Number(cfg.durationMinutesOverride)
       : (Number(examDto.durationMinutes) || 90);
@@ -928,8 +983,15 @@
     var sectionLinesHtml = sections.map(function (sec, idx) {
       var rng = paged.sectionPageRanges[idx];
       var pgRangeTxt = rng ? (' (หน้า ' + rng.start + (rng.end > rng.start ? '–' + rng.end : '') + ')') : '';
-      var qCnt = Array.isArray(sec.items) ? sec.items.length : (Number(sec.sectionQuestionsCount) || 0);
-      var ptsStr = fmtNum((Number(sec.sectionMaxPointsBp) || 0) / 100);
+      var items = Array.isArray(sec.items) ? sec.items : [];
+      var qCnt = items.length > 0 ? items.length : (Number(sec.sectionQuestionsCount) || 0);
+      var secBp = 0;
+      items.forEach(function (it) {
+        var b = Number(it && it.pointsBp);
+        if (isFinite(b) && b >= 0) secBp += Math.round(b);
+      });
+      if (secBp === 0 && Number(sec.sectionMaxPointsBp) > 0) secBp = Math.round(Number(sec.sectionMaxPointsBp));
+      var ptsStr = formatExactBp(secBp);
       return (
         '<div class="pb-al-struct-line">' +
         '<strong>' + escHtml(sec.title || ('ตอนที่ ' + (idx + 1))) + '</strong>' +
@@ -1029,14 +1091,16 @@
       // Copyright Notice
       '<div class="pb-al-copyright">' + copyrightHtml + '</div>' +
 
-      // Slot 5: Footer Bar (Barcode + Schedule + QR + Social)
+      // Slot 5: Footer Bar (Balanced Barcode | Schedule + QR | Divider | Social)
       '<div class="pb-al-slot5-footer">' +
       '<div class="pb-al-f-barcode">' +
       buildCode39Svg(cfg.barcodeValue || cfg.subjectCode) +
       '<div class="pb-al-f-barcode-lbl">' + escHtml(cfg.barcodeValue || cfg.subjectCode) + '</div>' +
       '</div>' +
+      '<div class="pb-al-f-center-group">' +
       '<div class="pb-al-f-schedule">' + releaseHtml + '</div>' +
       (cfg.qrUrl ? '<div class="pb-al-f-qr">' + buildQrCodeSvg(cfg.qrUrl) + '</div>' : '') +
+      '</div>' +
       '<div class="pb-al-f-social">' +
       '<div class="pb-al-f-social-cap">' + escHtml(cfg.socialCaption || 'สอบถาม / อัปเดตข้อมูลได้ที่') + '</div>' +
       '<div class="pb-al-f-social-handle">' + escHtml(cfg.socialHandle) + '</div>' +
@@ -1112,22 +1176,30 @@
   function buildPosnDocumentHtml(examDto, cfg, assets, paged) {
     var contentPages = paged.questionPages.length; // Excluding cover page!
     var totalQuestions = paged.totalQuestions || Number(examDto.totalQuestionsCount) || 0;
+    var shapeClass = cfg.posnEmblemShape === 'circle'
+      ? ' is-circle'
+      : cfg.posnEmblemShape === 'square'
+      ? ' is-square'
+      : '';
     var logoImgTag = assets.logoSrc
-      ? '<img class="pb-posn-emblem" src="' + escHtml(assets.logoSrc) + '" alt="Emblem" referrerpolicy="no-referrer"/>'
+      ? '<img class="pb-posn-emblem' + shapeClass + '" src="' + escHtml(assets.logoSrc) + '" alt="Emblem" referrerpolicy="no-referrer"/>'
       : '';
 
-    var rawRuleBlocks = String(cfg.posnRules || '').split(/\n(?=\S)/);
+    var rawRuleBlocks = String(cfg.posnRules || '').split(/\n(?=\S)/).map(function (b) { return b.trim(); }).filter(Boolean);
     var rulesListHtml =
-      '<li><span class="pb-posn-rnum">1.</span><div><strong>ข้อสอบมี ' + contentPages + ' หน้า (ไม่รวมปก) จำนวน ' + totalQuestions + ' ข้อ</strong></div></li>' +
-      rawRuleBlocks.map(function (blk, idx) {
-        var trimmed = blk.trim();
-        if (!trimmed) return '';
+      '<li><span class="pb-posn-rnum">1.</span><div>ข้อสอบมี ' + contentPages + ' หน้า (ไม่รวมปก) จำนวน ' + totalQuestions + ' ข้อ</div></li>' +
+      rawRuleBlocks.map(function (trimmed, idx) {
+        var itemNum = idx + 2;
         var lines = trimmed.split(/\r?\n/);
-        var first = escHtml(lines[0]);
+        var first = escHtml(lines[0]).replace(/^วิธีตอบ(\s*)/, '<strong>วิธีตอบ</strong>$1');
+        var isLastExitRule = (itemNum === rawRuleBlocks.length + 1) && /ห้ามนักเรียนออกจากห้องสอบ/.test(lines[0]);
+        if (isLastExitRule || itemNum === 8) {
+          first = '<span class="pb-posn-rule-underline">' + first + '</span>';
+        }
         var subLines = lines.slice(1).map(function (sl) {
           return '<div class="pb-posn-rule-indent">' + escHtml(sl.trim()) + '</div>';
         }).join('');
-        return '<li><span class="pb-posn-rnum">' + (idx + 2) + '.</span><div>' + first + subLines + '</div></li>';
+        return '<li><span class="pb-posn-rnum">' + itemNum + '.</span><div>' + first + subLines + '</div></li>';
       }).join('');
 
     // PAGE 1: POSN COVER PAGE
@@ -1246,6 +1318,7 @@
     setVal('input-pdf-banner-round', cfg.bannerRoundText);
     setVal('input-pdf-badge-top', cfg.bannerBadgeTop);
     setVal('input-pdf-badge-num', cfg.bannerBadgeNum);
+    setVal('select-pdf-posn-emblem-shape', cfg.posnEmblemShape || 'auto');
     setChk('chk-pdf-watermark-enabled', cfg.watermarkEnabled);
     setVal('input-pdf-watermark-url', cfg.watermarkUrl);
     setVal('input-pdf-watermark-text', cfg.watermarkText);
@@ -1296,6 +1369,7 @@
       bannerRoundText: getVal('input-pdf-banner-round').trim(),
       bannerBadgeTop: getVal('input-pdf-badge-top').trim(),
       bannerBadgeNum: getVal('input-pdf-badge-num').trim(),
+      posnEmblemShape: getVal('select-pdf-posn-emblem-shape', 'auto'),
       watermarkEnabled: getChk('chk-pdf-watermark-enabled', true),
       watermarkUrl: getVal('input-pdf-watermark-url').trim(),
       watermarkText: getVal('input-pdf-watermark-text').trim(),
@@ -1377,7 +1451,7 @@
       countBadge.textContent = built.pagesHtml.length + ' A4 ' + (built.pagesHtml.length === 1 ? 'Page' : 'Pages');
     }
     if (slot4Meta) {
-      var fullPts = fmtNum((Number(state.exam.maxPointsBp) || 0) / 100);
+      var fullPts = formatExactBp(computeExactTotalPointsBp(state.exam));
       var dur = Number(cfg.durationMinutesOverride) > 0 ? Number(cfg.durationMinutesOverride) : (Number(state.exam.durationMinutes) || 90);
       slot4Meta.textContent =
         (cfg.template === 'posn'
@@ -1501,15 +1575,22 @@
       await waitForAllImages(printRoot);
       await new Promise(function (r) { setTimeout(r, 80); });
 
-      // 6. Trigger native browser Print -> Save as PDF
+      // 6. Auto-name exported PDF via document.title & trigger native browser Print -> Save as PDF
+      var originalTitle = document.title;
+      var autoPdfTitle = buildCleanPdfFilename(state.exam, state.config);
+      document.title = autoPdfTitle;
       document.body.classList.add('pb-pdf-printing-active');
+      var restored = false;
       var cleanup = function () {
+        if (restored) return;
+        restored = true;
         document.body.classList.remove('pb-pdf-printing-active');
+        document.title = originalTitle;
         window.removeEventListener('afterprint', cleanup);
       };
       window.addEventListener('afterprint', cleanup);
       window.print();
-      setTimeout(cleanup, 1200);
+      setTimeout(cleanup, 1500);
     } catch (err) {
       if (global.PBNotify && typeof global.PBNotify.toast === 'function') {
         global.PBNotify.toast('danger', 'PDF Export Error', (err && err.message) || 'Could not prepare printable PDF.');
@@ -1698,6 +1779,7 @@
     loadPrivateFonts: loadPrivateFonts,
     renderLivePreview: renderLivePreview,
     triggerPrintExport: triggerPrintExport,
+    buildCleanPdfFilename: buildCleanPdfFilename,
     PRIVATE_FONT_MANIFEST: PRIVATE_FONT_MANIFEST
   };
 })(window);

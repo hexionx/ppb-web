@@ -20005,7 +20005,11 @@
     }
     .site-header .desktop-nav {
       gap: 8px !important;
-      padding-right: 2px;
+      padding: 5px 4px !important;
+    }
+    .site-header .desktop-nav .nav-link:focus-visible,
+    .site-header .desktop-nav .btn-sm:focus-visible {
+      outline-offset: 1px !important;
     }
     .site-header .desktop-nav .nav-link,
     .site-header .desktop-nav .btn-sm {
@@ -20545,14 +20549,14 @@
     margin-bottom: 3px;
   }
   .pb-pdf-question-item {
-    margin: 0 0 10px 0;
+    margin: 0 0 7px 0;
     break-inside: avoid;
     page-break-inside: avoid;
   }
   .pb-pdf-question-row {
     display: flex;
     align-items: flex-start;
-    gap: 6px;
+    gap: 5px;
   }
   .pb-pdf-q-num {
     min-width: 24px;
@@ -20564,7 +20568,7 @@
     min-width: 0;
   }
   .pb-pdf-p {
-    margin: 0 0 3px 0;
+    margin: 0 0 2px 0;
   }
   .pb-pdf-list {
     margin: 2px 0 4px 20px;
@@ -20581,32 +20585,33 @@
     line-height: 0;
   }
   .pb-pdf-figure {
-    margin: 5px auto;
+    margin: 4px auto;
     text-align: center;
     max-width: 100%;
     break-inside: avoid;
   }
   .pb-pdf-q-img {
+    width: auto;
     max-width: 100%;
-    max-height: 74mm;
+    max-height: 210px;
     object-fit: contain;
     display: inline-block;
   }
   .pb-pdf-fig-cap {
-    font-size: 0.85em;
+    font-size: 0.84em;
     color: #333333;
     margin-top: 2px;
   }
   .pb-pdf-options-list {
     list-style: none;
-    margin: 3px 0 0 0;
+    margin: 2px 0 0 0;
     padding: 0 0 0 8px;
   }
   .pb-pdf-option-item {
     display: flex;
     align-items: flex-start;
-    gap: 6px;
-    margin: 1px 0;
+    gap: 5px;
+    margin: 0.5px 0;
   }
   .pb-pdf-option-key {
     min-width: 22px;
@@ -20617,17 +20622,18 @@
     min-width: 0;
   }
   .pb-pdf-opt-img {
+    width: auto;
     max-width: 65mm;
-    max-height: 36mm;
+    max-height: 120px;
     object-fit: contain;
-    margin-top: 3px;
+    margin-top: 2px;
   }
   .pb-pdf-data-table,
   .pb-pdf-cmc-table,
   .pb-pdf-ak-table {
     width: 100%;
     border-collapse: collapse;
-    margin: 5px 0;
+    margin: 4px 0;
     font-size: 0.92em;
   }
   .pb-pdf-data-table th,
@@ -20640,6 +20646,16 @@
     padding: 3px 7px;
     text-align: left;
     vertical-align: top;
+  }
+  .pb-pdf-data-table th,
+  .pb-pdf-cmc-table th {
+    white-space: nowrap;
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+  .pb-pdf-data-table th:first-child,
+  .pb-pdf-data-table td:first-child {
+    min-width: 58px;
   }
   .pb-pdf-cmc-table th,
   .pb-pdf-cmc-num,
@@ -20684,70 +20700,73 @@
   .pb-al-slot1-banner {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 10px;
-    padding-bottom: 8px;
-    border-bottom: 1.5px solid #111111;
+    justify-content: center;
+    gap: 10px;
+    width: fit-content;
+    max-width: 70%;
+    margin: 0 auto 12px auto;
+    padding: 4px 6px 6px 6px;
   }
   .pb-al-slot1-left {
     display: flex;
     align-items: center;
-    gap: 12px;
-    flex: 1 1 auto;
+    gap: 10px;
+    flex: 0 1 auto;
     min-width: 0;
   }
   .pb-al-slot1-logo-wrap {
     flex-shrink: 0;
   }
   .pb-al-slot1-logo {
-    max-height: 24mm;
-    max-width: 34mm;
+    max-height: 22mm;
+    max-width: 28mm;
     object-fit: contain;
     display: block;
   }
   .pb-al-slot1-titles {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-width: 0;
   }
   .pb-al-slot1-org {
-    font-size: 15pt;
-    font-weight: 700;
-    line-height: 1.1;
-  }
-  .pb-al-slot1-main {
-    font-size: 28pt;
+    font-size: 14.5pt;
     font-weight: 700;
     line-height: 1.05;
+  }
+  .pb-al-slot1-main {
+    font-size: 26pt;
+    font-weight: 700;
+    line-height: 1.02;
     letter-spacing: -0.01em;
+    white-space: nowrap;
   }
   .pb-al-slot1-round-pill {
-    display: inline-block;
-    margin-top: 4px;
+    display: block;
+    margin-top: 3px;
     padding: 1px 14px;
     background: #111111;
     color: #FFFFFF;
     border-radius: 4px;
-    font-size: 14pt;
+    font-size: 13.5pt;
     font-weight: 700;
+    text-align: center;
   }
   .pb-al-slot1-badge {
     background: #111111;
     color: #FFFFFF;
     border-radius: 10px;
-    padding: 6px 14px;
+    padding: 5px 12px;
     text-align: center;
     flex-shrink: 0;
-    min-width: 24mm;
+    min-width: 22mm;
   }
   .pb-al-slot1-badge-top {
-    font-size: 13pt;
+    font-size: 12pt;
     font-weight: 700;
     line-height: 1;
     letter-spacing: 0.06em;
   }
   .pb-al-slot1-badge-num {
-    font-size: 28pt;
+    font-size: 26pt;
     font-weight: 700;
     line-height: 1;
   }
@@ -20777,7 +20796,7 @@
 
   .pb-al-slot2-row {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: center;
     gap: 10px;
     margin: 8px 0 6px 0;
@@ -20796,19 +20815,25 @@
   }
   .pb-al-slot2-subject-box {
     display: inline-flex;
-    align-items: baseline;
-    gap: 14px;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    min-width: 68mm;
     border-bottom: 1.5px solid #111111;
-    padding: 0 8px 2px 6px;
+    padding: 0 6px 2px 6px;
   }
   .pb-al-subject-name {
     font-size: 22pt;
     font-weight: 700;
+    line-height: 1.05;
   }
   .pb-al-subject-code {
-    font-size: 14pt;
+    align-self: flex-start;
+    font-size: 12pt;
     font-weight: 700;
-    border-bottom: 1px solid #333333;
+    line-height: 1.1;
+    border-bottom: none;
+    white-space: nowrap;
   }
 
   .pb-al-slot3-row {
@@ -20824,19 +20849,19 @@
   .pb-al-slot4-box {
     text-align: center;
     margin: 4px auto 8px auto;
-    padding: 6px 14px;
-    border: 1px solid #333333;
-    border-radius: 6px;
-    max-width: 158mm;
+    padding: 2px 8px;
+    border: none;
+    border-radius: 0;
+    max-width: 162mm;
   }
   .pb-al-set-pill {
     display: inline-block;
-    border: 1px solid #111111;
-    border-radius: 5px;
-    padding: 0 18px;
+    border: 1.5px solid #111111;
+    border-radius: 4px;
+    padding: 1px 22px;
     font-size: 17pt;
     font-weight: 700;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
   }
   .pb-al-struct-headline {
     font-weight: 700;
@@ -20910,7 +20935,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: 12px;
     font-size: 12.5pt;
     line-height: 1.2;
   }
@@ -20923,9 +20948,17 @@
     font-weight: 700;
     margin-top: -2px;
   }
-  .pb-al-f-schedule {
+  .pb-al-f-center-group {
     flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .pb-al-f-schedule {
     text-align: right;
+    min-width: 0;
   }
   .pb-al-f-qr {
     flex-shrink: 0;
@@ -20935,7 +20968,13 @@
   }
   .pb-al-f-social {
     flex-shrink: 0;
-    max-width: 44mm;
+    max-width: 48mm;
+    border-left: 1px solid #333333;
+    padding-left: 12px;
+    min-height: 54px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
   .pb-al-f-social-cap {
     font-size: 11.5pt;
@@ -21024,12 +21063,33 @@
   .pb-posn-slot1-emblem {
     display: flex;
     justify-content: center;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
   }
   .pb-posn-emblem {
-    max-height: 30mm;
-    max-width: 48mm;
+    height: 86px;
+    max-height: 92px;
+    width: auto;
+    max-width: 180px;
     object-fit: contain;
+    display: block;
+  }
+  .pb-posn-emblem.is-circle {
+    width: 86px;
+    height: 86px;
+    border-radius: 9999px;
+    object-fit: cover;
+    border: 1.5px solid #111111;
+    padding: 2px;
+    background: #FFFFFF;
+  }
+  .pb-posn-emblem.is-square {
+    width: 86px;
+    height: 86px;
+    border-radius: 10px;
+    object-fit: cover;
+    border: 1.5px solid #111111;
+    padding: 2px;
+    background: #FFFFFF;
   }
   .pb-posn-main-title {
     text-align: center;
@@ -21038,27 +21098,27 @@
     margin-bottom: 6px;
   }
   .pb-posn-slot3-box {
-    border: 1.5px solid #111111;
+    border: 3px double #111111;
     padding: 6px 14px;
     text-align: center;
-    font-size: 18pt;
+    font-size: 17.5pt;
     font-weight: 700;
     margin: 0 auto 14px auto;
-    width: 100%;
+    width: 78%;
   }
   .pb-posn-meta-grid {
     display: grid;
     grid-template-columns: 1.25fr 0.75fr;
     gap: 16px;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     font-size: 15.5pt;
-    line-height: 1.42;
+    line-height: 1.38;
   }
   .pb-posn-m-row {
     display: flex;
     align-items: baseline;
     gap: 6px;
-    margin-bottom: 4px;
+    margin-bottom: 3px;
   }
   .pb-posn-m-lbl {
     font-weight: 700;
@@ -21077,14 +21137,14 @@
     font-size: 16pt;
   }
   .pb-posn-slot4-instructions {
-    margin-top: 4px;
-    font-size: 15.5pt;
-    line-height: 1.38;
+    margin-top: 2px;
+    font-size: 15pt;
+    line-height: 1.28;
   }
   .pb-posn-inst-heading {
     font-weight: 700;
-    font-size: 16.5pt;
-    margin-bottom: 4px;
+    font-size: 16pt;
+    margin-bottom: 3px;
   }
   .pb-posn-rules-list {
     list-style: none;
@@ -21093,16 +21153,20 @@
   }
   .pb-posn-rules-list li {
     display: flex;
-    gap: 8px;
-    margin-bottom: 5px;
+    gap: 7px;
+    margin-bottom: 3px;
   }
   .pb-posn-rnum {
     min-width: 18px;
-    font-weight: 700;
+    font-weight: 400;
+  }
+  .pb-posn-rule-underline {
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
   .pb-posn-rule-indent {
     padding-left: 24px;
-    font-family: 'TH SarabunPSK', 'Sarabun', monospace;
+    line-height: 1.25;
   }
   .pb-posn-running-header {
     position: relative;
@@ -21181,5 +21245,17 @@
     #pb-pdf-print-root .pb-pdf-figure {
       break-inside: avoid !important;
       page-break-inside: avoid !important;
+    }
+
+    #pb-pdf-print-root .pb-pdf-q-img {
+      max-height: 210px !important;
+      width: auto !important;
+      max-width: 100% !important;
+      object-fit: contain !important;
+    }
+
+    #pb-pdf-print-root .pb-pdf-data-table th,
+    #pb-pdf-print-root .pb-pdf-cmc-table th {
+      white-space: nowrap !important;
     }
   }

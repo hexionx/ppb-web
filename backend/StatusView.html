@@ -12045,6 +12045,15 @@
             </div>
           </div>
 
+          <div class="form-group" style="margin-bottom: 10px;" data-pdf-tpl-only="posn">
+            <label class="form-label" for="select-pdf-posn-emblem-shape">POSN Emblem Logo Frame</label>
+            <select class="form-input" id="select-pdf-posn-emblem-shape">
+              <option value="auto">Auto (Natural Proportions, ~86px height)</option>
+              <option value="circle">Circular Emblem (86px &times; 86px)</option>
+              <option value="square">Square Emblem (86px &times; 86px)</option>
+            </select>
+          </div>
+
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px;">
             <label style="display: inline-flex; align-items: center; gap: 7px; font-size: 0.84rem; font-weight: 700; cursor: pointer;">
               <input type="checkbox" id="chk-pdf-watermark-enabled" checked />
@@ -12067,8 +12076,8 @@
               </div>
             </div>
             <div class="form-group" style="margin: 0;">
-              <label class="form-label" for="input-pdf-watermark-text">Watermark Caption Text</label>
-              <input type="text" class="form-input" id="input-pdf-watermark-text" placeholder="Pattanabhumi Biology" />
+              <label class="form-label" for="input-pdf-watermark-text">Fallback Text Watermark (image-free only)</label>
+              <input type="text" class="form-input" id="input-pdf-watermark-text" placeholder="Shown only if no watermark image is set" />
             </div>
           </div>
         </div>
@@ -12123,7 +12132,7 @@
           </div>
           <div class="form-group" style="margin: 0;" data-pdf-tpl-only="posn">
             <label class="form-label" for="input-pdf-posn-objective">Bordered Program Subtitle Box</label>
-            <input type="text" class="form-input" id="input-pdf-posn-objective" placeholder="เพื่อคัดเลือกนักเรียนเข้ารับการอบรมค่าย 1 สอวน. ปีการศึกษา 2569" />
+            <input type="text" class="form-input" id="input-pdf-posn-objective" placeholder="แบบทดสอบจำลองเตรียมความพร้อมค่าย 1 (Pre-POSN) ปีการศึกษา 2569" />
           </div>
         </div>
 

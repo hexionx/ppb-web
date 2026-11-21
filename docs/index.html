@@ -8,7 +8,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <meta name="pb-build-version" content="183b52fb" />
+    <meta name="pb-build-version" content="00d0bee1" />
     <base target="_self" />
     <title>Pattanabhumi Biology — Learning Portal</title>
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
@@ -19,7 +19,7 @@
       href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/styles.css?v=9ca38c93" />
+    <link rel="stylesheet" href="css/styles.css?v=c69db079" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -12442,6 +12442,15 @@
             </div>
           </div>
 
+          <div class="form-group" style="margin-bottom: 10px;" data-pdf-tpl-only="posn">
+            <label class="form-label" for="select-pdf-posn-emblem-shape">POSN Emblem Logo Frame</label>
+            <select class="form-input" id="select-pdf-posn-emblem-shape">
+              <option value="auto">Auto (Natural Proportions, ~86px height)</option>
+              <option value="circle">Circular Emblem (86px &times; 86px)</option>
+              <option value="square">Square Emblem (86px &times; 86px)</option>
+            </select>
+          </div>
+
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px;">
             <label style="display: inline-flex; align-items: center; gap: 7px; font-size: 0.84rem; font-weight: 700; cursor: pointer;">
               <input type="checkbox" id="chk-pdf-watermark-enabled" checked />
@@ -12464,8 +12473,8 @@
               </div>
             </div>
             <div class="form-group" style="margin: 0;">
-              <label class="form-label" for="input-pdf-watermark-text">Watermark Caption Text</label>
-              <input type="text" class="form-input" id="input-pdf-watermark-text" placeholder="Pattanabhumi Biology" />
+              <label class="form-label" for="input-pdf-watermark-text">Fallback Text Watermark (image-free only)</label>
+              <input type="text" class="form-input" id="input-pdf-watermark-text" placeholder="Shown only if no watermark image is set" />
             </div>
           </div>
         </div>
@@ -12520,7 +12529,7 @@
           </div>
           <div class="form-group" style="margin: 0;" data-pdf-tpl-only="posn">
             <label class="form-label" for="input-pdf-posn-objective">Bordered Program Subtitle Box</label>
-            <input type="text" class="form-input" id="input-pdf-posn-objective" placeholder="เพื่อคัดเลือกนักเรียนเข้ารับการอบรมค่าย 1 สอวน. ปีการศึกษา 2569" />
+            <input type="text" class="form-input" id="input-pdf-posn-objective" placeholder="แบบทดสอบจำลองเตรียมความพร้อมค่าย 1 (Pre-POSN) ปีการศึกษา 2569" />
           </div>
         </div>
 
@@ -12801,7 +12810,7 @@
     <script src="js/drive-storage.js?v=e69064d1"></script>
     <script src="js/supabase-backend.js?v=d9675b37"></script>
     <script src="js/supabase-exams.js?v=4c51ce2d"></script>
-    <script src="js/exam-pdf-export.js?v=2a5a26a5"></script>
+    <script src="js/exam-pdf-export.js?v=be835616"></script>
     <script src="js/api.js?v=afd08d1a"></script>
     <script src="js/app.js?v=27f825c0"></script>
   </body>
