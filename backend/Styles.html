@@ -20278,4 +20278,911 @@
     }
   }
 
+  /* ==========================================================================
+     TEMPLATE-BASED EXAM PDF EXPORT MODAL, LIVE A4 PREVIEW, A-LEVEL & POSN TEMPLATES
+     ========================================================================== */
+  .pb-btn-export-pdf-row {
+    color: #0F766E !important;
+    border-color: #99F6E4 !important;
+    background: #F0FDFA !important;
+  }
+  .pb-btn-export-pdf-row:hover {
+    background: #CCFBF1 !important;
+    border-color: #14B8A6 !important;
+  }
+
+  .pb-pdf-modal-backdrop {
+    padding: 12px !important;
+    z-index: 10800 !important;
+  }
+  .pb-pdf-modal-dialog {
+    width: min(1380px, calc(100vw - 24px)) !important;
+    max-width: 1380px !important;
+    height: calc(100vh - 28px) !important;
+    max-height: calc(100vh - 28px) !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    border-radius: 18px !important;
+  }
+  .pb-pdf-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+    padding: 14px 20px;
+    background: #FFFFFF;
+    border-bottom: 1px solid #E2E8F0;
+    flex-shrink: 0;
+  }
+  .pb-pdf-modal-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .pb-pdf-modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 440px minmax(0, 1fr);
+    background: #F1F5F9;
+    overflow: hidden;
+  }
+  @media (max-width: 1040px) {
+    .pb-pdf-modal-body {
+      grid-template-columns: 1fr;
+      overflow-y: auto;
+    }
+    .pb-pdf-preview-pane {
+      min-height: 520px;
+    }
+  }
+  .pb-pdf-config-pane {
+    overflow-y: auto;
+    padding: 16px;
+    background: #FFFFFF;
+    border-right: 1px solid #E2E8F0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .pb-pdf-cfg-group {
+    padding: 13px 14px;
+    border-radius: 12px;
+    border: 1px solid #E2E8F0;
+    background: #F8FAFC;
+  }
+  .pb-pdf-cfg-group-title {
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #0F766E;
+    margin-bottom: 10px;
+  }
+  .pb-pdf-cfg-group .form-label {
+    font-size: 0.79rem;
+    margin-bottom: 4px;
+  }
+  .pb-pdf-cfg-group .form-input {
+    font-size: 0.86rem;
+    padding: 7px 10px;
+  }
+  .pb-pdf-tpl-switcher {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .pb-pdf-tpl-card {
+    appearance: none;
+    text-align: left;
+    padding: 10px 11px;
+    border-radius: 12px;
+    border: 1.5px solid #CBD5E1;
+    background: #FFFFFF;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+  }
+  .pb-pdf-tpl-card strong {
+    font-size: 0.84rem;
+    color: #0F172A;
+  }
+  .pb-pdf-tpl-card span {
+    font-size: 0.72rem;
+    line-height: 1.35;
+    color: #64748B;
+  }
+  .pb-pdf-tpl-card.is-active {
+    border-color: #0D9488;
+    background: #F0FDFA;
+    box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.16);
+  }
+  .pb-pdf-tpl-card.is-active strong {
+    color: #0F766E;
+  }
+
+  .pb-pdf-preview-pane {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    background: #E2E8F0;
+  }
+  .pb-pdf-preview-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 16px;
+    background: #F8FAFC;
+    border-bottom: 1px solid #CBD5E1;
+    flex-shrink: 0;
+  }
+  .pb-pdf-zoom-btn.is-active {
+    background: #0F766E !important;
+    color: #FFFFFF !important;
+    border-color: #0F766E !important;
+  }
+  .pb-pdf-preview-viewport {
+    flex: 1 1 auto;
+    overflow: auto;
+    padding: 18px 20px 32px 20px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  .pb-pdf-preview-scaler {
+    position: relative;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+  .pb-pdf-preview-stage {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+    width: 210mm;
+  }
+
+  /* ==================== SHARED A4 SHEET & QUESTION TYPOGRAPHY ==================== */
+  #pb-pdf-print-root {
+    display: none;
+  }
+
+  .pb-pdf-page {
+    position: relative;
+    width: 210mm;
+    min-height: 297mm;
+    height: 297mm;
+    padding: 15mm;
+    box-sizing: border-box;
+    background: #FFFFFF;
+    color: #111111;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.22);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .pb-pdf-tpl-alevel {
+    font-family: 'Angsana New', 'Cordia New', 'Sarabun', 'TH SarabunPSK', Tahoma, serif;
+    font-size: 16pt;
+    line-height: 1.3;
+  }
+
+  .pb-pdf-tpl-posn {
+    font-family: 'TH SarabunPSK', 'Sarabun', 'Angsana New', Tahoma, sans-serif;
+    font-size: 16pt;
+    line-height: 1.35;
+  }
+
+  .pb-pdf-watermark {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    pointer-events: none;
+    z-index: 1;
+    user-select: none;
+  }
+  .pb-pdf-wm-img {
+    max-width: 115mm;
+    max-height: 85mm;
+    object-fit: contain;
+    filter: grayscale(15%);
+  }
+  .pb-pdf-wm-text {
+    font-size: 26pt;
+    font-weight: 700;
+    color: #1E293B;
+    letter-spacing: 0.04em;
+    text-align: center;
+  }
+
+  .pb-pdf-q-flow {
+    position: relative;
+    z-index: 2;
+    flex: 1 1 auto;
+  }
+  .pb-pdf-section-banner {
+    margin: 4px 0 8px 0;
+    padding-bottom: 3px;
+    border-bottom: 1px solid #333333;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+  .pb-pdf-section-banner-title {
+    font-weight: 700;
+    font-size: 1.04em;
+  }
+  .pb-pdf-section-banner-inst {
+    font-size: 0.94em;
+    margin-top: 2px;
+  }
+  .pb-pdf-stimulus-box {
+    border: 1px solid #444444;
+    border-radius: 4px;
+    padding: 6px 10px;
+    margin: 6px 0 8px 0;
+    background: #FAFAFA;
+    break-inside: avoid;
+  }
+  .pb-pdf-stimulus-title {
+    font-weight: 700;
+    margin-bottom: 3px;
+  }
+  .pb-pdf-question-item {
+    margin: 0 0 10px 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .pb-pdf-question-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .pb-pdf-q-num {
+    min-width: 24px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .pb-pdf-q-body {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .pb-pdf-p {
+    margin: 0 0 3px 0;
+  }
+  .pb-pdf-list {
+    margin: 2px 0 4px 20px;
+    padding: 0;
+  }
+  .pb-pdf-sup {
+    font-size: 0.72em;
+    vertical-align: super;
+    line-height: 0;
+  }
+  .pb-pdf-sub {
+    font-size: 0.72em;
+    vertical-align: sub;
+    line-height: 0;
+  }
+  .pb-pdf-figure {
+    margin: 5px auto;
+    text-align: center;
+    max-width: 100%;
+    break-inside: avoid;
+  }
+  .pb-pdf-q-img {
+    max-width: 100%;
+    max-height: 74mm;
+    object-fit: contain;
+    display: inline-block;
+  }
+  .pb-pdf-fig-cap {
+    font-size: 0.85em;
+    color: #333333;
+    margin-top: 2px;
+  }
+  .pb-pdf-options-list {
+    list-style: none;
+    margin: 3px 0 0 0;
+    padding: 0 0 0 8px;
+  }
+  .pb-pdf-option-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 1px 0;
+  }
+  .pb-pdf-option-key {
+    min-width: 22px;
+    flex-shrink: 0;
+  }
+  .pb-pdf-option-content {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .pb-pdf-opt-img {
+    max-width: 65mm;
+    max-height: 36mm;
+    object-fit: contain;
+    margin-top: 3px;
+  }
+  .pb-pdf-data-table,
+  .pb-pdf-cmc-table,
+  .pb-pdf-ak-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 5px 0;
+    font-size: 0.92em;
+  }
+  .pb-pdf-data-table th,
+  .pb-pdf-data-table td,
+  .pb-pdf-cmc-table th,
+  .pb-pdf-cmc-table td,
+  .pb-pdf-ak-table th,
+  .pb-pdf-ak-table td {
+    border: 1px solid #222222;
+    padding: 3px 7px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .pb-pdf-cmc-table th,
+  .pb-pdf-cmc-num,
+  .pb-pdf-cmc-box {
+    text-align: center !important;
+  }
+  .pb-pdf-short-answer-line {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .pb-pdf-dotted-fill {
+    display: inline-block;
+    width: 65mm;
+    border-bottom: 1px dotted #111111;
+    height: 16px;
+  }
+  .pb-pdf-written-lines {
+    margin-top: 6px;
+  }
+  .pb-pdf-ruled-line {
+    border-bottom: 1px dotted #444444;
+    height: 22px;
+  }
+  .pb-pdf-page-footer-marker {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: center;
+    padding-top: 6px;
+    margin-top: auto;
+  }
+  .pb-pdf-empty-note {
+    text-align: center;
+    padding: 32px 16px;
+    border: 1px dashed #94A3B8;
+    color: #475569;
+  }
+
+  /* ==================== TEMPLATE 1: A-LEVEL (TCAS / ทปอ.) ==================== */
+  .pb-al-slot1-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1.5px solid #111111;
+  }
+  .pb-al-slot1-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .pb-al-slot1-logo-wrap {
+    flex-shrink: 0;
+  }
+  .pb-al-slot1-logo {
+    max-height: 24mm;
+    max-width: 34mm;
+    object-fit: contain;
+    display: block;
+  }
+  .pb-al-slot1-titles {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .pb-al-slot1-org {
+    font-size: 15pt;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+  .pb-al-slot1-main {
+    font-size: 28pt;
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+  }
+  .pb-al-slot1-round-pill {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 1px 14px;
+    background: #111111;
+    color: #FFFFFF;
+    border-radius: 4px;
+    font-size: 14pt;
+    font-weight: 700;
+  }
+  .pb-al-slot1-badge {
+    background: #111111;
+    color: #FFFFFF;
+    border-radius: 10px;
+    padding: 6px 14px;
+    text-align: center;
+    flex-shrink: 0;
+    min-width: 24mm;
+  }
+  .pb-al-slot1-badge-top {
+    font-size: 13pt;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.06em;
+  }
+  .pb-al-slot1-badge-num {
+    font-size: 28pt;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .pb-al-student-fields {
+    margin: 4px 0 10px 0;
+    font-size: 15pt;
+  }
+  .pb-al-field-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .pb-al-field-lbl {
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .pb-al-dotline {
+    flex: 1 1 28%;
+    border-bottom: 1px dotted #111111;
+    height: 14px;
+  }
+  .pb-al-dotline.is-wide {
+    flex: 2 1 48%;
+  }
+
+  .pb-al-slot2-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 8px 0 6px 0;
+  }
+  .pb-al-badge-dark {
+    background: #111111;
+    color: #FFFFFF;
+    font-weight: 700;
+    font-size: 18pt;
+    padding: 1px 14px;
+    border-radius: 6px;
+  }
+  .pb-al-subject-prefix {
+    font-size: 20pt;
+    font-weight: 700;
+  }
+  .pb-al-slot2-subject-box {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 14px;
+    border-bottom: 1.5px solid #111111;
+    padding: 0 8px 2px 6px;
+  }
+  .pb-al-subject-name {
+    font-size: 22pt;
+    font-weight: 700;
+  }
+  .pb-al-subject-code {
+    font-size: 14pt;
+    font-weight: 700;
+    border-bottom: 1px solid #333333;
+  }
+
+  .pb-al-slot3-row {
+    text-align: center;
+    margin: 4px 0 8px 0;
+    font-size: 18pt;
+    font-weight: 700;
+  }
+  .pb-al-author-name {
+    margin-left: 6px;
+  }
+
+  .pb-al-slot4-box {
+    text-align: center;
+    margin: 4px auto 8px auto;
+    padding: 6px 14px;
+    border: 1px solid #333333;
+    border-radius: 6px;
+    max-width: 158mm;
+  }
+  .pb-al-set-pill {
+    display: inline-block;
+    border: 1px solid #111111;
+    border-radius: 5px;
+    padding: 0 18px;
+    font-size: 17pt;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .pb-al-struct-headline {
+    font-weight: 700;
+    font-size: 15.5pt;
+    text-decoration: underline;
+    margin-bottom: 3px;
+  }
+  .pb-al-struct-line {
+    font-size: 14.5pt;
+    line-height: 1.25;
+  }
+
+  .pb-al-datetime-block {
+    text-align: center;
+    font-weight: 700;
+    font-size: 15pt;
+    margin: 4px 0 8px 0;
+    line-height: 1.25;
+  }
+
+  .pb-al-rules-stage {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    margin: 4px 0 8px 0;
+  }
+  .pb-al-rules-box {
+    flex: 1 1 auto;
+    border: 1.5px solid #111111;
+    padding: 10px 14px;
+    font-size: 14.5pt;
+    line-height: 1.28;
+  }
+  .pb-al-rules-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .pb-al-rules-list li {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 3px;
+  }
+  .pb-al-rule-num {
+    min-width: 16px;
+    font-weight: 700;
+  }
+  .pb-al-tear-note {
+    writing-mode: vertical-rl;
+    font-size: 10.5pt;
+    color: #333333;
+    text-align: center;
+    letter-spacing: 0.03em;
+    flex-shrink: 0;
+    align-self: center;
+  }
+
+  .pb-al-copyright {
+    text-align: center;
+    font-weight: 700;
+    font-size: 14.5pt;
+    line-height: 1.25;
+    padding: 6px 0;
+    border-bottom: 1.5px solid #111111;
+    margin-bottom: 8px;
+  }
+
+  .pb-al-slot5-footer {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12.5pt;
+    line-height: 1.2;
+  }
+  .pb-al-f-barcode {
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .pb-al-f-barcode-lbl {
+    font-size: 12pt;
+    font-weight: 700;
+    margin-top: -2px;
+  }
+  .pb-al-f-schedule {
+    flex: 1 1 auto;
+    text-align: right;
+  }
+  .pb-al-f-qr {
+    flex-shrink: 0;
+    border: 1px solid #CBD5E1;
+    padding: 2px;
+    background: #FFFFFF;
+  }
+  .pb-al-f-social {
+    flex-shrink: 0;
+    max-width: 44mm;
+  }
+  .pb-al-f-social-cap {
+    font-size: 11.5pt;
+  }
+  .pb-al-f-social-handle {
+    font-size: 14pt;
+    font-weight: 700;
+    word-break: break-word;
+  }
+
+  /* A-Level Page 2 Instructions */
+  .pb-al-inst-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .pb-al-header-logo {
+    max-height: 16mm;
+    max-width: 34mm;
+    object-fit: contain;
+    display: block;
+  }
+  .pb-al-page-num {
+    font-size: 15pt;
+    font-weight: 700;
+  }
+  .pb-al-inst-frame {
+    flex: 1 1 auto;
+    border: 1.5px solid #111111;
+    border-radius: 14px;
+    padding: 14px 20px;
+  }
+  .pb-al-inst-title {
+    text-align: center;
+    margin: 0 0 10px 0;
+    font-size: 20pt;
+    font-weight: 700;
+    text-decoration: underline;
+  }
+  .pb-al-inst-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 15.5pt;
+    line-height: 1.32;
+  }
+  .pb-al-inst-list li {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 5px;
+  }
+  .pb-al-inst-num {
+    min-width: 22px;
+    font-weight: 700;
+    text-align: right;
+  }
+
+  /* A-Level Running Header (Page 3+) */
+  .pb-al-running-header {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+    border-bottom: 1.5px solid #111111;
+    font-size: 14.5pt;
+    line-height: 1.2;
+  }
+  .pb-al-rh-subj,
+  .pb-al-rh-pg {
+    font-weight: 700;
+  }
+  .pb-al-rh-center {
+    display: flex;
+    justify-content: center;
+  }
+  .pb-al-rh-right {
+    text-align: right;
+  }
+
+  /* ==================== TEMPLATE 2: POSN (สอวน.) ==================== */
+  .pb-posn-slot1-emblem {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+  .pb-posn-emblem {
+    max-height: 30mm;
+    max-width: 48mm;
+    object-fit: contain;
+  }
+  .pb-posn-main-title {
+    text-align: center;
+    font-size: 20pt;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .pb-posn-slot3-box {
+    border: 1.5px solid #111111;
+    padding: 6px 14px;
+    text-align: center;
+    font-size: 18pt;
+    font-weight: 700;
+    margin: 0 auto 14px auto;
+    width: 100%;
+  }
+  .pb-posn-meta-grid {
+    display: grid;
+    grid-template-columns: 1.25fr 0.75fr;
+    gap: 16px;
+    margin-bottom: 16px;
+    font-size: 15.5pt;
+    line-height: 1.42;
+  }
+  .pb-posn-m-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .pb-posn-m-lbl {
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .pb-posn-dotline {
+    flex: 1 1 auto;
+    border-bottom: 1px dotted #111111;
+    height: 14px;
+  }
+  .pb-posn-meta-right {
+    font-weight: 700;
+  }
+  .pb-posn-slot2-subject,
+  .pb-posn-slot2-code {
+    font-size: 16pt;
+  }
+  .pb-posn-slot4-instructions {
+    margin-top: 4px;
+    font-size: 15.5pt;
+    line-height: 1.38;
+  }
+  .pb-posn-inst-heading {
+    font-weight: 700;
+    font-size: 16.5pt;
+    margin-bottom: 4px;
+  }
+  .pb-posn-rules-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .pb-posn-rules-list li {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 5px;
+  }
+  .pb-posn-rnum {
+    min-width: 18px;
+    font-weight: 700;
+  }
+  .pb-posn-rule-indent {
+    padding-left: 24px;
+    font-family: 'TH SarabunPSK', 'Sarabun', monospace;
+  }
+  .pb-posn-running-header {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 5px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #111111;
+    font-size: 14.5pt;
+    font-weight: 700;
+  }
+
+  /* Answer Key Page */
+  .pb-pdf-ak-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+    border-bottom: 1.5px solid #111111;
+    font-size: 15pt;
+  }
+
+  /* ==================== ISOLATED A4 PRINT MEDIA RULES ==================== */
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  @media print {
+    html,
+    body {
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #FFFFFF !important;
+      width: 210mm !important;
+      height: auto !important;
+      overflow: visible !important;
+    }
+
+    body.pb-pdf-printing-active > *:not(#pb-pdf-print-root) {
+      display: none !important;
+    }
+
+    body.pb-pdf-printing-active > #pb-pdf-print-root {
+      display: block !important;
+      position: static !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 210mm !important;
+    }
+
+    #pb-pdf-print-root .pb-pdf-page {
+      width: 210mm !important;
+      height: 297mm !important;
+      min-height: 297mm !important;
+      margin: 0 !important;
+      padding: 15mm !important;
+      box-shadow: none !important;
+      border: none !important;
+      page-break-after: always !important;
+      break-after: page !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+
+    #pb-pdf-print-root .pb-pdf-page:last-child {
+      page-break-after: auto !important;
+      break-after: auto !important;
+    }
+
+    #pb-pdf-print-root .pb-pdf-question-item,
+    #pb-pdf-print-root .pb-pdf-stimulus-box,
+    #pb-pdf-print-root .pb-pdf-figure {
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+  }
+
 </style>

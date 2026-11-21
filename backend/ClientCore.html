@@ -28622,18 +28622,59 @@ var qrcode = (function() {
 
           var anlBtn = document.createElement('button');
           anlBtn.type = 'button';
-          anlBtn.className = 'btn btn-outline btn-sm pb-action-full';
+          anlBtn.className = 'btn btn-outline btn-sm';
           setBtnVectorIcon(anlBtn, 'chart', 'Analytics', 'Analytics & regrade');
           anlBtn.addEventListener('click', function () {
             openAdminExamRegradeAndAnalyticsModalPhase7(ex);
           });
           btnWrap.appendChild(anlBtn);
 
+          var pdfBtn = document.createElement('button');
+          pdfBtn.type = 'button';
+          pdfBtn.className = 'btn btn-outline btn-sm pb-btn-export-pdf-row';
+          setBtnVectorIcon(pdfBtn, 'file-text', 'Export PDF', 'Export exam as printable A4 PDF (A-Level / POSN)');
+          pdfBtn.addEventListener('click', function () {
+            openAdminExamPdfExportModal(ex);
+          });
+          btnWrap.appendChild(pdfBtn);
+
           tdAct.appendChild(btnWrap);
           tr.appendChild(tdAct);
           tbody.appendChild(tr);
         })(exams[i]);
       }
+    }
+
+    function openAdminExamPdfExportModal(examDto) {
+      if (!examDto) return;
+      if (typeof window !== 'undefined') {
+        window.__pbRpcCallEnvelope = rpcCallEnvelope;
+      }
+      if (!window.PBExamPdfExport || typeof window.PBExamPdfExport.openModal !== 'function') {
+        if (typeof PBNotify === 'object' && PBNotify && typeof PBNotify.toast === 'function') {
+          PBNotify.toast('danger', 'PDF Module Not Loaded', 'Please refresh the page to load the Exam PDF Exporter.');
+        }
+        return;
+      }
+      var pub = (currentBootstrapData && currentBootstrapData.publicSettings) || {};
+      var schoolMeta = {
+        schoolName: pub.schoolName || 'Pattanabhumi Biology',
+        contactEmail: pub.contactEmail || '',
+        contactLineId: pub.contactLineId || '',
+        contactPhone: pub.contactPhone || ''
+      };
+      window.PBExamPdfExport.openModal(examDto, {
+        schoolMeta: schoolMeta,
+        onConfigSaved: function (savedExamId, savedPdfCfg) {
+          if (Array.isArray(currentAdminExamsListPhase3)) {
+            for (var k = 0; k < currentAdminExamsListPhase3.length; k++) {
+              if (currentAdminExamsListPhase3[k] && currentAdminExamsListPhase3[k].examSetId === savedExamId) {
+                currentAdminExamsListPhase3[k].pdfConfig = savedPdfCfg;
+              }
+            }
+          }
+        }
+      });
     }
 
     function loadAdminExamSetsPhase3() {
@@ -33306,6 +33347,47 @@ var qrcode = (function() {
         document.getElementById('btn-forms-preview-exam'),
         document.getElementById('btn-forms-preview-exam-bottom')
       ];
+      var exportPdfTopBtn = document.getElementById('btn-forms-export-pdf');
+      if (exportPdfTopBtn && !(exportPdfTopBtn.dataset && exportPdfTopBtn.dataset.boundPdfExport)) {
+        if (exportPdfTopBtn.dataset) exportPdfTopBtn.dataset.boundPdfExport = '1';
+        exportPdfTopBtn.addEventListener('click', function () {
+          var idEl = document.getElementById('input-forms-exam-id');
+          var curId = idEl ? String(idEl.value || '').trim() : '';
+          var existingDto = (currentAdminExamsListPhase3 || []).find(function (x) {
+            return x && x.examSetId === curId;
+          });
+          if (existingDto && formsBuilderDirtySeq === formsBuilderLastSavedSeq) {
+            openAdminExamPdfExportModal(existingDto);
+            return;
+          }
+          var priorInFlight = formsBuilderSaveInFlightPromise
+            ? formsBuilderSaveInFlightPromise.catch(function () {})
+            : Promise.resolve();
+          runButtonWithLoadingState(exportPdfTopBtn, 'Preparing PDF...', function () {
+            return priorInFlight
+              .then(function () {
+                return saveAllFormsQuestionsAndBuildExamPayload();
+              })
+              .then(function (examPayload) {
+                return rpcCallEnvelope('admin.exams.saveDraft', examPayload);
+              })
+              .then(function (env) {
+                renderAdminExamsTablePhase3(env.data);
+                var saved = env.data && env.data.exam;
+                if (saved && saved.examSetId) {
+                  if (idEl) idEl.value = saved.examSetId;
+                  var verEl = document.getElementById('input-forms-exam-version');
+                  if (verEl) verEl.value = String(saved.version || 1);
+                  formsBuilderLastSavedSeq = formsBuilderDirtySeq;
+                  var fresh = (currentAdminExamsListPhase3 || []).find(function (x) {
+                    return x && x.examSetId === saved.examSetId;
+                  }) || saved;
+                  openAdminExamPdfExportModal(fresh);
+                }
+              });
+          });
+        });
+      }
       for (var pf = 0; pf < prevFormsBtns.length; pf++) {
         (function (btn) {
           if (!btn || (btn.dataset && btn.dataset.boundPrevForms)) return;

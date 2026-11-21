@@ -104,6 +104,7 @@ $configHash    = Get-ShortAssetHash (Join-Path $docs 'js\config.js')
 $driveHash     = Get-ShortAssetHash (Join-Path $docs 'js\drive-storage.js')
 $sbBackendHash = Get-ShortAssetHash (Join-Path $docs 'js\supabase-backend.js')
 $sbExamsHash   = Get-ShortAssetHash (Join-Path $docs 'js\supabase-exams.js')
+$examPdfHash   = Get-ShortAssetHash (Join-Path $docs 'js\exam-pdf-export.js')
 $apiHash       = Get-ShortAssetHash (Join-Path $docs 'js\api.js')
 $appHash       = Get-ShortAssetHash (Join-Path $docs 'js\app.js')
 
@@ -116,12 +117,14 @@ foreach ($t in @($tagStyles, $tagStatus, $tagCore)) {
 $index = $index.Replace($tagStyles, "<link rel=`"stylesheet`" href=`"css/styles.css?v=$stylesHash`" />")
 $index = $index.Replace($tagStatus, $statusView)
 $index = $index.Replace($tagCore, (@(
-  '<!-- Supabase client CDN, backend config, Google Drive helper, Supabase modules, RPC shim, then client app -->',
+  '<!-- Supabase client CDN, QR generator CDN, backend config, Google Drive helper, Supabase modules, Exam PDF Exporter, RPC shim, then client app -->',
   '    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>',
+  '    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>',
   "    <script src=`"js/config.js?v=$configHash`"></script>",
   "    <script src=`"js/drive-storage.js?v=$driveHash`"></script>",
   "    <script src=`"js/supabase-backend.js?v=$sbBackendHash`"></script>",
   "    <script src=`"js/supabase-exams.js?v=$sbExamsHash`"></script>",
+  "    <script src=`"js/exam-pdf-export.js?v=$examPdfHash`"></script>",
   "    <script src=`"js/api.js?v=$apiHash`"></script>",
   "    <script src=`"js/app.js?v=$appHash`"></script>"
 ) -join "`r`n"))

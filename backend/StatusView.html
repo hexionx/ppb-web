@@ -8182,6 +8182,10 @@
             <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
             <span>Preview</span>
           </button>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-forms-export-pdf" title="Export Exam as Printable A4 PDF (A-Level / POSN Templates)">
+            <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+            <span>Export PDF</span>
+          </button>
           <button type="button" class="btn btn-secondary btn-sm" id="btn-forms-save-draft" title="Save Draft">
             <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
             <span>Save Draft</span>
@@ -11937,6 +11941,284 @@
       <button type="button" class="btn btn-danger btn-sm" id="btn-confirm-action-submit">
         Delete Permanently
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- Template-Based Exam PDF Export Configuration & Live A4 Preview Modal (#modal-exam-pdf-export) -->
+<div
+  id="modal-exam-pdf-export"
+  class="modal-backdrop hidden pb-pdf-modal-backdrop"
+  role="dialog"
+  aria-modal="true"
+  aria-hidden="true"
+  aria-labelledby="pdf-export-modal-heading"
+>
+  <div class="modal-dialog pb-pdf-modal-dialog" id="modal-exam-pdf-export-dialog" role="document">
+    <div class="pb-pdf-modal-header">
+      <div style="min-width: 0; flex: 1 1 280px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span class="badge badge-ok">A4 Exam Paper Exporter</span>
+          <span class="badge" id="pdf-export-font-status">Checking private fonts...</span>
+          <span class="badge badge-ok" id="pdf-export-page-count-badge">0 A4 Pages</span>
+        </div>
+        <h2 id="pdf-export-modal-heading" style="margin: 6px 0 2px 0; font-size: 1.24rem; color: var(--color-brand-deep);">
+          Export / Save Exam as Printable A4 PDF
+        </h2>
+        <div id="pdf-export-modal-exam-title" style="font-size: 0.86rem; color: var(--color-text-secondary); overflow-wrap: anywhere;">
+          Exam Set
+        </div>
+      </div>
+      <div class="pb-pdf-modal-header-actions">
+        <span id="pdf-export-save-status" style="font-size: 0.8rem; font-weight: 700; color: #0F766E;"></span>
+        <button type="button" class="btn btn-outline btn-sm" id="btn-pdf-export-save-config">
+          Save Settings
+        </button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-pdf-export-print">
+          <svg class="pb-icon pb-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+          <span>Print / Save as PDF</span>
+        </button>
+        <button type="button" class="modal-close-btn" id="btn-pdf-export-close" aria-label="Close PDF Export modal">
+          &times;
+        </button>
+      </div>
+    </div>
+
+    <div class="pb-pdf-modal-body">
+      <!-- Left Column: Template & Slots 1-5 Configuration -->
+      <form id="form-exam-pdf-export" class="pb-pdf-config-pane" novalidate>
+        <!-- Template Switcher -->
+        <div class="pb-pdf-cfg-group">
+          <div class="pb-pdf-cfg-group-title">Official Thai Exam Template</div>
+          <div class="pb-pdf-tpl-switcher" role="group" aria-label="Choose Exam PDF Template">
+            <button type="button" class="pb-pdf-tpl-card is-active" id="btn-pdf-tpl-alevel" aria-pressed="true">
+              <strong>Template 1: A-Level (TCAS)</strong>
+              <span>Angsana New 16pt &bull; Cover + Instructions + Watermarked Questions + Footer QR/Barcode</span>
+            </button>
+            <button type="button" class="pb-pdf-tpl-card" id="btn-pdf-tpl-posn" aria-pressed="false">
+              <strong>Template 2: POSN (สอวน.)</strong>
+              <span>TH SarabunPSK 16pt &bull; Emblem Cover + 2-Col Metadata + Thai Choices ก.–ง.</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Slot 1: Top Banner, Logo & Watermark -->
+        <div class="pb-pdf-cfg-group">
+          <div class="pb-pdf-cfg-group-title">Slot 1 — Branding, Logo &amp; Watermark</div>
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label class="form-label" for="input-pdf-logo-url">Logo Image URL or Supabase Storage URI</label>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <input type="text" class="form-input" id="input-pdf-logo-url" placeholder="assets/logo.webp or https://..." style="flex: 1 1 160px;" />
+              <button type="button" class="btn btn-outline btn-sm" id="btn-pdf-use-school-logo">School Logo</button>
+              <label class="btn btn-secondary btn-sm" style="margin: 0; cursor: pointer;">
+                Upload
+                <input type="file" id="file-pdf-logo-upload" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="hidden" />
+              </label>
+            </div>
+          </div>
+
+          <div class="form-grid-2col" style="gap: 10px; margin-bottom: 10px;">
+            <div class="form-group" style="margin: 0;" data-pdf-tpl-only="alevel">
+              <label class="form-label" for="input-pdf-banner-org">Top Brand / Series Label</label>
+              <input type="text" class="form-input" id="input-pdf-banner-org" placeholder="Pattanabhumi Biology" />
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="input-pdf-banner-title">Main Cover Title</label>
+              <input type="text" class="form-input" id="input-pdf-banner-title" placeholder="Pre-Admission Biology / ข้อสอบวิชาชีววิทยา" />
+            </div>
+          </div>
+
+          <div class="form-grid-2col" style="gap: 10px; margin-bottom: 10px;" data-pdf-tpl-only="alevel">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="input-pdf-banner-round">Exam Round Strip</label>
+              <input type="text" class="form-input" id="input-pdf-banner-round" placeholder="A-Level | รอบสอบ พ.ย. 69" />
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 72px; gap: 6px;">
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label" for="input-pdf-badge-top">Badge Text</label>
+                <input type="text" class="form-input" id="input-pdf-badge-top" placeholder="TCAS" />
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label" for="input-pdf-badge-num">Year</label>
+                <input type="text" class="form-input" id="input-pdf-badge-num" placeholder="69" />
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px;">
+            <label style="display: inline-flex; align-items: center; gap: 7px; font-size: 0.84rem; font-weight: 700; cursor: pointer;">
+              <input type="checkbox" id="chk-pdf-watermark-enabled" checked />
+              <span>Show Translucent Watermark on Question Pages</span>
+            </label>
+            <span style="font-size: 0.8rem; font-weight: 700; color: var(--color-text-secondary);">
+              Opacity: <strong id="label-pdf-watermark-opacity">10%</strong>
+            </span>
+          </div>
+          <input type="range" id="input-pdf-watermark-opacity" min="5" max="20" value="10" style="width: 100%; margin-bottom: 8px;" />
+          <div class="form-grid-2col" style="gap: 8px;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="input-pdf-watermark-url">Custom Watermark Image (optional)</label>
+              <div style="display: flex; gap: 6px;">
+                <input type="text" class="form-input" id="input-pdf-watermark-url" placeholder="Defaults to Logo" />
+                <label class="btn btn-outline btn-sm" style="margin: 0; cursor: pointer; flex-shrink: 0;">
+                  Upload
+                  <input type="file" id="file-pdf-watermark-upload" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="hidden" />
+                </label>
+              </div>
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="input-pdf-watermark-text">Watermark Caption Text</label>
+              <input type="text" class="form-input" id="input-pdf-watermark-text" placeholder="Pattanabhumi Biology" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Slot 2: Subject, Code & Schedule -->
+        <div class="pb-pdf-cfg-group">
+          <div class="pb-pdf-cfg-group-title">Slot 2 — Subject, Code, Date &amp; Choice Format</div>
+          <div class="form-grid-2col" style="gap: 10px; margin-bottom: 10px;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="input-pdf-subject-name">Subject Name</label>
+              <input type="text" class="form-input" id="input-pdf-subject-name" placeholder="ชีววิทยา" />
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="input-pdf-subject-code">Subject / Set Code</label>
+              <input type="text" class="form-input" id="input-pdf-subject-code" placeholder="66 / 0000005" />
+            </div>
+          </div>
+          <div class="form-grid-2col" style="gap: 10px; margin-bottom: 10px;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="input-pdf-exam-date">Exam Date</label>
+              <input type="text" class="form-input" id="input-pdf-exam-date" placeholder="วันอาทิตย์ที่ ... พ.ศ. 2569" />
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="input-pdf-exam-time">Exam Time</label>
+              <input type="text" class="form-input" id="input-pdf-exam-time" placeholder="เวลา 08.30 – 10.00 น." />
+            </div>
+          </div>
+          <div class="form-grid-2col" style="gap: 10px; align-items: end;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="select-pdf-choice-style">Choice Numbering</label>
+              <select class="form-input" id="select-pdf-choice-style">
+                <option value="AUTO">Auto (A-Level: 1.–5. / POSN: ก.–ง.)</option>
+                <option value="NUMBER">Numeric (1., 2., 3., 4., 5.)</option>
+                <option value="THAI">Thai Alphabet (ก., ข., ค., ง., จ.)</option>
+                <option value="ALPHA">English Alphabet (A., B., C., D., E.)</option>
+                <option value="KEY">Stored Option Keys</option>
+              </select>
+            </div>
+            <label style="display: inline-flex; align-items: center; gap: 7px; font-size: 0.83rem; font-weight: 600; cursor: pointer; padding-bottom: 8px;" data-pdf-tpl-only="alevel">
+              <input type="checkbox" id="chk-pdf-include-q0" checked />
+              <span>Include Q0 (Set Code Verification)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Slot 3: Author / Program Box -->
+        <div class="pb-pdf-cfg-group">
+          <div class="pb-pdf-cfg-group-title">Slot 3 — Author Credit / Program Objective</div>
+          <div class="form-group" style="margin: 0;" data-pdf-tpl-only="alevel">
+            <label class="form-label" for="input-pdf-author">Exam Author / Creator (ข้อสอบโดย)</label>
+            <input type="text" class="form-input" id="input-pdf-author" placeholder="Pattanabhumi Biology" />
+          </div>
+          <div class="form-group" style="margin: 0;" data-pdf-tpl-only="posn">
+            <label class="form-label" for="input-pdf-posn-objective">Bordered Program Subtitle Box</label>
+            <input type="text" class="form-input" id="input-pdf-posn-objective" placeholder="เพื่อคัดเลือกนักเรียนเข้ารับการอบรมค่าย 1 สอวน. ปีการศึกษา 2569" />
+          </div>
+        </div>
+
+        <!-- Slot 4: Structure & Rules -->
+        <div class="pb-pdf-cfg-group">
+          <div class="pb-pdf-cfg-group-title">Slot 4 — Exam Structure, Auto Page Count &amp; Rules</div>
+          <div id="pdf-export-slot4-auto-meta" style="font-size: 0.8rem; font-weight: 700; color: #0F766E; background: #F0FDFA; border: 1px solid #99F6E4; border-radius: 8px; padding: 7px 10px; margin-bottom: 10px;">
+            Auto-calculating real A4 pages...
+          </div>
+          <div class="form-grid-2col" style="gap: 10px; margin-bottom: 10px;" data-pdf-tpl-only="alevel">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="input-pdf-set-number">Set Number (ชุดแบบทดสอบที่)</label>
+              <input type="text" class="form-input" id="input-pdf-set-number" placeholder="1" />
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="input-pdf-duration-override">Duration Override (min, blank = exam default)</label>
+              <input type="number" min="0" max="600" class="form-input" id="input-pdf-duration-override" placeholder="Auto" />
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 10px;" data-pdf-tpl-only="alevel">
+            <label class="form-label" for="textarea-pdf-alevel-cover-rules">Page 1 Cover Rules (1 item per line)</label>
+            <textarea class="form-input" id="textarea-pdf-alevel-cover-rules" rows="4"></textarea>
+          </div>
+          <div class="form-group" style="margin-bottom: 10px;" data-pdf-tpl-only="alevel">
+            <label class="form-label" for="textarea-pdf-alevel-instructions">Page 2 Detailed Instructions (Items #2+, #1 is auto-generated)</label>
+            <textarea class="form-input" id="textarea-pdf-alevel-instructions" rows="5"></textarea>
+          </div>
+          <div class="form-group" style="margin-bottom: 10px;" data-pdf-tpl-only="alevel">
+            <label class="form-label" for="textarea-pdf-copyright">Copyright / Return Notice</label>
+            <textarea class="form-input" id="textarea-pdf-copyright" rows="2"></textarea>
+          </div>
+
+          <div class="form-group" style="margin: 0;" data-pdf-tpl-only="posn">
+            <label class="form-label" for="textarea-pdf-posn-rules">POSN Instructions (Items #2+, #1 auto-populates page &amp; question counts; indent sub-lines with spaces)</label>
+            <textarea class="form-input" id="textarea-pdf-posn-rules" rows="7"></textarea>
+          </div>
+        </div>
+
+        <!-- Slot 5: A-Level Footer Bar -->
+        <div class="pb-pdf-cfg-group" data-pdf-tpl-only="alevel">
+          <div class="pb-pdf-cfg-group-title">Slot 5 — Cover Footer (Barcode, Schedule, QR &amp; Social)</div>
+          <div class="form-grid-2col" style="gap: 10px; margin-bottom: 10px;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="input-pdf-barcode">Barcode Code</label>
+              <input type="text" class="form-input" id="input-pdf-barcode" placeholder="66" />
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="input-pdf-social-handle">Social / Contact Handle</label>
+              <input type="text" class="form-input" id="input-pdf-social-handle" placeholder="@PattanabhumiBiology" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label class="form-label" for="input-pdf-qr-url">QR Code Target URL (auto-generated vector QR)</label>
+            <input type="url" class="form-input" id="input-pdf-qr-url" placeholder="https://hexionx.github.io/ppb-web/" />
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" for="textarea-pdf-release-schedule">Answer Key / Score Release Schedule</label>
+            <textarea class="form-input" id="textarea-pdf-release-schedule" rows="3"></textarea>
+          </div>
+        </div>
+
+        <!-- Extras & Reset -->
+        <div class="pb-pdf-cfg-group" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+          <label style="display: inline-flex; align-items: center; gap: 7px; font-size: 0.84rem; font-weight: 700; cursor: pointer;">
+            <input type="checkbox" id="chk-pdf-include-answer-key" />
+            <span>Append Teacher Answer Key Page</span>
+          </label>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-outline btn-sm" id="btn-pdf-export-reset-defaults">Reset Defaults</button>
+            <button type="button" class="btn btn-outline btn-sm" id="btn-pdf-export-cancel">Close</button>
+          </div>
+        </div>
+      </form>
+
+      <!-- Right Column: Live Scaled A4 Preview -->
+      <div class="pb-pdf-preview-pane">
+        <div class="pb-pdf-preview-toolbar">
+          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <span style="font-size: 0.78rem; font-weight: 700; color: #475569;">Live A4 Preview:</span>
+            <button type="button" class="btn btn-outline btn-sm pb-pdf-zoom-btn is-active" data-pdf-zoom="fit">Fit</button>
+            <button type="button" class="btn btn-outline btn-sm pb-pdf-zoom-btn" data-pdf-zoom="0.55">55%</button>
+            <button type="button" class="btn btn-outline btn-sm pb-pdf-zoom-btn" data-pdf-zoom="0.75">75%</button>
+            <button type="button" class="btn btn-outline btn-sm pb-pdf-zoom-btn" data-pdf-zoom="1">100%</button>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-pdf-export-refresh-preview">
+            Recalculate Pages
+          </button>
+        </div>
+        <div class="pb-pdf-preview-viewport" id="pdf-export-preview-viewport">
+          <div class="pb-pdf-preview-scaler" id="pdf-export-preview-scaler">
+            <div class="pb-pdf-preview-stage" id="pdf-export-preview-stage"></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>

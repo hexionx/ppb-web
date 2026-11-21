@@ -1404,6 +1404,7 @@
         assignments: assignByEx[ex.exam_set_id] || [],
         attemptsCount: attCntByEx[ex.exam_set_id] || 0,
         validationReport: valRep,
+        pdfConfig: asJsonObj(ex.pdf_config, {}),
         updatedAtUtc: ex.updated_at_utc,
         updatedAtBangkok: fmtBkk(ex.updated_at_utc),
         version: Number(ex.version) || 1
@@ -3887,6 +3888,35 @@
     return { ok: true, passed: true, suite: action, message: 'PostgreSQL / Supabase mode active — Apps Script sheet suite skipped.' };
   }
 
+  async function handleAdminSaveExamPdfConfig(payload, token) {
+    await B().requireSession(token, ['ADMIN']);
+    var req = payload || {};
+    var examSetId = clean(req.examSetId, 64);
+    if (!examSetId) throw err('ERR_VALIDATION_FAILED', 'examSetId is required.');
+    var rawCfg = req.pdfConfig && typeof req.pdfConfig === 'object' && !Array.isArray(req.pdfConfig) ? req.pdfConfig : {};
+    var serialized = JSON.stringify(rawCfg);
+    if (serialized.length > 65536) {
+      throw err('ERR_VALIDATION_FAILED', 'PDF configuration payload is too large (max 64 KB).');
+    }
+    var cleanCfg = JSON.parse(serialized);
+    var now = nowIso();
+    var upd = okPg(
+      await sb()
+        .from('exam_sets')
+        .update({ pdf_config: cleanCfg, updated_at_utc: now })
+        .eq('exam_set_id', examSetId)
+        .select('exam_set_id, pdf_config, updated_at_utc')
+        .maybeSingle(),
+      'Save exam PDF configuration'
+    );
+    if (!upd) throw err('ERR_NOT_FOUND', 'Examination set not found.');
+    return {
+      examSetId: upd.exam_set_id,
+      pdfConfig: asJsonObj(upd.pdf_config, {}),
+      updatedAtUtc: upd.updated_at_utc || now
+    };
+  }
+
   // ==================== EXAM DOMAIN DISPATCHER ====================
 
   async function dispatch(action, payload, token) {
@@ -3900,6 +3930,7 @@
     if (action === 'admin.questions.seedSampleBiologyBank') return await handleAdminSeedSampleBiologyBank(payload, token);
     if (action === 'admin.exams.list') return await handleAdminListExams(payload, token);
     if (action === 'admin.exams.saveDraft') return await handleAdminSaveExamDraft(payload, token);
+    if (action === 'admin.exams.savePdfConfig') return await handleAdminSaveExamPdfConfig(payload, token);
     if (action === 'admin.exams.validateForPublish') return await handleAdminValidateExam(payload, token);
     if (action === 'admin.exams.publish') return await handleAdminPublishExam(payload, token);
     if (action === 'admin.exams.delete') return await handleAdminDeleteExam(payload, token);
