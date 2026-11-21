@@ -20969,16 +20969,25 @@
   }
   .pb-al-f-qr {
     flex-shrink: 0;
-    border: 1px solid #CBD5E1;
-    padding: 2px;
+    border: none;
+    padding: 0;
     background: #FFFFFF;
+    line-height: 0;
+  }
+  .pb-pdf-qr-svg {
+    display: block;
+    width: 84px;
+    height: 84px;
+    background: #FFFFFF;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
   }
   .pb-al-f-social {
     flex-shrink: 0;
-    max-width: 48mm;
+    max-width: 52mm;
     border-left: 1px solid #333333;
     padding-left: 12px;
-    min-height: 54px;
+    min-height: 60px;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -20987,9 +20996,19 @@
     font-size: 11.5pt;
   }
   .pb-al-f-social-handle {
-    font-size: 14pt;
+    font-size: 13pt;
     font-weight: 700;
+    line-height: 1.2;
     word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+  .pb-al-f-social-link {
+    color: #111111 !important;
+    text-decoration: none !important;
+    font-weight: 700;
+  }
+  .pb-al-f-social-link:hover {
+    text-decoration: underline !important;
   }
 
   /* A-Level Page 2 Instructions */
@@ -21188,15 +21207,75 @@
     font-weight: 700;
   }
 
-  /* Answer Key Page */
+  /* Answer Key Page (Compact 2-Column Side-by-Side Grid, up to 50 Questions per A4 Page) */
+  .pb-pdf-answer-key-page {
+    height: auto;
+    min-height: 297mm;
+  }
   .pb-pdf-ak-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding-bottom: 6px;
-    margin-bottom: 10px;
+    padding-bottom: 5px;
+    margin-bottom: 4px;
     border-bottom: 1.5px solid #111111;
-    font-size: 15pt;
+    font-size: 14.5pt;
+  }
+  .pb-pdf-ak-submeta {
+    font-size: 13pt;
+    color: #333333;
+    margin-bottom: 8px;
+  }
+  .pb-pdf-ak-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10mm;
+    align-items: start;
+  }
+  .pb-pdf-ak-grid.is-single {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 110mm;
+  }
+  .pb-pdf-ak-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+    font-size: 13.5pt;
+    line-height: 1.18;
+  }
+  .pb-pdf-ak-table thead {
+    display: table-header-group;
+  }
+  .pb-pdf-ak-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .pb-pdf-ak-table th {
+    background: #F1F5F9;
+    font-weight: 700;
+    padding: 3px 6px;
+    text-align: center !important;
+    white-space: nowrap;
+  }
+  .pb-pdf-ak-table td {
+    padding: 2.5px 6px;
+    vertical-align: middle;
+  }
+  .pb-pdf-ak-col-num {
+    width: 44px;
+    text-align: center !important;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .pb-pdf-ak-col-ans {
+    text-align: center !important;
+    font-weight: 700;
+    word-break: break-word;
+  }
+  .pb-pdf-ak-col-pts {
+    width: 54px;
+    text-align: center !important;
+    white-space: nowrap;
   }
 
   /* ==================== ISOLATED A4 PRINT MEDIA RULES ==================== */

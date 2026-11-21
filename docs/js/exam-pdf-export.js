@@ -200,7 +200,7 @@
     } catch (_e) {
       baseUrl = 'https://hexionx.github.io/ppb-web/';
     }
-    var contactSocial = sm.contactLineId ? ('LINE: ' + sm.contactLineId) : (sm.contactEmail || '@PattanabhumiBiology');
+    var defaultAuthor = 'พี่ภูมิ ภูวเดช เขื่อนแก้ว';
     var durationMin = Number(ex.durationMinutes) > 0 ? Number(ex.durationMinutes) : 90;
 
     var defaults = {
@@ -225,7 +225,7 @@
       choiceStyle: 'AUTO',
       includeQuestionZero: !isPosnHint,
       // Slot 3: Author / Program Subtitle
-      authorText: schoolName,
+      authorText: defaultAuthor,
       posnObjectiveBox: 'แบบทดสอบจำลองเตรียมความพร้อมค่าย 1 (Pre-POSN) ปีการศึกษา ' + dt.beYear,
       // Slot 4: Structure & Rules
       setNumber: '1',
@@ -238,7 +238,7 @@
       barcodeValue: String(ex.examCode || '66').replace(/[^A-Z0-9\-]/gi, '').slice(0, 14) || '66',
       releaseScheduleText: 'ตรวจสอบคะแนนและเฉลยละเอียด\nได้ที่ระบบ Pattanabhumi Biology Portal\nหรือสแกน QR Code ด้านข้าง',
       qrUrl: baseUrl,
-      socialHandle: contactSocial,
+      socialHandle: baseUrl,
       socialCaption: 'สอบถาม / อัปเดตข้อมูลได้ที่',
       // Extras
       includeAnswerKey: false,
@@ -493,24 +493,60 @@
     try {
       if (typeof global.qrcode === 'function') {
         var qr = global.qrcode(0, 'M');
-        qr.addData(val);
+        qr.addData(val, 'Byte');
         qr.make();
         var count = qr.getModuleCount();
-        var cell = 3;
-        var pad = 6;
-        var size = count * cell + pad * 2;
-        var paths = [];
-        for (var r = 0; r < count; r++) {
-          for (var c = 0; c < count; c++) {
-            if (qr.isDark(r, c)) {
-              paths.push('M' + (pad + c * cell) + ',' + (pad + r * cell) + 'h' + cell + 'v' + cell + 'h-' + cell + 'z');
+        var quietModules = 4; // ISO/IEC 18004 standard 4-module pure white quiet zone
+
+        // Prefer high-DPI crisp PNG via Canvas (>400 DPI at 22mm print size, zero SVG seam artifacts in Chrome PDF)
+        if (typeof document !== 'undefined') {
+          try {
+            var pxCell = 10;
+            var pxQuiet = pxCell * quietModules;
+            var pxSize = count * pxCell + pxQuiet * 2;
+            var canvas = document.createElement('canvas');
+            canvas.width = pxSize;
+            canvas.height = pxSize;
+            var ctx = canvas.getContext && canvas.getContext('2d');
+            if (ctx) {
+              ctx.fillStyle = '#FFFFFF';
+              ctx.fillRect(0, 0, pxSize, pxSize);
+              ctx.fillStyle = '#000000';
+              for (var r = 0; r < count; r++) {
+                for (var c = 0; c < count; c++) {
+                  if (qr.isDark(r, c)) {
+                    ctx.fillRect(pxQuiet + c * pxCell, pxQuiet + r * pxCell, pxCell, pxCell);
+                  }
+                }
+              }
+              var pngUrl = canvas.toDataURL('image/png');
+              if (pngUrl && pngUrl.indexOf('data:image/png') === 0) {
+                return (
+                  '<img class="pb-pdf-qr-svg" src="' + pngUrl + '" width="84" height="84" alt="QR Code for ' + escHtml(val) + '" />'
+                );
+              }
+            }
+          } catch (_eCanvas) {}
+        }
+
+        // Vector SVG fallback with 4-module white quiet zone
+        var cell = 4;
+        var quiet = cell * quietModules;
+        var size = count * cell + quiet * 2;
+        var rects = [];
+        for (var sr = 0; sr < count; sr++) {
+          for (var sc = 0; sc < count; sc++) {
+            if (qr.isDark(sr, sc)) {
+              rects.push(
+                '<rect x="' + (quiet + sc * cell) + '" y="' + (quiet + sr * cell) + '" width="' + cell + '" height="' + cell + '" fill="#000000"/>'
+              );
             }
           }
         }
         return (
-          '<svg class="pb-pdf-qr-svg" viewBox="0 0 ' + size + ' ' + size + '" width="64" height="64" role="img" aria-label="QR Code">' +
-          '<rect width="' + size + '" height="' + size + '" fill="#FFFFFF"/>' +
-          '<path d="' + paths.join('') + '" fill="#111111"/>' +
+          '<svg class="pb-pdf-qr-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + size + ' ' + size + '" width="84" height="84" shape-rendering="crispEdges" role="img" aria-label="QR Code for ' + escHtml(val) + '">' +
+          '<rect x="0" y="0" width="' + size + '" height="' + size + '" fill="#FFFFFF"/>' +
+          rects.join('') +
           '</svg>'
         );
       }
@@ -899,54 +935,137 @@
     };
   }
 
-  function buildAnswerKeyPageHtml(examDto, cfg, pageNum, totalPages) {
+  function resolveCorrectAnswerDisplay(item, cfg) {
+    var qp = item && item.questionPreview ? item.questionPreview : null;
+    if (!qp) return '-';
+    var gSpec = (qp.privateGradingData && qp.privateGradingData.gradingSpec) || qp.gradingSpecPrivate || {};
+    var isFree = Boolean(item.isFreeQuestion || qp.isFreeQuestion || gSpec.isFreeQuestion);
+    if (isFree) return 'ฟรี (ทุกข้อถูก)';
+
+    var qType = String(qp.questionType || item.questionType || 'SINGLE_CHOICE').toUpperCase();
+    var opts = Array.isArray(qp.options) ? qp.options : [];
+
+    if (qType === 'COMPLEX_MULTIPLE_CHOICE') {
+      var map = gSpec.statementTruthMap || {};
+      if (opts.length === 0) return '-';
+      return opts.map(function (o, idx) {
+        var isTrue = map[o.optionId] !== undefined ? Boolean(map[o.optionId]) : Boolean(o.isCorrect || o.isCorrectPrivate);
+        return (idx + 1) + ':' + (isTrue ? 'ใช่' : 'ไม่ใช่');
+      }).join(', ');
+    }
+
+    if (opts.length > 0 && (qType === 'SINGLE_CHOICE' || qType === 'MULTIPLE_SELECT' || qType === 'TRUE_FALSE')) {
+      var correctIds = Array.isArray(gSpec.correctOptionIds) ? gSpec.correctOptionIds : [];
+      var correctKeys = Array.isArray(gSpec.correctOptionKeys) ? gSpec.correctOptionKeys : [];
+      var hits = [];
+      opts.forEach(function (o, idx) {
+        var matched =
+          Boolean(o.isCorrect) ||
+          Boolean(o.isCorrectPrivate) ||
+          Boolean(o.is_correct_private) ||
+          (o.optionId && correctIds.indexOf(o.optionId) !== -1) ||
+          (o.optionKey && correctKeys.indexOf(o.optionKey) !== -1);
+        if (matched) {
+          hits.push(getChoiceLabel(idx, cfg, o.optionKey).replace(/\.$/, ''));
+        }
+      });
+      if (hits.length > 0) return hits.join(', ');
+    }
+
+    if (qType === 'NUMERIC_RESPONSE') {
+      var numVal = gSpec.expectedNumericValue !== undefined ? gSpec.expectedNumericValue
+        : (gSpec.numericValue !== undefined ? gSpec.numericValue : gSpec.correctNumber);
+      if (numVal !== undefined && numVal !== null && numVal !== '') {
+        var tol = Number(gSpec.toleranceAbs || gSpec.tolerance || 0);
+        var uLbl = qp.unitLabel ? (' ' + qp.unitLabel) : '';
+        return String(numVal) + (tol > 0 ? (' ± ' + tol) : '') + uLbl;
+      }
+    }
+
+    if (qType === 'SHORT_ANSWER') {
+      var acc = Array.isArray(gSpec.acceptedAnswers) ? gSpec.acceptedAnswers
+        : (Array.isArray(gSpec.acceptedTexts) ? gSpec.acceptedTexts : []);
+      var texts = acc.map(function (a) {
+        return typeof a === 'string' ? a.trim() : (a && a.text ? String(a.text).trim() : '');
+      }).filter(Boolean);
+      if (texts.length > 0) return texts.join(' / ');
+    }
+
+    if (qType === 'WRITTEN_RESPONSE') {
+      return 'อัตนัย (ตรวจโดยผู้สอน)';
+    }
+
+    return '-';
+  }
+
+  function buildAnswerKeyPagesHtml(examDto, cfg, startPageNum) {
     var sections = Array.isArray(examDto && examDto.sections) ? examDto.sections : [];
-    var rows = [];
+    var entries = [];
     var qNo = 0;
     sections.forEach(function (sec) {
       (sec.items || []).forEach(function (it) {
         qNo += 1;
-        var qp = it && it.questionPreview;
-        var ans = '-';
-        if (qp) {
-          var qType = String(qp.questionType || '').toUpperCase();
-          var opts = Array.isArray(qp.options) ? qp.options : [];
-          if (qType === 'COMPLEX_MULTIPLE_CHOICE') {
-            var map = (qp.gradingSpecPrivate && qp.gradingSpecPrivate.statementTruthMap) || {};
-            ans = opts.map(function (o, idx) {
-              return (idx + 1) + ':' + (map[o.optionId] ? 'ใช่' : 'ไม่ใช่');
-            }).join(', ');
-          } else if (opts.length > 0) {
-            var correctIds = (qp.gradingSpecPrivate && qp.gradingSpecPrivate.correctOptionIds) || [];
-            var hits = [];
-            opts.forEach(function (o, idx) {
-              if (o.isCorrectPrivate || correctIds.indexOf(o.optionId) !== -1) {
-                hits.push(getChoiceLabel(idx, cfg, o.optionKey).replace(/\.$/, ''));
-              }
-            });
-            ans = hits.length > 0 ? hits.join(', ') : '-';
-          } else if (qp.gradingSpecPrivate && qp.gradingSpecPrivate.acceptedAnswers) {
-            ans = qp.gradingSpecPrivate.acceptedAnswers.join(' / ');
-          } else if (qp.gradingSpecPrivate && qp.gradingSpecPrivate.expectedNumericValue !== undefined) {
-            ans = String(qp.gradingSpecPrivate.expectedNumericValue);
-          } else {
-            ans = 'ตรวจโดยผู้สอน';
-          }
-        }
-        rows.push('<tr><td style="text-align:center;font-weight:700;">' + qNo + '</td><td>' + escHtml(ans) + '</td><td style="text-align:center;">' + escHtml(it.pointsDisplay || '1') + '</td></tr>');
+        var ptsStr = it.isFreeQuestion ? 'ฟรี' : formatExactBp(it.pointsBp !== undefined ? it.pointsBp : 100);
+        entries.push({
+          num: qNo,
+          ans: resolveCorrectAnswerDisplay(it, cfg),
+          pts: ptsStr
+        });
       });
     });
-    return (
-      '<section class="pb-pdf-page pb-pdf-tpl-' + cfg.template + ' pb-pdf-answer-key-page">' +
-      '<div class="pb-pdf-ak-header">' +
-      '<div><strong>เฉลยคำตอบ (สำหรับผู้สอน)</strong> — ' + escHtml(examDto.title || cfg.subjectName) + '</div>' +
-      '<div>หน้า ' + pageNum + ' / ' + totalPages + '</div>' +
-      '</div>' +
-      '<table class="pb-pdf-ak-table"><thead><tr><th style="width:64px;">ข้อที่</th><th>คำตอบที่ถูกต้อง</th><th style="width:88px;">คะแนน</th></tr></thead><tbody>' +
-      rows.join('') +
-      '</tbody></table>' +
-      '</section>'
-    );
+
+    if (entries.length === 0) return [];
+
+    // Compact 2-column side-by-side grid: up to 50 questions (25 per column) cleanly per A4 page
+    var PER_PAGE = 50;
+    var pageChunks = [];
+    for (var i = 0; i < entries.length; i += PER_PAGE) {
+      pageChunks.push(entries.slice(i, i + PER_PAGE));
+    }
+
+    function renderSubTable(subEntries) {
+      if (!subEntries || subEntries.length === 0) return '';
+      var rowsHtml = subEntries.map(function (e) {
+        return (
+          '<tr>' +
+          '<td class="pb-pdf-ak-col-num">' + e.num + '</td>' +
+          '<td class="pb-pdf-ak-col-ans">' + escHtml(e.ans) + '</td>' +
+          '<td class="pb-pdf-ak-col-pts">' + escHtml(e.pts) + '</td>' +
+          '</tr>'
+        );
+      }).join('');
+      return (
+        '<table class="pb-pdf-ak-table">' +
+        '<thead><tr><th class="pb-pdf-ak-col-num">ข้อที่</th><th class="pb-pdf-ak-col-ans">คำตอบที่ถูกต้อง</th><th class="pb-pdf-ak-col-pts">คะแนน</th></tr></thead>' +
+        '<tbody>' + rowsHtml + '</tbody>' +
+        '</table>'
+      );
+    }
+
+    var totalAkPages = pageChunks.length;
+    var totalScoreStr = formatExactBp(computeExactTotalPointsBp(examDto));
+
+    return pageChunks.map(function (chunk, cIdx) {
+      var splitAt = Math.ceil(chunk.length / 2);
+      var leftEntries = chunk.slice(0, splitAt);
+      var rightEntries = chunk.slice(splitAt);
+      var pgLabel = totalAkPages > 1
+        ? ('หน้าเฉลย ' + (cIdx + 1) + ' / ' + totalAkPages + ' (หน้า ' + (startPageNum + cIdx) + ')')
+        : ('หน้า ' + (startPageNum + cIdx));
+      return (
+        '<section class="pb-pdf-page pb-pdf-tpl-' + cfg.template + ' pb-pdf-answer-key-page">' +
+        '<div class="pb-pdf-ak-header">' +
+        '<div><strong>เฉลยคำตอบ (สำหรับผู้สอน)</strong> — ' + escHtml(examDto.title || cfg.subjectName) + '</div>' +
+        '<div>' + escHtml(pgLabel) + '</div>' +
+        '</div>' +
+        '<div class="pb-pdf-ak-submeta">จำนวนทั้งหมด ' + entries.length + ' ข้อ &nbsp;|&nbsp; คะแนนเต็ม ' + escHtml(totalScoreStr) + ' คะแนน</div>' +
+        '<div class="pb-pdf-ak-grid' + (rightEntries.length === 0 ? ' is-single' : '') + '">' +
+        '<div class="pb-pdf-ak-col">' + renderSubTable(leftEntries) + '</div>' +
+        (rightEntries.length > 0 ? '<div class="pb-pdf-ak-col">' + renderSubTable(rightEntries) + '</div>' : '') +
+        '</div>' +
+        '</section>'
+      );
+    });
   }
 
   function buildWatermarkHtml(cfg, watermarkSrc) {
@@ -1103,7 +1222,7 @@
       '</div>' +
       '<div class="pb-al-f-social">' +
       '<div class="pb-al-f-social-cap">' + escHtml(cfg.socialCaption || 'สอบถาม / อัปเดตข้อมูลได้ที่') + '</div>' +
-      '<div class="pb-al-f-social-handle">' + escHtml(cfg.socialHandle) + '</div>' +
+      '<div class="pb-al-f-social-handle">' + buildFooterWebsiteLinkHtml(cfg.socialHandle) + '</div>' +
       '</div>' +
       '</div>' +
       '</section>';
@@ -1162,13 +1281,29 @@
 
     var allPages = [page1, page2].concat(qPagesHtml);
     if (cfg.includeAnswerKey) {
-      allPages.push(buildAnswerKeyPageHtml(examDto, cfg, totalExamPages + 1, totalExamPages + 1));
+      allPages = allPages.concat(buildAnswerKeyPagesHtml(examDto, cfg, totalExamPages + 1));
     }
     return {
       pagesHtml: allPages,
       totalPages: totalExamPages,
       contentPages: baseContentPages
     };
+  }
+
+  function buildFooterWebsiteLinkHtml(rawContact) {
+    var txt = String(rawContact || '').trim();
+    if (!txt) return '';
+    var href = '';
+    if (/^https?:\/\//i.test(txt)) {
+      href = txt;
+    } else if (/^[a-z0-9.-]+\.[a-z]{2,}(\/[^\s]*)?$/i.test(txt)) {
+      href = 'https://' + txt;
+    }
+    if (href) {
+      var display = txt.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+      return '<a class="pb-al-f-social-link" href="' + escHtml(href) + '" target="_blank" rel="noopener noreferrer">' + escHtml(display) + '</a>';
+    }
+    return escHtml(txt);
   }
 
   // ---- TEMPLATE 2: POSN (สอวน.) ----
@@ -1253,7 +1388,7 @@
 
     var allPages = [page1].concat(qPagesHtml);
     if (cfg.includeAnswerKey) {
-      allPages.push(buildAnswerKeyPageHtml(examDto, cfg, contentPages + 1, contentPages + 1));
+      allPages = allPages.concat(buildAnswerKeyPagesHtml(examDto, cfg, contentPages + 1));
     }
     return {
       pagesHtml: allPages,
